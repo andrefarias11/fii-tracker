@@ -22,3 +22,4 @@ export interface MonthProventosSummary {
   confirmedCount: number;
   estimatedCount: number;
 }
+

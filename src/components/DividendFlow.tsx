@@ -298,3 +298,4 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
     </div>
   );
 }
+
