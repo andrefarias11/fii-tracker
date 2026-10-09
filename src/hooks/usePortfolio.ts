@@ -124,8 +124,7 @@ export function usePortfolio() {
       if (savedTx) {
         setTransactions(JSON.parse(savedTx));
       } else {
-        setTransactions(DEMO_TRANSACTIONS);
-        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(DEMO_TRANSACTIONS));
+        setTransactions([]);
       }
 
       if (savedGoals) {
@@ -139,8 +138,10 @@ export function usePortfolio() {
       console.error('Falha ao carregar dados do LocalStorage:', e);
     } finally {
       setIsInitialized(true);
+      // Sincronizar imediatamente com a nuvem
+      syncWithCloud();
     }
-  }, []);
+  }, [syncWithCloud]);
 
   // Tentativa de sincronização em nuvem após carregar dados locais
   useEffect(() => {

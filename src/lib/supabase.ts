@@ -7,22 +7,28 @@ const STORAGE_KEY_SUPABASE_KEY = 'fii_tracker_supabase_key_v1';
 let cachedClient: SupabaseClient | null = null;
 let cachedConfigKey = '';
 
+const DEFAULT_SUPABASE_URL = 'https://quvbxequiyjdymgnvnpm.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dmJ4ZXF1aXlqZHltZ252bnBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDYxOTksImV4cCI6MjEwNzEyMjE5OX0.P8ghV_HeWc6lRcy1EImeIKoh1sKQ0akIiRFOg19fPsk';
+
 export function getSupabaseConfig(): { url: string; key: string } {
-  // Prioridade: Variáveis de ambiente (.env.local) ou localStorage
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  // Prioridade 1: Variáveis de ambiente (.env.local) ou fallback direto do projeto
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
 
   if (envUrl && envKey) {
     return { url: envUrl, key: envKey };
   }
 
+  // Prioridade 2: Armazenamento local customizado (se o usuário trocar na UI)
   if (typeof window !== 'undefined') {
-    const localUrl = localStorage.getItem(STORAGE_KEY_SUPABASE_URL) || '';
-    const localKey = localStorage.getItem(STORAGE_KEY_SUPABASE_KEY) || '';
-    return { url: localUrl, key: localKey };
+    const localUrl = localStorage.getItem(STORAGE_KEY_SUPABASE_URL) || DEFAULT_SUPABASE_URL;
+    const localKey = localStorage.getItem(STORAGE_KEY_SUPABASE_KEY) || DEFAULT_SUPABASE_KEY;
+    if (localUrl && localKey) {
+      return { url: localUrl, key: localKey };
+    }
   }
 
-  return { url: '', key: '' };
+  return { url: DEFAULT_SUPABASE_URL, key: DEFAULT_SUPABASE_KEY };
 }
 
 export function saveSupabaseConfig(url: string, key: string) {
