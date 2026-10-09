@@ -161,7 +161,12 @@ export function usePortfolio() {
 
   // Salvar metas
   const updateGoals = async (newGoals: Partial<PortfolioGoals>) => {
-    const updated = { ...goals, ...newGoals };
+    const updated: PortfolioGoals = {
+      monthlyTarget: newGoals.monthlyTarget !== undefined ? Number(newGoals.monthlyTarget) : (goals.monthlyTarget || 200),
+      milestoneEquityTarget: newGoals.milestoneEquityTarget !== undefined ? Number(newGoals.milestoneEquityTarget) : (goals.milestoneEquityTarget || 1000),
+      monthlyIncomeTarget: newGoals.monthlyIncomeTarget !== undefined ? Number(newGoals.monthlyIncomeTarget) : (goals.monthlyIncomeTarget || 10),
+    };
+
     setGoals(updated);
     try {
       localStorage.setItem(STORAGE_KEY_GOALS, JSON.stringify(updated));
@@ -170,7 +175,11 @@ export function usePortfolio() {
     }
 
     if (isCloudConnected) {
-      await upsertRemoteGoals(updated);
+      try {
+        await upsertRemoteGoals(updated);
+      } catch (err) {
+        console.error('Erro ao salvar metas no Supabase:', err);
+      }
     }
   };
 

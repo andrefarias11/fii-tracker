@@ -49,10 +49,11 @@ export function SettingsModal({
   onClearAll,
   onSyncCloud,
 }: SettingsModalProps) {
-  const [monthlyTarget, setMonthlyTarget] = useState<number>(goals.monthlyTarget);
-  const [milestoneEquity, setMilestoneEquity] = useState<number>(goals.milestoneEquityTarget);
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(goals.monthlyIncomeTarget);
+  const [monthlyTarget, setMonthlyTarget] = useState<string>(String(goals.monthlyTarget || 200));
+  const [milestoneEquity, setMilestoneEquity] = useState<string>(String(goals.milestoneEquityTarget || 1000));
+  const [monthlyIncome, setMonthlyIncome] = useState<string>(String(goals.monthlyIncomeTarget || 10));
   const [message, setMessage] = useState<string | null>(null);
+  const [isSavingGoals, setIsSavingGoals] = useState<boolean>(false);
 
   // Estados de configuração Supabase
   const [supabaseUrl, setSupabaseUrl] = useState<string>('');
@@ -65,20 +66,40 @@ export function SettingsModal({
       const config = getSupabaseConfig();
       setSupabaseUrl(config.url);
       setSupabaseKey(config.key);
+      setMonthlyTarget(String(goals.monthlyTarget || 200));
+      setMilestoneEquity(String(goals.milestoneEquityTarget || 1000));
+      setMonthlyIncome(String(goals.monthlyIncomeTarget || 10));
     }
-  }, [isOpen]);
+  }, [isOpen, goals]);
 
   if (!isOpen) return null;
 
-  const handleSaveGoals = (e: React.FormEvent) => {
+  const handleSaveGoals = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateGoals({
-      monthlyTarget: Number(monthlyTarget),
-      milestoneEquityTarget: Number(milestoneEquity),
-      monthlyIncomeTarget: Number(monthlyIncome),
-    });
-    setMessage('Metas atualizadas com sucesso!');
-    setTimeout(() => setMessage(null), 3000);
+    const mTarget = parseFloat(String(monthlyTarget).replace(',', '.'));
+    const mEquity = parseFloat(String(milestoneEquity).replace(',', '.'));
+    const mIncome = parseFloat(String(monthlyIncome).replace(',', '.'));
+
+    if (isNaN(mTarget) || mTarget <= 0) {
+      alert('Por favor, informe um valor maior que zero para a meta mensal.');
+      return;
+    }
+
+    setIsSavingGoals(true);
+    try {
+      await onUpdateGoals({
+        monthlyTarget: mTarget,
+        milestoneEquityTarget: isNaN(mEquity) || mEquity <= 0 ? 1000 : mEquity,
+        monthlyIncomeTarget: isNaN(mIncome) || mIncome <= 0 ? 10 : mIncome,
+      });
+      setMessage('Metas salvas com sucesso!');
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err) {
+      console.error('Erro ao salvar metas:', err);
+      alert('Falha ao salvar metas. Tente novamente.');
+    } finally {
+      setIsSavingGoals(false);
+    }
   };
 
   const handleConnectSupabase = async (e: React.FormEvent) => {
@@ -271,14 +292,14 @@ export function SettingsModal({
             </label>
             <input
               type="number"
-              min="10"
-              step="50"
+              step="any"
+              min="0"
               value={monthlyTarget}
-              onChange={(e) => setMonthlyTarget(Number(e.target.value))}
+              onChange={(e) => setMonthlyTarget(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
               required
             />
-            <p className="text-[11px] text-zinc-500 mt-1">Sua meta principal definida: R$ 200/mês</p>
+            <p className="text-[11px] text-zinc-500 mt-1">Sua meta principal definida: R$ {monthlyTarget || '0'}/mês</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -288,10 +309,10 @@ export function SettingsModal({
               </label>
               <input
                 type="number"
-                min="100"
-                step="500"
+                step="any"
+                min="0"
                 value={milestoneEquity}
-                onChange={(e) => setMilestoneEquity(Number(e.target.value))}
+                onChange={(e) => setMilestoneEquity(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
                 required
               />
@@ -303,10 +324,10 @@ export function SettingsModal({
               </label>
               <input
                 type="number"
-                min="1"
-                step="10"
+                step="any"
+                min="0"
                 value={monthlyIncome}
-                onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+                onChange={(e) => setMonthlyIncome(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
                 required
               />
@@ -315,10 +336,11 @@ export function SettingsModal({
 
           <button
             type="submit"
-            className="w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
+            disabled={isSavingGoals}
+            className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/20"
           >
             <Save className="w-3.5 h-3.5" />
-            Salvar Metas
+            {isSavingGoals ? 'Salvando...' : 'Salvar Metas'}
           </button>
         </form>
 
