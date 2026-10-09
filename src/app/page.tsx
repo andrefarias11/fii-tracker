@@ -11,6 +11,7 @@ import { TransactionHistory } from '../components/TransactionHistory';
 import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { SettingsModal } from '../components/SettingsModal';
+import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
 import {
   PieChart,
@@ -18,6 +19,7 @@ import {
   History,
   Calculator,
   Plus,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 type TabType = 'portfolio' | 'goals' | 'history' | 'simulator';
@@ -43,11 +45,13 @@ export default function HomePage() {
     fetchLiveQuotes,
     exportBackup,
     importBackup,
+    importTransactionsFromB3,
   } = usePortfolio();
 
   const [activeTab, setActiveTab] = useState<TabType>('portfolio');
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [targetTickerForAdd, setTargetTickerForAdd] = useState<string>('');
 
   const handleOpenAddModal = (ticker = '') => {
@@ -92,6 +96,35 @@ export default function HomePage() {
               totalProfitLossPercent={summary.totalProfitLossPercent}
               totalMonthlyDividends={summary.totalMonthlyDividends}
             />
+
+            {/* Ações Rápidas: Novo Aporte ou Importar da B3 */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => handleOpenAddModal('')}
+                className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2.5 text-left active:scale-95 transition-all"
+              >
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <Plus className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">Novo Aporte</div>
+                  <div className="text-[10px] text-zinc-400">Lançar manual</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setIsB3ModalOpen(true)}
+                className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-sky-500/40 flex items-center gap-2.5 text-left active:scale-95 transition-all"
+              >
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/20 flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">Importar B3</div>
+                  <div className="text-[10px] text-zinc-400">Extrato Excel</div>
+                </div>
+              </button>
+            </div>
 
             {/* Prévia da Meta Mensal (Atalho) */}
             <div
@@ -149,10 +182,22 @@ export default function HomePage() {
 
         {/* Aba: Histórico de Aportes */}
         {activeTab === 'history' && (
-          <TransactionHistory
-            transactions={transactions}
-            onDeleteTransaction={deleteTransaction}
-          />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-400">Total de compras: {transactions.length}</span>
+              <button
+                onClick={() => setIsB3ModalOpen(true)}
+                className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 bg-sky-500/10 px-2.5 py-1 rounded-xl border border-sky-500/20 active:scale-95 transition-all"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Importar Planilha B3
+              </button>
+            </div>
+            <TransactionHistory
+              transactions={transactions}
+              onDeleteTransaction={deleteTransaction}
+            />
+          </div>
         )}
 
         {/* Aba: Simulador de Juros Compostos */}
@@ -221,6 +266,12 @@ export default function HomePage() {
         initialTicker={targetTickerForAdd}
         onClose={() => setIsAddModalOpen(false)}
         onAddTransaction={addTransaction}
+      />
+
+      <B3ImportModal
+        isOpen={isB3ModalOpen}
+        onClose={() => setIsB3ModalOpen(false)}
+        onImportTransactions={importTransactionsFromB3}
       />
 
       <SettingsModal

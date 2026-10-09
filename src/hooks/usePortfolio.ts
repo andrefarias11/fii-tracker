@@ -251,6 +251,30 @@ export function usePortfolio() {
     }
   };
 
+  // Importar transações vindas da planilha da B3
+  const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
+    let finalTransactions: Transaction[] = [];
+
+    if (replaceAll) {
+      if (isCloudConnected) {
+        for (const tx of transactions) {
+          await deleteRemoteTransaction(tx.id);
+        }
+      }
+      finalTransactions = newTxs;
+    } else {
+      finalTransactions = [...newTxs, ...transactions];
+    }
+
+    persistTransactions(finalTransactions);
+
+    if (isCloudConnected) {
+      for (const tx of newTxs) {
+        await upsertRemoteTransaction(tx);
+      }
+    }
+  };
+
   // Buscar cotações em tempo real
   const fetchLiveQuotes = useCallback(async () => {
     const uniqueTickers = Array.from(new Set(transactions.map((t) => t.ticker.toUpperCase().trim())));
@@ -443,6 +467,7 @@ export function usePortfolio() {
     updateCustomDividend,
     fetchLiveQuotes,
     exportBackup,
-    importBackup
+    importBackup,
+    importTransactionsFromB3
   };
 }
