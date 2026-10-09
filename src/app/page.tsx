@@ -9,6 +9,7 @@ import { MagicNumberCard } from '../components/MagicNumberCard';
 import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { InvestmentSimulator } from '../components/InvestmentSimulator';
+import { OpportunityRadar } from '../components/OpportunityRadar';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
@@ -20,9 +21,10 @@ import {
   Calculator,
   Plus,
   FileSpreadsheet,
+  Compass,
 } from 'lucide-react';
 
-type TabType = 'portfolio' | 'goals' | 'history' | 'simulator';
+type TabType = 'portfolio' | 'radar' | 'goals' | 'history' | 'simulator';
 
 export default function HomePage() {
   const {
@@ -31,6 +33,7 @@ export default function HomePage() {
     positions,
     summary,
     goals,
+    quotes,
     isLoadingQuotes,
     lastSyncTime,
     isCloudConnected,
@@ -126,30 +129,28 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Prévia da Meta Mensal (Atalho) */}
+            {/* Banner Chamada para o Radar de Oportunidades */}
             <div
-              onClick={() => setActiveTab('goals')}
-              className="cursor-pointer rounded-2xl bg-zinc-900 border border-zinc-800 p-3.5 flex items-center justify-between hover:border-emerald-500/40 transition-all"
+              onClick={() => setActiveTab('radar')}
+              className="cursor-pointer rounded-2xl bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-emerald-500/30 p-3.5 flex items-center justify-between hover:border-emerald-500/60 transition-all"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
-                  <Target className="w-3.5 h-3.5 text-emerald-400" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                  <Compass className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-white">
-                    Meta deste mês: R$ {summary.currentMonthInvested.toFixed(2)} / R$ {goals.monthlyTarget.toFixed(2)}
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    Radar: O que comprar hoje?
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950">
+                      NOVO
+                    </span>
                   </div>
                   <div className="text-[10px] text-zinc-400">
-                    {summary.monthlyGoalProgressPercent}% concluída • Toque para ver detalhes
+                    Sugestão para os seus R$ {(Math.max(0, goals.monthlyTarget - summary.currentMonthInvested)).toFixed(2)} restantes
                   </div>
                 </div>
               </div>
-              <div className="w-12 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full"
-                  style={{ width: `${Math.min(100, summary.monthlyGoalProgressPercent)}%` }}
-                />
-              </div>
+              <span className="text-xs font-bold text-emerald-400">Ver Radar →</span>
             </div>
 
             <PositionList
@@ -158,6 +159,17 @@ export default function HomePage() {
               onUpdateDividend={updateCustomDividend}
             />
           </>
+        )}
+
+        {/* Aba: Radar de Oportunidades & Alocação */}
+        {activeTab === 'radar' && (
+          <OpportunityRadar
+            quotes={quotes}
+            monthlyTarget={goals.monthlyTarget}
+            currentMonthInvested={summary.currentMonthInvested}
+            onOpenAddModalWithTicker={handleOpenAddModal}
+            onImportTransactions={importTransactionsFromB3}
+          />
         )}
 
         {/* Aba: Metas & Bola de Neve */}
@@ -215,17 +227,27 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Barra de Navegação Inferior estilo iOS */}
+      {/* Barra de Navegação Inferior estilo iOS (5 Abas) */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-lg border-t border-zinc-800/80 pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-4 px-2 py-2">
+        <div className="max-w-md mx-auto grid grid-cols-5 px-1 py-2">
           <button
             onClick={() => setActiveTab('portfolio')}
             className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
               activeTab === 'portfolio' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <PieChart className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Carteira</span>
+            <PieChart className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Carteira</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('radar')}
+            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
+              activeTab === 'radar' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Compass className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Radar</span>
           </button>
 
           <button
@@ -234,8 +256,8 @@ export default function HomePage() {
               activeTab === 'goals' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Target className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Metas</span>
+            <Target className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Metas</span>
           </button>
 
           <button
@@ -244,8 +266,8 @@ export default function HomePage() {
               activeTab === 'simulator' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <Calculator className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Simulador</span>
+            <Calculator className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Simulador</span>
           </button>
 
           <button
@@ -254,8 +276,8 @@ export default function HomePage() {
               activeTab === 'history' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <History className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px]">Extrato</span>
+            <History className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Extrato</span>
           </button>
         </div>
       </nav>

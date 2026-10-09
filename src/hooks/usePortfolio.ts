@@ -284,9 +284,10 @@ export function usePortfolio() {
     }
   };
 
-  // Buscar cotações em tempo real
+  // Buscar cotações em tempo real (carteira + radar de oportunidades)
   const fetchLiveQuotes = useCallback(async () => {
-    const uniqueTickers = Array.from(new Set(transactions.map((t) => t.ticker.toUpperCase().trim())));
+    const radarTickers = ['MXRF11', 'VGIR11', 'CPTS11', 'KISU11', 'GALG11', 'SNAG11', 'XPML11', 'HGLG11', 'BTLG11', 'KNCR11', 'TRXF11'];
+    const uniqueTickers = Array.from(new Set([...transactions.map((t) => t.ticker.toUpperCase().trim()), ...radarTickers]));
     if (uniqueTickers.length === 0) return;
 
     setIsLoadingQuotes(true);
@@ -463,6 +464,7 @@ export function usePortfolio() {
     positions,
     summary,
     goals,
+    quotes,
     isLoadingQuotes,
     lastSyncTime,
     isCloudConnected,
