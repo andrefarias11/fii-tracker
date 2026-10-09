@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
@@ -63,9 +63,16 @@ export default function HomePage() {
     setIsAddModalOpen(true);
   };
 
+  // Garante que a página inicie sempre no topo absoluto ao carregar no iOS Safari / PWA
+  useEffect(() => {
+    if (isInitialized && typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+  }, [isInitialized]);
+
   if (!isInitialized) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-zinc-950 flex flex-col items-center justify-center p-4">
         <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center animate-pulse mb-3">
           <div className="w-6 h-6 rounded-full bg-emerald-500" />
         </div>
@@ -75,7 +82,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
+    <div className="min-h-[100dvh] bg-zinc-950 text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
       {/* Header com Atualizar e Configurações */}
       <Header
         lastSyncTime={lastSyncTime}

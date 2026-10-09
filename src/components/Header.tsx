@@ -25,7 +25,7 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/80 px-4 pt-4 pb-3">
+    <header className="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 px-4 pb-3 pt-safe-header ios-sticky-fix">
       <div className="max-w-md mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
