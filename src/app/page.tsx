@@ -10,6 +10,7 @@ import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { OpportunityRadar } from '../components/OpportunityRadar';
+import { DividendFlow } from '../components/DividendFlow';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
@@ -18,13 +19,13 @@ import {
   PieChart,
   Target,
   History,
-  Calculator,
   Plus,
   FileSpreadsheet,
   Compass,
+  Coins,
 } from 'lucide-react';
 
-type TabType = 'portfolio' | 'radar' | 'goals' | 'history' | 'simulator';
+type TabType = 'portfolio' | 'proventos' | 'radar' | 'goals' | 'history';
 
 export default function HomePage() {
   const {
@@ -129,28 +130,36 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Banner Chamada para o Radar de Oportunidades */}
-            <div
-              onClick={() => setActiveTab('radar')}
-              className="cursor-pointer rounded-2xl bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-emerald-500/30 p-3.5 flex items-center justify-between hover:border-emerald-500/60 transition-all"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                  <Compass className="w-4 h-4 text-emerald-400" />
+            {/* Banner de Atalho para Proventos & Radar */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div
+                onClick={() => setActiveTab('proventos')}
+                className="cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-950/40 to-zinc-900 border border-emerald-500/25 p-3 flex flex-col justify-between hover:border-emerald-500/50 transition-all"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Coins className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-white">Proventos</span>
                 </div>
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                    Radar: O que comprar hoje?
-                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950">
-                      NOVO
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-zinc-400">
-                    Sugestão para os seus R$ {(Math.max(0, goals.monthlyTarget - summary.currentMonthInvested)).toFixed(2)} restantes
-                  </div>
+                <div className="text-sm font-extrabold text-emerald-300">
+                  R$ {summary.totalMonthlyDividends.toFixed(2)}
+                  <span className="text-[10px] text-zinc-400 font-normal"> /mês</span>
                 </div>
+                <span className="text-[10px] text-emerald-400/80 mt-1">Ver calendário →</span>
               </div>
-              <span className="text-xs font-bold text-emerald-400">Ver Radar →</span>
+
+              <div
+                onClick={() => setActiveTab('radar')}
+                className="cursor-pointer rounded-2xl bg-gradient-to-br from-sky-950/40 to-zinc-900 border border-sky-500/25 p-3 flex flex-col justify-between hover:border-sky-500/50 transition-all"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Compass className="w-4 h-4 text-sky-400" />
+                  <span className="text-xs font-bold text-white">Radar FII</span>
+                </div>
+                <div className="text-xs font-bold text-zinc-200">
+                  Onde comprar?
+                </div>
+                <span className="text-[10px] text-sky-400/80 mt-1">Ver oportunidades →</span>
+              </div>
             </div>
 
             <PositionList
@@ -159,6 +168,14 @@ export default function HomePage() {
               onUpdateDividend={updateCustomDividend}
             />
           </>
+        )}
+
+        {/* Aba: Proventos & Calendário de Dividendos */}
+        {activeTab === 'proventos' && (
+          <DividendFlow
+            positions={positions}
+            monthlyContributionGoal={goals.monthlyTarget}
+          />
         )}
 
         {/* Aba: Radar de Oportunidades & Alocação */}
@@ -189,6 +206,9 @@ export default function HomePage() {
             />
 
             <MagicNumberCard positions={positions} />
+
+            {/* Simulador integrado na aba de metas */}
+            <InvestmentSimulator />
           </div>
         )}
 
@@ -211,9 +231,6 @@ export default function HomePage() {
             />
           </div>
         )}
-
-        {/* Aba: Simulador de Juros Compostos */}
-        {activeTab === 'simulator' && <InvestmentSimulator />}
       </main>
 
       {/* Botão Flutuante (FAB) para Adicionar Aporte */}
@@ -241,6 +258,16 @@ export default function HomePage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('proventos')}
+            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
+              activeTab === 'proventos' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Coins className="w-4 h-4 mb-0.5" />
+            <span className="text-[9px]">Proventos</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('radar')}
             className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
               activeTab === 'radar' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
@@ -258,16 +285,6 @@ export default function HomePage() {
           >
             <Target className="w-4 h-4 mb-0.5" />
             <span className="text-[9px]">Metas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('simulator')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'simulator' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Calculator className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Simulador</span>
           </button>
 
           <button
