@@ -14,19 +14,31 @@ import {
   Check,
   RefreshCw,
   Unlink,
+  Bell,
+  Smartphone,
 } from 'lucide-react';
-import { PortfolioGoals } from '../types/portfolio';
+import { PortfolioGoals, FiiPosition } from '../types/portfolio';
 import {
   getSupabaseConfig,
   saveSupabaseConfig,
   clearSupabaseConfig,
   checkSupabaseConnection,
 } from '../lib/supabase';
+import {
+  getPushPreferences,
+  savePushPreferences,
+  isWebPushSupported,
+  registerAndSubscribePush,
+  sendPushNotificationNow,
+  buildPortfolioDailyAlert,
+  PushPreferences,
+} from '../lib/pushNotifications';
 import { APP_VERSION, APP_UPDATED_AT, APP_CHANGELOG } from '../lib/version';
 
 interface SettingsModalProps {
   isOpen: boolean;
   goals: PortfolioGoals;
+  positions?: FiiPosition[];
   isCloudConnected: boolean;
   isSyncingCloud: boolean;
   onClose: () => void;
@@ -41,6 +53,7 @@ interface SettingsModalProps {
 export function SettingsModal({
   isOpen,
   goals,
+  positions = [],
   isCloudConnected,
   isSyncingCloud,
   onClose,
@@ -64,11 +77,68 @@ export function SettingsModal({
   const [isTestingCloud, setIsTestingCloud] = useState<boolean>(false);
   const [cloudTestResult, setCloudTestResult] = useState<string | null>(null);
 
+  // Estados de Web Push API (iPhone / PWA)
+  const [pushPrefs, setPushPrefs] = useState<PushPreferences>(() => getPushPreferences());
+  const [pushSupport] = useState(() => isWebPushSupported());
+  const [isEnablingPush, setIsEnablingPush] = useState<boolean>(false);
+  const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
+  const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const showBanner = (type: 'success' | 'error', text: string) => {
     setBanner({ type, text });
     setTimeout(() => setBanner(null), 3500);
+  };
+
+  const handleEnablePush = async () => {
+    setIsEnablingPush(true);
+    setPushStatusMsg(null);
+    const result = await registerAndSubscribePush();
+    setIsEnablingPush(false);
+    setPushStatusMsg(result.message);
+    if (result.ok) {
+      setPushPrefs(getPushPreferences());
+      showBanner('success', result.message);
+    } else {
+      showBanner('error', result.message);
+    }
+  };
+
+  const handleTogglePushPref = (key: keyof PushPreferences) => {
+    const next = { ...pushPrefs, [key]: !pushPrefs[key] };
+    setPushPrefs(next);
+    savePushPreferences(next);
+  };
+
+  const handleTestLockScreenPush = async () => {
+    setIsSendingTestPush(true);
+    setPushStatusMsg(
+      '📲 Bloqueie a tela do seu iPhone agora! O alerta chegará em 5 segundos...'
+    );
+
+    const sampleAlert = buildPortfolioDailyAlert(positions) || {
+      title: '🔔 FII Tracker • Alerta Ativo',
+      body: 'As notificações na Tela de Bloqueio estão funcionando perfeitamente!',
+      tag: 'fii-test-lockscreen',
+    };
+
+    const ok = await sendPushNotificationNow(
+      {
+        title: sampleAlert.title,
+        body: sampleAlert.body,
+        tag: sampleAlert.tag,
+        url: '/',
+      },
+      5
+    );
+
+    setIsSendingTestPush(false);
+    setPushStatusMsg(
+      ok
+        ? '✅ Notificação disparada com sucesso pelo Web Push!'
+        : 'Ative primeiro a permissão de notificações acima.'
+    );
   };
 
   const handleSaveGoals = async (e: React.FormEvent) => {
@@ -188,6 +258,93 @@ export function SettingsModal({
             <span>{banner.text}</span>
           </div>
         )}
+
+        {/* 0. SEÇÃO WEB PUSH API (NOTIFICAÇÕES NO IPHONE / TELA BLOQUEADA) */}
+        <div className="mb-6 p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Bell className={`w-4 h-4 ${pushPrefs.enabled ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Alertas Web Push (iPhone / PWA)
+              </h3>
+            </div>
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                pushPrefs.enabled
+                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-zinc-800 text-zinc-400'
+              }`}
+            >
+              {pushPrefs.enabled ? 'Ativado (APNs)' : 'Desativado'}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
+            Receba avisos de <strong>Data-Com</strong>, <strong>Pagamento de Dividendos</strong> e{' '}
+            <strong>Descontos na B3</strong> mesmo com o app fechado e tela bloqueada (consumo zero de bateria via Apple APNs).
+          </p>
+
+          {pushSupport.isIosNeedInstall && (
+            <div className="mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+              📱 No iPhone, toque em <strong>Compartilhar → Adicionar à Tela de Início</strong> e abra o app pela Tela de Início para liberar o Web Push da Apple.
+            </div>
+          )}
+
+          {/* Opções de Alerta */}
+          <div className="space-y-1.5 mb-3">
+            {[
+              { key: 'notifyPaymentDay' as const, label: '💰 Dia de pagamento de dividendos na conta' },
+              { key: 'notifyExDate' as const, label: '⚡ Véspera e dia de Data-Com dos meus FIIs' },
+              { key: 'notifyPriceOpportunity' as const, label: '📉 Quando um FII cair abaixo do meu Preço Médio' },
+            ].map((opt) => (
+              <label
+                key={opt.key}
+                className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/70 border border-zinc-800/70 cursor-pointer text-[11px] text-zinc-300"
+              >
+                <span>{opt.label}</span>
+                <input
+                  type="checkbox"
+                  checked={pushPrefs[opt.key]}
+                  onChange={() => handleTogglePushPref(opt.key)}
+                  className="accent-emerald-500 w-3.5 h-3.5 rounded"
+                />
+              </label>
+            ))}
+          </div>
+
+          {pushStatusMsg && (
+            <div className="mb-3 p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-emerald-300">
+              {pushStatusMsg}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              disabled={isEnablingPush}
+              className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              {isEnablingPush
+                ? 'Ativando...'
+                : pushPrefs.enabled
+                ? 'Revalidar Push'
+                : 'Ativar Alertas'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTestLockScreenPush}
+              disabled={isSendingTestPush}
+              className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
+              title="Dispara uma notificação real em 5 segundos para você bloquear a tela do iPhone e testar"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+              {isSendingTestPush ? 'Aguarde 5s...' : 'Testar Tela Bloq. (5s)'}
+            </button>
+          </div>
+        </div>
 
         {/* 1. SEÇÃO SUPABASE NA NUVEM */}
         <div className="mb-6 p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">

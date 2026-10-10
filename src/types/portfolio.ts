@@ -74,4 +74,16 @@ export interface QuoteData {
   updatedAt: string;
 }
 
+export interface BcbIndicators {
+  selicAnnual: number;
+  cdiAnnual: number;
+  cdiNetAnnual: number;
+  cdiNetMonthly: number;
+  ipca12m: number;
+  ipcaMonthly: number;
+  updatedAt: string;
+  source: 'BCB_OFICIAL' | 'FALLBACK';
+}
+
+
 

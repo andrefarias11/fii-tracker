@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Transaction, FiiPosition, PortfolioGoals, QuoteData } from '../types/portfolio';
+import { Transaction, FiiPosition, PortfolioGoals, QuoteData, BcbIndicators } from '../types/portfolio';
 import { findFiiInfo } from '../data/fiiDatabase';
 import { deduplicateB3Transactions } from '../lib/b3Parser';
+import { runAutoDailyPushCheck } from '../lib/pushNotifications';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
@@ -54,6 +55,7 @@ export function usePortfolio() {
   const [goals, setGoals] = useState<PortfolioGoals>(DEFAULT_GOALS);
   const [customDividends, setCustomDividends] = useState<Record<string, number>>({});
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
+  const [bcbIndicators, setBcbIndicators] = useState<BcbIndicators | null>(null);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
@@ -352,13 +354,22 @@ export function usePortfolio() {
 
     setIsLoadingQuotes(true);
     try {
-      const res = await fetch(`/api/quote?tickers=${encodeURIComponent(uniqueTickers.join(','))}`);
-      if (res.ok) {
-        const data = await res.json();
+      const [quoteRes, bcbRes] = await Promise.allSettled([
+        fetch(`/api/quote?tickers=${encodeURIComponent(uniqueTickers.join(','))}`),
+        fetch('/api/bcb'),
+      ]);
+
+      if (quoteRes.status === 'fulfilled' && quoteRes.value.ok) {
+        const data = await quoteRes.value.json();
         if (data.quotes) {
           setQuotes((prev) => ({ ...prev, ...data.quotes }));
           setLastSyncTime(new Date());
         }
+      }
+
+      if (bcbRes.status === 'fulfilled' && bcbRes.value.ok) {
+        const bcbData: BcbIndicators = await bcbRes.value.json();
+        setBcbIndicators(bcbData);
       }
     } catch (err) {
       console.error('Erro ao buscar cotações ao vivo:', err);
@@ -572,6 +583,13 @@ export function usePortfolio() {
     }
   };
 
+  // Verifica alertas automáticos de Web Push (Data-Com, Pagamento hoje, Abaixo do PM) 1x ao dia
+  useEffect(() => {
+    if (isInitialized && positions.length > 0 && lastSyncTime) {
+      runAutoDailyPushCheck(positions);
+    }
+  }, [isInitialized, positions, lastSyncTime]);
+
   return {
     isInitialized,
     transactions,
@@ -579,6 +597,7 @@ export function usePortfolio() {
     summary,
     goals,
     quotes,
+    bcbIndicators,
     isLoadingQuotes,
     lastSyncTime,
     isCloudConnected,

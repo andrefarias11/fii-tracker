@@ -1,6 +1,7 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Coins, Wallet, ChevronRight, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Coins, Wallet, ChevronRight, Target, Landmark } from 'lucide-react';
+import { BcbIndicators } from '../types/portfolio';
 
 interface SummaryProps {
   currentEquity: number;
@@ -12,6 +13,7 @@ interface SummaryProps {
   currentMonthInvested?: number;
   monthlyTarget?: number;
   monthlyGoalProgressPercent?: number;
+  bcbIndicators?: BcbIndicators | null;
   isPrivacyMode?: boolean;
   onNavigateToProventos?: () => void;
   onNavigateToGoals?: () => void;
@@ -27,6 +29,7 @@ export function PortfolioSummary({
   currentMonthInvested = 0,
   monthlyTarget = 0,
   monthlyGoalProgressPercent = 0,
+  bcbIndicators = null,
   isPrivacyMode = false,
   onNavigateToProventos,
   onNavigateToGoals,
@@ -40,6 +43,12 @@ export function PortfolioSummary({
       currency: 'BRL',
     }).format(value);
   };
+
+  const annualYocPercent = Number((averageYieldOnCostPercent * 12).toFixed(2));
+  const realReturnAboveIpca =
+    bcbIndicators && annualYocPercent > 0
+      ? Number((annualYocPercent - bcbIndicators.ipca12m).toFixed(2))
+      : null;
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800/80 p-5 shadow-xl">
@@ -150,6 +159,35 @@ export function PortfolioSummary({
               style={{ width: `${Math.min(100, monthlyGoalProgressPercent)}%` }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Faixa Enxuta: Indicadores Oficiais do Banco Central (Selic / IPCA / Ganho Real) */}
+      {bcbIndicators && (
+        <div className="mt-3 pt-2.5 border-t border-zinc-800/60 flex items-center justify-between gap-2 flex-wrap text-[10px]">
+          <div className="flex items-center gap-1.5 text-zinc-400">
+            <Landmark className="w-3 h-3 text-sky-400 shrink-0" />
+            <span>
+              BCB: <strong className="text-zinc-200">Selic {bcbIndicators.selicAnnual}%</strong> •{' '}
+              <strong className="text-zinc-200">IPCA {bcbIndicators.ipca12m}%</strong> • CDI Líq.{' '}
+              <strong className="text-zinc-300">{bcbIndicators.cdiNetAnnual}%</strong>
+            </span>
+          </div>
+
+          {realReturnAboveIpca !== null && (
+            <span
+              className={`font-bold px-1.5 py-0.5 rounded-md ${
+                realReturnAboveIpca >= 0
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+              }`}
+              title={`Seu Yield on Cost anualizado (${annualYocPercent}% a.a. isento) comparado à inflação IPCA (${bcbIndicators.ipca12m}% a.a.)`}
+            >
+              {realReturnAboveIpca >= 0
+                ? `IPCA +${realReturnAboveIpca}% a.a. real`
+                : `YoC ${annualYocPercent}% a.a.`}
+            </span>
+          )}
         </div>
       )}
     </div>

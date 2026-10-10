@@ -39,6 +39,7 @@ export default function HomePage() {
     summary,
     goals,
     quotes,
+    bcbIndicators,
     isLoadingQuotes,
     lastSyncTime,
     isCloudConnected,
@@ -154,6 +155,7 @@ export default function HomePage() {
               currentMonthInvested={summary.currentMonthInvested}
               monthlyTarget={goals.monthlyTarget}
               monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
+              bcbIndicators={bcbIndicators}
               isPrivacyMode={isPrivacyMode}
               onNavigateToProventos={() => setActiveTab('proventos')}
               onNavigateToGoals={() => setActiveTab('goals')}
@@ -343,6 +345,7 @@ export default function HomePage() {
         key={isSettingsModalOpen ? 'settings-open' : 'settings-closed'}
         isOpen={isSettingsModalOpen}
         goals={goals}
+        positions={positions}
         isCloudConnected={isCloudConnected}
         isSyncingCloud={isSyncing}
         onClose={() => setIsSettingsModalOpen(false)}

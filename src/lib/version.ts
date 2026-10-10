@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.6.0',
+    date: '10/10/2026',
+    highlights: [
+      'Integração com API Oficial do Banco Central (Selic, CDI Líquido e IPCA 12m ao vivo + cálculo de Ganho Real acima da inflação)',
+      'Integração Web Push API (APNs iPhone / PWA) com Service Worker, chaves VAPID e teste para Tela de Bloqueio em 5s',
+    ],
+  },
   {
     version: '1.5.0',
     date: '10/10/2026',
