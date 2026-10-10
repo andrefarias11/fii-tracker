@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.7.0',
+    date: '10/10/2026',
+    highlights: [
+      'Novo Gráfico de Linhas Interativo (6M, 12M e 24M) comparando o desempenho da Sua Carteira FII contra CDI Líquido, Poupança e Inflação (IPCA) mês a mês',
+      'Substituição do gráfico de barras pela curva comparativa multi-linhas colorida com toque interativo por mês',
+    ],
+  },
   {
     version: '1.6.0',
     date: '10/10/2026',

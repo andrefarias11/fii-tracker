@@ -7,20 +7,24 @@ import {
   Clock,
   HelpCircle,
   Calendar,
-  TrendingUp,
 } from 'lucide-react';
-import { FiiPosition } from '../types/portfolio';
+import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
 import { DividendStatus } from '../types/dividend';
+import { PerformanceComparisonChart } from './PerformanceComparisonChart';
 
 interface DividendFlowProps {
   positions: FiiPosition[];
+  transactions?: Transaction[];
+  bcbIndicators?: BcbIndicators | null;
   monthlyContributionGoal?: number;
   isPrivacyMode?: boolean;
 }
 
 export function DividendFlow({
   positions,
+  transactions = [],
+  bcbIndicators = null,
   monthlyContributionGoal = 200,
   isPrivacyMode = false,
 }: DividendFlowProps) {
@@ -38,7 +42,6 @@ export function DividendFlow({
       return {};
     }
   });
-
 
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ •••';
@@ -70,43 +73,6 @@ export function DividendFlow({
     if (filterStatus === 'ALL') return true;
     return ev.status === filterStatus;
   });
-
-  // Escadinha de renda futura considerando o aporte contínuo + reinvestimento
-  const currentEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
-  const currentMonthlyIncome = summary.totalExpected;
-
-  const stepsProjection = [0, 1, 3, 6, 9, 12].map((m) => {
-    if (m === 0) {
-      return {
-        monthsAhead: 0,
-        label: 'Hoje',
-        projectedIncome: currentMonthlyIncome,
-        projectedEquity: currentEquity,
-      };
-    }
-
-    const yieldRate = 0.009; // 0,90% a.m.
-    let projectedEquity = currentEquity;
-
-    for (let i = 1; i <= m; i++) {
-      projectedEquity += monthlyContributionGoal;
-      projectedEquity += projectedEquity * yieldRate;
-    }
-
-    const projectedIncome = Number((projectedEquity * yieldRate).toFixed(2));
-
-    return {
-      monthsAhead: m,
-      label: `+${m}m`,
-      projectedIncome,
-      projectedEquity: Number(projectedEquity.toFixed(2)),
-    };
-  });
-
-  const maxProjectedIncome = Math.max(
-    1,
-    ...stepsProjection.map((s) => s.projectedIncome)
-  );
 
   if (positions.length === 0) {
     return (
@@ -296,69 +262,14 @@ export function DividendFlow({
         </div>
       </div>
 
-      {/* 3. ESCADINHA VISUAL DE PROVENTOS (PRÓXIMOS 12 MESES) */}
-      <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-violet-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Escadinha de Proventos</h3>
-              <p className="text-[11px] text-zinc-400">
-                Evolução mantendo R$ {monthlyContributionGoal}/mês + reinvestimento
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Gráfico Visual de Barras (Escadinha) */}
-        <div className="pt-4 pb-2 px-2 rounded-2xl bg-zinc-950/60 border border-zinc-800/70">
-          <div className="grid grid-cols-6 gap-2 items-end h-32">
-            {stepsProjection.map((step) => {
-              const heightPercent = Math.max(
-                14,
-                Math.round((step.projectedIncome / maxProjectedIncome) * 100)
-              );
-              const isCurrent = step.monthsAhead === 0;
-
-              return (
-                <div key={step.label} className="flex flex-col items-center justify-end h-full">
-                  <span className="text-[9px] font-bold text-emerald-400 mb-1 font-mono">
-                    R${step.projectedIncome.toFixed(0)}
-                  </span>
-                  <div
-                    className={`w-full rounded-t-xl transition-all duration-500 ${
-                      isCurrent
-                        ? 'bg-emerald-500/60 border border-emerald-400/40'
-                        : 'bg-gradient-to-t from-violet-600/80 to-emerald-400'
-                    }`}
-                    style={{ height: `${heightPercent}%` }}
-                    title={`Patrimônio projetado: ${formatBRL(step.projectedEquity)}`}
-                  />
-                  <span
-                    className={`text-[10px] mt-1.5 font-semibold ${
-                      isCurrent ? 'text-white' : 'text-zinc-400'
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-400 px-1">
-          <span>Hoje: <strong className="text-zinc-200">{formatBRL(currentMonthlyIncome)}/mês</strong></span>
-          <span>
-            Em 1 ano:{' '}
-            <strong className="text-emerald-400">
-              {formatBRL(stepsProjection[stepsProjection.length - 1].projectedIncome)}/mês
-            </strong>
-          </span>
-        </div>
-      </div>
+      {/* 3. GRÁFICO DE LINHAS COMPARATIVO (SUA CARTEIRA FII vs CDI vs POUPANÇA vs IPCA) */}
+      <PerformanceComparisonChart
+        positions={positions}
+        transactions={transactions}
+        monthlyContribution={monthlyContributionGoal}
+        bcbIndicators={bcbIndicators}
+        isPrivacyMode={isPrivacyMode}
+      />
     </div>
   );
 }
