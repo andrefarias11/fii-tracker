@@ -17,11 +17,15 @@ export interface EvaluatedFii {
   monthlyYieldPercent: number;
   annualYieldPercent: number;
   ceilingPrice: number; // Preço teto para 0.90% a.m.
+  barsiCeilingPrice: number; // Preço teto método Barsi (mín. 0.80% a.m. / 9.6% a.a. líquido isento)
   status: 'OPPORTUNITY' | 'FAIR' | 'EXPENSIVE';
   score: number; // 0 a 100
   rationale: string;
   management: string;
   diversification: string;
+  thesis: string;
+  vacancyPhysical?: number;
+  dividendSource?: 'B3_OFICIAL' | 'MERCADO' | 'HISTORICO';
   userAveragePrice?: number;
   isBelowAveragePrice?: boolean;
   rebalancesPortfolio?: boolean;
@@ -91,7 +95,14 @@ export function evaluateAllFiis(
 
     const currentPrice =
       quote?.price && quote.price > 0 ? quote.price : fii.base === 10 ? 9.5 : 100.0;
-    const pvp = Number((currentPrice / fii.vp).toFixed(2));
+    const pvp =
+      quote?.pvp && quote.pvp > 0
+        ? Number(quote.pvp.toFixed(2))
+        : Number((currentPrice / fii.vp).toFixed(2));
+    const vp =
+      quote?.pvp && quote.pvp > 0
+        ? Number((currentPrice / quote.pvp).toFixed(2))
+        : fii.vp;
     const discountPercent = Number(((1 - pvp) * 100).toFixed(1));
 
     const monthlyDividend =
@@ -102,6 +113,7 @@ export function evaluateAllFiis(
     const monthlyYieldPercent = Number(((monthlyDividend / currentPrice) * 100).toFixed(2));
     const annualYieldPercent = Number((monthlyYieldPercent * 12).toFixed(2));
     const ceilingPrice = Number((monthlyDividend / 0.009).toFixed(2));
+    const barsiCeilingPrice = Number((monthlyDividend / 0.008).toFixed(2));
 
     const userPos = positions.find((p) => p.ticker === fii.ticker);
     const userAveragePrice = userPos?.averagePrice;
@@ -151,7 +163,7 @@ export function evaluateAllFiis(
       name: fii.name,
       segment: fii.segment,
       base: fii.base,
-      vp: fii.vp,
+      vp,
       currentPrice,
       pvp,
       discountPercent,
@@ -159,11 +171,15 @@ export function evaluateAllFiis(
       monthlyYieldPercent,
       annualYieldPercent,
       ceilingPrice,
+      barsiCeilingPrice,
       status,
       score: Math.max(0, Math.min(100, score)),
       rationale,
       management: fii.management,
       diversification: fii.diversification,
+      thesis: fii.thesis,
+      vacancyPhysical: fii.vacancyPhysical,
+      dividendSource: quote?.dividendSource,
       userAveragePrice,
       isBelowAveragePrice,
       rebalancesPortfolio,

@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.5.0',
+    date: '10/10/2026',
+    highlights: [
+      'Nova aba "Mentores": Indicações dinâmicas usando as estratégias de Luiz Barsi, Warren Buffett, Benjamin Graham e Prof. Baroni com dados ao vivo da B3',
+      'Painel "Consenso Hoje" destacando FIIs aprovados simultaneamente por múltiplos grandes investidores',
+    ],
+  },
   {
     version: '1.4.0',
     date: '10/10/2026',

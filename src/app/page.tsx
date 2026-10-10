@@ -12,6 +12,7 @@ import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { OpportunityRadar } from '../components/OpportunityRadar';
+import { MentorsTab } from '../components/MentorsTab';
 import { DividendFlow } from '../components/DividendFlow';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { SettingsModal } from '../components/SettingsModal';
@@ -25,9 +26,10 @@ import {
   FileSpreadsheet,
   Compass,
   Coins,
+  GraduationCap,
 } from 'lucide-react';
 
-type TabType = 'portfolio' | 'proventos' | 'radar' | 'goals' | 'history';
+type TabType = 'portfolio' | 'proventos' | 'mentors' | 'radar' | 'goals' | 'history';
 
 export default function HomePage() {
   const {
@@ -115,6 +117,7 @@ export default function HomePage() {
   const navItems: { id: TabType; label: string; icon: typeof PieChart }[] = [
     { id: 'portfolio', label: 'Carteira', icon: PieChart },
     { id: 'proventos', label: 'Proventos', icon: Coins },
+    { id: 'mentors', label: 'Mentores', icon: GraduationCap },
     { id: 'radar', label: 'Radar', icon: Compass },
     { id: 'goals', label: 'Metas', icon: Target },
     { id: 'history', label: 'Extrato', icon: History },
@@ -179,6 +182,19 @@ export default function HomePage() {
               positions={positions}
               monthlyContributionGoal={goals.monthlyTarget}
               isPrivacyMode={isPrivacyMode}
+            />
+          </div>
+        )}
+
+        {/* Aba: Indicação de Mentores (Barsi, Buffett, Graham e Baroni) */}
+        {activeTab === 'mentors' && (
+          <div className="animate-in fade-in duration-200">
+            <MentorsTab
+              quotes={quotes}
+              positions={positions}
+              monthlyTarget={goals.monthlyTarget}
+              isPrivacyMode={isPrivacyMode}
+              onOpenAddModalWithTicker={handleOpenAddModal}
             />
           </div>
         )}
@@ -270,9 +286,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Barra de Navegação Inferior estilo iOS com Pílula Ativa (5 Abas) */}
+      {/* Barra de Navegação Inferior estilo iOS com Pílula Ativa (6 Abas) */}
       <nav className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/80 pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-5 px-2 py-1.5">
+        <div className="max-w-md mx-auto grid grid-cols-6 px-1.5 py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -285,13 +301,13 @@ export default function HomePage() {
                 }`}
               >
                 <div
-                  className={`px-3 py-0.5 rounded-full transition-all mb-0.5 ${
+                  className={`px-2.5 py-0.5 rounded-full transition-all mb-0.5 ${
                     isActive ? 'bg-emerald-500/15' : ''
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
-                <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>
+                <span className={`text-[9.5px] leading-tight ${isActive ? 'font-bold' : 'font-medium'}`}>
                   {item.label}
                 </span>
               </button>
