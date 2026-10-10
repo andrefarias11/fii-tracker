@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
+import { Transaction } from '../types/portfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
+import { AllocationCard } from '../components/AllocationCard';
 import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
 import { PositionList } from '../components/PositionList';
@@ -41,6 +43,7 @@ export default function HomePage() {
     isSyncing,
     syncWithCloud,
     addTransaction,
+    updateTransaction,
     deleteTransaction,
     clearAllTransactions,
     resetDemo,
@@ -57,9 +60,17 @@ export default function HomePage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [targetTickerForAdd, setTargetTickerForAdd] = useState<string>('');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const handleOpenAddModal = (ticker = '') => {
+    setEditingTransaction(null);
     setTargetTickerForAdd(ticker);
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEditModal = (tx: Transaction) => {
+    setTargetTickerForAdd('');
+    setEditingTransaction(tx);
     setIsAddModalOpen(true);
   };
 
@@ -106,6 +117,7 @@ export default function HomePage() {
               totalProfitLoss={summary.totalProfitLoss}
               totalProfitLossPercent={summary.totalProfitLossPercent}
               totalMonthlyDividends={summary.totalMonthlyDividends}
+              averageYieldOnCostPercent={summary.averageYieldOnCostPercent}
             />
 
             {/* Ações Rápidas: Novo Aporte ou Importar da B3 */}
@@ -169,6 +181,12 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* Barra enxuta de Diversificação por Setor */}
+            <AllocationCard
+              positions={positions}
+              onNavigateToRadar={() => setActiveTab('radar')}
+            />
+
             <PositionList
               positions={positions}
               onOpenAddModalWithTicker={handleOpenAddModal}
@@ -189,8 +207,10 @@ export default function HomePage() {
         {activeTab === 'radar' && (
           <OpportunityRadar
             quotes={quotes}
+            positions={positions}
             monthlyTarget={goals.monthlyTarget}
             currentMonthInvested={summary.currentMonthInvested}
+            totalMonthlyDividends={summary.totalMonthlyDividends}
             onOpenAddModalWithTicker={handleOpenAddModal}
             onImportTransactions={importTransactionsFromB3}
           />
@@ -212,7 +232,11 @@ export default function HomePage() {
               onOpenSettings={() => setIsSettingsModalOpen(true)}
             />
 
-            <MagicNumberCard positions={positions} />
+            <MagicNumberCard
+              positions={positions}
+              monthlyTarget={goals.monthlyTarget}
+              onOpenAddModalWithTicker={handleOpenAddModal}
+            />
 
             {/* Simulador integrado na aba de metas */}
             <InvestmentSimulator />
@@ -234,6 +258,7 @@ export default function HomePage() {
             </div>
             <TransactionHistory
               transactions={transactions}
+              onEditTransaction={handleOpenEditModal}
               onDeleteTransaction={deleteTransaction}
             />
           </div>
@@ -308,10 +333,17 @@ export default function HomePage() {
 
       {/* Modais */}
       <AddTransactionModal
+        key={editingTransaction?.id || targetTickerForAdd || (isAddModalOpen ? 'open' : 'closed')}
         isOpen={isAddModalOpen}
         initialTicker={targetTickerForAdd}
-        onClose={() => setIsAddModalOpen(false)}
+        editingTransaction={editingTransaction}
+        monthlyTarget={goals.monthlyTarget}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingTransaction(null);
+        }}
         onAddTransaction={addTransaction}
+        onUpdateTransaction={updateTransaction}
       />
 
       <B3ImportModal
@@ -336,3 +368,4 @@ export default function HomePage() {
     </div>
   );
 }
+

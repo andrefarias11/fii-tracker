@@ -8,9 +8,6 @@ import {
   HelpCircle,
   Calendar,
   TrendingUp,
-  Sparkles,
-  ArrowRight,
-  Filter,
 } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
@@ -23,7 +20,20 @@ interface DividendFlowProps {
 
 export function DividendFlow({ positions, monthlyContributionGoal = 200 }: DividendFlowProps) {
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, DividendStatus>>({});
+
+  const currentDate = new Date();
+  const yearMonthKey = `fii_tracker_div_status_${currentDate.getFullYear()}_${currentDate.getMonth() + 1}`;
+
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, DividendStatus>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(yearMonthKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
 
   const formatBRL = (val: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -32,7 +42,6 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
     }).format(val);
   };
 
-  const currentDate = new Date();
   const currentMonthName = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
 
@@ -42,7 +51,13 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
     const order: DividendStatus[] = ['ESTIMATED', 'CONFIRMED', 'PAID'];
     const nextIndex = (order.indexOf(current) + 1) % order.length;
     const nextStatus = order[nextIndex];
-    setStatusOverrides((prev) => ({ ...prev, [ticker]: nextStatus }));
+    const updated = { ...statusOverrides, [ticker]: nextStatus };
+    setStatusOverrides(updated);
+    try {
+      localStorage.setItem(yearMonthKey, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
   };
 
   const filteredEvents = events.filter((ev) => {
@@ -50,29 +65,42 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
     return ev.status === filterStatus;
   });
 
-  // Simulação de renda futura para os próximos 6 meses considerando o aporte contínuo de R$ 200
-  const futureMonthsProjection = [1, 2, 3, 6, 12].map((m) => {
-    const yieldRate = 0.009; // 0,90% a.m. (média sólida)
-    let projectedEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
+  // Escadinha de renda futura considerando o aporte contínuo + reinvestimento
+  const currentEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
+  const currentMonthlyIncome = summary.totalExpected;
+
+  const stepsProjection = [0, 1, 3, 6, 9, 12].map((m) => {
+    if (m === 0) {
+      return {
+        monthsAhead: 0,
+        label: 'Hoje',
+        projectedIncome: currentMonthlyIncome,
+        projectedEquity: currentEquity,
+      };
+    }
+
+    const yieldRate = 0.009; // 0,90% a.m.
+    let projectedEquity = currentEquity;
 
     for (let i = 1; i <= m; i++) {
       projectedEquity += monthlyContributionGoal;
-      projectedEquity += projectedEquity * yieldRate; // Reinvestimento
+      projectedEquity += projectedEquity * yieldRate;
     }
 
     const projectedIncome = Number((projectedEquity * yieldRate).toFixed(2));
 
-    const futureDate = new Date();
-    futureDate.setMonth(futureDate.getMonth() + m);
-    const monthLabel = futureDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-
     return {
       monthsAhead: m,
-      monthLabel: monthLabel.toUpperCase(),
+      label: `+${m}m`,
       projectedIncome,
       projectedEquity: Number(projectedEquity.toFixed(2)),
     };
   });
+
+  const maxProjectedIncome = Math.max(
+    1,
+    ...stepsProjection.map((s) => s.projectedIncome)
+  );
 
   if (positions.length === 0) {
     return (
@@ -97,7 +125,7 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Proventos • {capitalizedMonth}</h2>
-              <p className="text-[11px] text-zinc-400">Fluxo de dividendos na conta da XP</p>
+              <p className="text-[11px] text-zinc-400">Fluxo de dividendos isentos de IR</p>
             </div>
           </div>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -107,7 +135,6 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
 
         {/* 3 COLUNAS VISUAIS DE STATUS */}
         <div className="grid grid-cols-3 gap-2 mt-4">
-          {/* 1. Já Recebido (Verde) */}
           <div
             onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
             className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
@@ -126,7 +153,6 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
             </div>
           </div>
 
-          {/* 2. Confirmado (Amarelo / Âmbar) */}
           <div
             onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
             className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
@@ -145,7 +171,6 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
             </div>
           </div>
 
-          {/* 3. Estimado (Azul / Ciano) */}
           <div
             onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
             className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
@@ -217,7 +242,7 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
                     {isPaid && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
                         <CheckCircle2 className="w-3 h-3" />
-                        Pago na XP no dia {ev.paymentDay}
+                        Pago dia {ev.paymentDay}
                       </span>
                     )}
 
@@ -231,12 +256,11 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
                     {isEstimated && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-lg border border-sky-500/20">
                         <HelpCircle className="w-3 h-3" />
-                        Estimado: Previsão dia {ev.paymentDay}
+                        Previsto dia {ev.paymentDay}
                       </span>
                     )}
                   </div>
 
-                  {/* Botão de Alternar Status Manualmente */}
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(ev.ticker, ev.status)}
@@ -252,50 +276,71 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
         </div>
       </div>
 
-      {/* 3. PROJEÇÃO DE RENDA FUTURA (PRÓXIMOS MESES COM R$ 200/MÊS) */}
+      {/* 3. ESCADINHA VISUAL DE PROVENTOS (PRÓXIMOS 12 MESES) */}
       <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-violet-400" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white">Previsão de Renda Futura</h3>
-            <p className="text-[11px] text-zinc-400">
-              Mantendo seus R$ {monthlyContributionGoal}/mês de aporte constante
-            </p>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Escadinha de Proventos</h3>
+              <p className="text-[11px] text-zinc-400">
+                Evolução mantendo R$ {monthlyContributionGoal}/mês + reinvestimento
+              </p>
+            </div>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-400 leading-relaxed mb-3">
-          Veja como sua renda passiva mensal vai crescer à medida que você continua aportando e reinvestindo os proventos:
-        </p>
+        {/* Gráfico Visual de Barras (Escadinha) */}
+        <div className="pt-4 pb-2 px-2 rounded-2xl bg-zinc-950/60 border border-zinc-800/70">
+          <div className="grid grid-cols-6 gap-2 items-end h-32">
+            {stepsProjection.map((step) => {
+              const heightPercent = Math.max(
+                14,
+                Math.round((step.projectedIncome / maxProjectedIncome) * 100)
+              );
+              const isCurrent = step.monthsAhead === 0;
 
-        <div className="space-y-2">
-          {futureMonthsProjection.map((proj) => (
-            <div
-              key={proj.monthsAhead}
-              className="p-3 rounded-2xl bg-zinc-950/60 border border-zinc-800/70 flex items-center justify-between text-xs"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-500/15 text-violet-300 border border-violet-500/25">
-                  +{proj.monthsAhead} {proj.monthsAhead === 1 ? 'mês' : 'meses'}
-                </span>
-                <span className="text-zinc-300 font-medium">{proj.monthLabel}</span>
-              </div>
+              return (
+                <div key={step.label} className="flex flex-col items-center justify-end h-full">
+                  <span className="text-[9px] font-bold text-emerald-400 mb-1 font-mono">
+                    R${step.projectedIncome.toFixed(0)}
+                  </span>
+                  <div
+                    className={`w-full rounded-t-xl transition-all duration-500 ${
+                      isCurrent
+                        ? 'bg-emerald-500/60 border border-emerald-400/40'
+                        : 'bg-gradient-to-t from-violet-600/80 to-emerald-400'
+                    }`}
+                    style={{ height: `${heightPercent}%` }}
+                    title={`Patrimônio projetado: ${formatBRL(step.projectedEquity)}`}
+                  />
+                  <span
+                    className={`text-[10px] mt-1.5 font-semibold ${
+                      isCurrent ? 'text-white' : 'text-zinc-400'
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="text-right">
-                <span className="text-emerald-400 font-bold block">
-                  {formatBRL(proj.projectedIncome)} <span className="text-[10px] font-normal text-zinc-500">/ mês</span>
-                </span>
-                <span className="text-[10px] text-zinc-500">
-                  Patrimônio: {formatBRL(proj.projectedEquity)}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-400 px-1">
+          <span>Hoje: <strong className="text-zinc-200">{formatBRL(currentMonthlyIncome)}/mês</strong></span>
+          <span>
+            Em 1 ano:{' '}
+            <strong className="text-emerald-400">
+              {formatBRL(stepsProjection[stepsProjection.length - 1].projectedIncome)}/mês
+            </strong>
+          </span>
         </div>
       </div>
     </div>
   );
 }
+
 

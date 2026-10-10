@@ -1,5 +1,7 @@
-import { FiiFundamentalData, FII_FUNDAMENTALS } from '../data/fiiFundamentals';
-import { QuoteData } from '../types/portfolio';
+import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
+import { QuoteData, FiiPosition } from '../types/portfolio';
+
+export type RecommendationStrategy = 'balanced' | 'snowball';
 
 export interface EvaluatedFii {
   ticker: string;
@@ -13,11 +15,15 @@ export interface EvaluatedFii {
   monthlyDividend: number;
   monthlyYieldPercent: number;
   annualYieldPercent: number;
+  ceilingPrice: number; // Preço teto para 0.90% a.m.
   status: 'OPPORTUNITY' | 'FAIR' | 'EXPENSIVE';
   score: number; // 0 a 100
   rationale: string;
   management: string;
   diversification: string;
+  userAveragePrice?: number;
+  isBelowAveragePrice?: boolean;
+  rebalancesPortfolio?: boolean;
 }
 
 export interface RecommendedBasketItem {
@@ -41,15 +47,54 @@ export interface DayRecommendation {
   strategyExplanation: string;
 }
 
-export function evaluateAllFiis(quotes: Record<string, QuoteData>): EvaluatedFii[] {
+function getMacroCategory(segment: string): string {
+  const s = segment.toLowerCase();
+  if (s.includes('papel')) return 'Papel';
+  if (s.includes('logística') || s.includes('logistica')) return 'Logística';
+  if (s.includes('shopping')) return 'Shopping';
+  if (s.includes('renda urbana') || s.includes('lajes')) return 'Tijolo';
+  if (s.includes('fiagro')) return 'Fiagro';
+  if (s.includes('fof')) return 'FOF';
+  return 'Outros';
+}
+
+export function evaluateAllFiis(
+  quotes: Record<string, QuoteData>,
+  positions: FiiPosition[] = []
+): EvaluatedFii[] {
+  const totalEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
+  const categoryWeights: Record<string, number> = {};
+
+  if (totalEquity > 0) {
+    for (const pos of positions) {
+      const cat = getMacroCategory(pos.segment);
+      categoryWeights[cat] = (categoryWeights[cat] || 0) + pos.currentTotal / totalEquity;
+    }
+  }
+
   return FII_FUNDAMENTALS.map((fii) => {
     const quote = quotes[fii.ticker];
-    // Se tiver cotação ao vivo, usa. Se não tiver, usa valor próximo ao VP ou base
-    const currentPrice = quote?.price && quote.price > 0 ? quote.price : (fii.base === 10 ? 9.50 : 100.00);
+    const currentPrice =
+      quote?.price && quote.price > 0 ? quote.price : fii.base === 10 ? 9.5 : 100.0;
     const pvp = Number((currentPrice / fii.vp).toFixed(2));
     const discountPercent = Number(((1 - pvp) * 100).toFixed(1));
-    const monthlyYieldPercent = Number(((fii.typicalMonthlyDividend / currentPrice) * 100).toFixed(2));
+
+    const monthlyDividend =
+      quote?.lastDividend && quote.lastDividend > 0
+        ? Number(quote.lastDividend.toFixed(3))
+        : fii.typicalMonthlyDividend;
+
+    const monthlyYieldPercent = Number(((monthlyDividend / currentPrice) * 100).toFixed(2));
     const annualYieldPercent = Number((monthlyYieldPercent * 12).toFixed(2));
+    const ceilingPrice = Number((monthlyDividend / 0.009).toFixed(2));
+
+    const userPos = positions.find((p) => p.ticker === fii.ticker);
+    const userAveragePrice = userPos?.averagePrice;
+    const isBelowAveragePrice = Boolean(userPos && currentPrice < userPos.averagePrice);
+
+    const cat = getMacroCategory(fii.segment);
+    const currentCatWeight = categoryWeights[cat] || 0;
+    const rebalancesPortfolio = totalEquity > 0 && currentCatWeight < 0.2;
 
     let status: 'OPPORTUNITY' | 'FAIR' | 'EXPENSIVE' = 'FAIR';
     let score = 50;
@@ -58,21 +103,28 @@ export function evaluateAllFiis(quotes: Record<string, QuoteData>): EvaluatedFii
     // Avaliação do P/VP
     if (pvp <= 0.99) {
       status = 'OPPORTUNITY';
-      score += 35; // Forte bônus de desconto
-      rationale = `🟢 OPORTUNIDADE DE COMPRA: O ${fii.ticker} está negociando com ${discountPercent}% de desconto em relação ao patrimônio real (P/VP ${pvp}). Com rendimento mensal de ${monthlyYieldPercent}% a.m. (${annualYieldPercent}% a.a.), comprar agora permite lucrar tanto com a renda passiva quanto com a valorização futura da cota.`;
+      score += 32;
+      rationale = `Negociando com ${discountPercent}% de desconto sobre o VP (P/VP ${pvp}) e entregando ${monthlyYieldPercent}% a.m. (${annualYieldPercent}% a.a.).`;
     } else if (pvp <= 1.02) {
       status = 'FAIR';
       score += 15;
-      rationale = `🟡 PREÇO JUSTO: O ${fii.ticker} está cotado a R$ ${currentPrice.toFixed(2)}, em linha com seu valor contábil (P/VP ${pvp}). É um ativo seguro para manter constância nos aportes (${monthlyYieldPercent}% a.m.), sem pagar sobrepreço.`;
+      rationale = `Cotado em linha com seu valor justo (P/VP ${pvp}), oferecendo renda passiva consistente de ${monthlyYieldPercent}% a.m.`;
     } else {
       status = 'EXPENSIVE';
       score -= 20;
-      rationale = `🔴 ÁGIO ELEVADO: O ${fii.ticker} subiu recentemente e está sendo negociado com ${Math.abs(discountPercent)}% de ágio (P/VP ${pvp}). Evite comprar agora para não pagar mais caro do que o patrimônio vale.`;
+      rationale = `Negociando com ${Math.abs(discountPercent)}% de ágio acima do patrimônio (P/VP ${pvp}).`;
     }
 
-    // Bônus de yield consistente
     if (monthlyYieldPercent >= 0.85) {
-      score += 15;
+      score += 12;
+    }
+
+    if (rebalancesPortfolio && status !== 'EXPENSIVE') {
+      score += 10;
+    }
+
+    if (isBelowAveragePrice && status !== 'EXPENSIVE') {
+      score += 6;
     }
 
     return {
@@ -84,26 +136,31 @@ export function evaluateAllFiis(quotes: Record<string, QuoteData>): EvaluatedFii
       currentPrice,
       pvp,
       discountPercent,
-      monthlyDividend: fii.typicalMonthlyDividend,
+      monthlyDividend,
       monthlyYieldPercent,
       annualYieldPercent,
+      ceilingPrice,
       status,
       score: Math.max(0, Math.min(100, score)),
       rationale,
       management: fii.management,
-      diversification: fii.diversification
+      diversification: fii.diversification,
+      userAveragePrice,
+      isBelowAveragePrice,
+      rebalancesPortfolio,
     };
   }).sort((a, b) => b.score - a.score);
 }
 
-// Gerar recomendação personalizada para o valor restante do mês (ex: R$ 150 restantes dos R$ 200)
+// Gerar recomendação personalizada para o valor disponível
 export function generateDailyRecommendation(
   remainingBudget: number,
-  evaluatedFiis: EvaluatedFii[]
+  evaluatedFiis: EvaluatedFii[],
+  positions: FiiPosition[] = [],
+  strategyMode: RecommendationStrategy = 'balanced'
 ): DayRecommendation {
   const budget = Math.max(0, Number(remainingBudget.toFixed(2)));
 
-  // Se o usuário já bateu a meta ou tem menos de R$ 10 restantes
   if (budget < 10) {
     return {
       remainingBudget: budget,
@@ -111,34 +168,80 @@ export function generateDailyRecommendation(
       unallocatedCash: budget,
       projectedMonthlyIncomeGain: 0,
       items: [],
-      strategyExplanation: '🎉 Parabéns! Você já bateu sua meta de aportes deste mês! Quando o próximo mês iniciar, o radar calculará uma nova cesta de compras para seus novos R$ 200.'
+      strategyExplanation:
+        '🎉 Meta do mês concluída! Ative a opção "Somar proventos" acima caso queira simular o reinvestimento dos seus dividendos.',
     };
   }
 
-  // Filtrar os melhores fundos disponíveis, priorizando Base 10 para fracionar os R$ 150 com precisão
+  // MODO 1: TURBO BOLA DE NEVE (Foco em bater o Número Mágico mais próximo)
+  if (strategyMode === 'snowball' && positions.length > 0) {
+    const candidates = positions
+      .filter((p) => p.totalShares < p.magicNumber && p.currentPrice <= budget)
+      .sort((a, b) => b.magicProgressPercent - a.magicProgressPercent);
+
+    const targetPos = candidates[0] || positions.find((p) => p.currentPrice <= budget);
+
+    if (targetPos) {
+      const shares = Math.floor(budget / targetPos.currentPrice);
+      if (shares > 0) {
+        const cost = Number((shares * targetPos.currentPrice).toFixed(2));
+        const income = Number((shares * targetPos.monthlyDividendPerShare).toFixed(2));
+        const newTotalShares = targetPos.totalShares + shares;
+        const remainingToMagic = Math.max(0, targetPos.magicNumber - newTotalShares);
+
+        return {
+          remainingBudget: budget,
+          totalSuggestedCost: cost,
+          unallocatedCash: Number((budget - cost).toFixed(2)),
+          projectedMonthlyIncomeGain: income,
+          items: [
+            {
+              ticker: targetPos.ticker,
+              name: targetPos.name,
+              shares,
+              currentPrice: targetPos.currentPrice,
+              totalCost: cost,
+              estimatedMonthlyIncome: income,
+              segment: targetPos.segment,
+              base: targetPos.base,
+              reason:
+                remainingToMagic === 0
+                  ? '❄️ Atinge o Número Mágico com esta compra!'
+                  : `❄️ Reduz para apenas ${remainingToMagic} cotas até o Número Mágico`,
+            },
+          ],
+          strategyExplanation: `Focando 100% do saldo em ${targetPos.ticker} para acelerar sua Bola de Neve: você passará de ${targetPos.totalShares} para ${newTotalShares} cotas (meta: ${targetPos.magicNumber}).`,
+        };
+      }
+    }
+  }
+
+  // MODO 2: EQUILÍBRIO DE CARTEIRA + DESCONTOS P/VP
   const eligibleFiis = evaluatedFiis
     .filter((f) => f.status === 'OPPORTUNITY' || f.status === 'FAIR')
     .sort((a, b) => {
-      // Priorizar Base 10 se o orçamento for menor que R$ 120
       if (budget < 120 && a.base !== b.base) {
         return a.base - b.base;
+      }
+      // Priorizar setores que equilibram a carteira do usuário
+      if (a.rebalancesPortfolio !== b.rebalancesPortfolio) {
+        return a.rebalancesPortfolio ? -1 : 1;
       }
       return b.score - a.score;
     });
 
-  // Selecionar até 2 ou 3 fundos de segmentos diferentes para diversificar os R$ 150
   const chosenFiis: EvaluatedFii[] = [];
-  const segmentsPicked = new Set<string>();
+  const categoriesPicked = new Set<string>();
 
   for (const f of eligibleFiis) {
-    if (!segmentsPicked.has(f.segment) && f.currentPrice <= budget) {
+    const cat = getMacroCategory(f.segment);
+    if (!categoriesPicked.has(cat) && f.currentPrice <= budget) {
       chosenFiis.push(f);
-      segmentsPicked.add(f.segment);
+      categoriesPicked.add(cat);
       if (chosenFiis.length >= 2) break;
     }
   }
 
-  // Se não achou 2 de segmentos diferentes, pega os 2 melhores por score
   if (chosenFiis.length === 0 && eligibleFiis.length > 0) {
     chosenFiis.push(eligibleFiis[0]);
   }
@@ -146,6 +249,16 @@ export function generateDailyRecommendation(
   const items: RecommendedBasketItem[] = [];
   let currentTotalCost = 0;
   let totalIncome = 0;
+
+  const formatReason = (f: EvaluatedFii) => {
+    if (f.isBelowAveragePrice) {
+      return `📉 Abaixo do seu PM (R$ ${f.userAveragePrice?.toFixed(2)}) • Yield ${f.monthlyYieldPercent}% a.m.`;
+    }
+    if (f.rebalancesPortfolio) {
+      return `⚖️ Diversifica em ${getMacroCategory(f.segment)} • P/VP ${f.pvp}`;
+    }
+    return `${f.discountPercent > 0 ? `Desconto de ${f.discountPercent}%` : 'Preço justo'} • Yield ${f.monthlyYieldPercent}% a.m.`;
+  };
 
   if (chosenFiis.length === 1) {
     const f = chosenFiis[0];
@@ -162,13 +275,12 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income,
         segment: f.segment,
         base: f.base,
-        reason: `${f.discountPercent > 0 ? `Desconto de ${f.discountPercent}%` : 'Preço justo'} com yield de ${f.monthlyYieldPercent}% a.m.`
+        reason: formatReason(f),
       });
       currentTotalCost += cost;
       totalIncome += income;
     }
   } else if (chosenFiis.length >= 2) {
-    // Dividir meio a meio o saldo restante entre os 2 fundos
     const halfBudget = budget / 2;
 
     const f1 = chosenFiis[0];
@@ -192,7 +304,7 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income1,
         segment: f1.segment,
         base: f1.base,
-        reason: `${f1.discountPercent > 0 ? `Com ${f1.discountPercent}% de desconto` : 'Preço justo'} no setor de ${f1.segment}.`
+        reason: formatReason(f1),
       });
       currentTotalCost += cost1;
       totalIncome += income1;
@@ -208,7 +320,7 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income2,
         segment: f2.segment,
         base: f2.base,
-        reason: `Diversificação em ${f2.segment} gerando +${f2.monthlyYieldPercent}% ao mês.`
+        reason: formatReason(f2),
       });
       currentTotalCost += cost2;
       totalIncome += income2;
@@ -217,9 +329,10 @@ export function generateDailyRecommendation(
 
   const unallocatedCash = Number((budget - currentTotalCost).toFixed(2));
 
-  const explanation = items.length > 0
-    ? `Com os R$ ${budget.toFixed(2)} restantes para completar sua meta deste mês, dividimos o valor entre ${items.length} fundos complementares com desconto na B3. Essa compra adicionará cerca de +R$ ${totalIncome.toFixed(2)} por mês na sua conta da XP para sempre!`
-    : 'Nenhuma oportunidade compatível com o saldo restante hoje.';
+  const explanation =
+    items.length > 0
+      ? `Sugestão equilibrada para sua carteira atual: combina desconto patrimonial e diversificação setorial, gerando +R$ ${totalIncome.toFixed(2)}/mês de renda isenta.`
+      : 'Nenhuma oportunidade compatível com o saldo disponível hoje.';
 
   return {
     remainingBudget: budget,
@@ -227,7 +340,8 @@ export function generateDailyRecommendation(
     unallocatedCash,
     projectedMonthlyIncomeGain: Number(totalIncome.toFixed(2)),
     items,
-    strategyExplanation: explanation
+    strategyExplanation: explanation,
   };
 }
+
 

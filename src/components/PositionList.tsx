@@ -75,15 +75,27 @@ export function PositionList({
               {/* Cabeçalho do Card */}
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-base font-extrabold text-white tracking-wide">
                       {pos.ticker}
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
                       {pos.segment}
                     </span>
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                        pos.pvp < 1
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                          : pos.pvp <= 1.03
+                          ? 'bg-zinc-800 text-zinc-300'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+                      }`}
+                      title={`Valor Patrimonial: ${formatBRL(pos.vp)}`}
+                    >
+                      P/VP {pos.pvp}
+                    </span>
                   </div>
-                  <div className="text-xs text-zinc-400 truncate max-w-[200px]">
+                  <div className="text-xs text-zinc-400 truncate max-w-[210px] mt-0.5">
                     {pos.name}
                   </div>
                 </div>
@@ -148,7 +160,7 @@ export function PositionList({
               {/* Dividendo mensal e ações */}
               <div className="flex items-center justify-between pt-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-zinc-400">Dividendo/mês:</span>
+                  <span className="text-[11px] text-zinc-400">Div/mês:</span>
                   {isEditingThis ? (
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-zinc-400">R$</span>
@@ -174,12 +186,12 @@ export function PositionList({
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       <strong className="text-xs font-semibold text-emerald-400">
                         {formatBRL(pos.totalMonthlyDividend)}
                       </strong>
                       <span className="text-[10px] text-zinc-500">
-                        ({formatBRL(pos.monthlyDividendPerShare)}/cota)
+                        ({formatBRL(pos.monthlyDividendPerShare)} • YoC {pos.yieldOnCostPercent}%)
                       </span>
                       <button
                         onClick={() => handleStartEdit(pos)}
@@ -194,7 +206,7 @@ export function PositionList({
 
                 <button
                   onClick={() => onOpenAddModalWithTicker(pos.ticker)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 text-zinc-200 hover:bg-emerald-600 hover:text-white active:scale-95 transition-all text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-800 text-zinc-200 hover:bg-emerald-600 hover:text-white active:scale-95 transition-all text-xs font-medium shrink-0"
                 >
                   <Plus className="w-3 h-3" />
                   Aportar

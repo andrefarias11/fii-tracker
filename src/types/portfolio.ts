@@ -14,14 +14,20 @@ export interface FiiCatalogItem {
   name: string;
   segment: 'Papel' | 'Tijolo - Logística' | 'Tijolo - Shopping' | 'Tijolo - Renda Urbana' | 'Tijolo - Lajes' | 'FOF' | 'Fiagro' | 'Outros';
   base: 10 | 100;
+  vp: number; // Valor Patrimonial de referência por cota
   estimatedMonthlyDividend: number; // Ex: 0.09
+  announcementDay?: number;
+  paymentDay?: number;
 }
+
 
 export interface FiiPosition {
   ticker: string;
   name: string;
   segment: string;
   base: 10 | 100;
+  vp: number;
+  pvp: number;
   totalShares: number;
   averagePrice: number;
   totalInvested: number;
@@ -31,6 +37,9 @@ export interface FiiPosition {
   profitLossPercent: number;
   monthlyDividendPerShare: number;
   totalMonthlyDividend: number;
+  currentYieldPercent: number; // Yield mensal sobre preço atual
+  yieldOnCostPercent: number; // Yield mensal sobre preço médio pago (YoC)
+  ceilingPrice: number; // Preço teto para 0.90% a.m.
   magicNumber: number; // Quantas cotas precisa para comprar 1 cota por mês
   magicProgressPercent: number;
   dailyChangePercent?: number;
@@ -48,6 +57,8 @@ export interface QuoteData {
   price: number;
   changePercent: number;
   prevClose: number;
+  lastDividend?: number;
   updatedAt: string;
 }
+
 

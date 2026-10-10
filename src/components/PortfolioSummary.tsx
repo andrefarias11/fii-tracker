@@ -8,6 +8,7 @@ interface SummaryProps {
   totalProfitLoss: number;
   totalProfitLossPercent: number;
   totalMonthlyDividends: number;
+  averageYieldOnCostPercent?: number;
 }
 
 export function PortfolioSummary({
@@ -16,6 +17,7 @@ export function PortfolioSummary({
   totalProfitLoss,
   totalProfitLossPercent,
   totalMonthlyDividends,
+  averageYieldOnCostPercent = 0,
 }: SummaryProps) {
   const isPositive = totalProfitLoss >= 0;
 
@@ -84,15 +86,21 @@ export function PortfolioSummary({
         </div>
 
         <div className="text-right">
-          <div className="text-[11px] text-zinc-400">Yield Médio Estimado</div>
+          <div className="text-[11px] text-zinc-400">Yield • YoC</div>
           <div className="text-xs font-semibold text-zinc-200">
             {currentEquity > 0
               ? `${((totalMonthlyDividends / currentEquity) * 100).toFixed(2)}% a.m.`
               : '0.00%'}
+            {averageYieldOnCostPercent > 0 && (
+              <span className="text-[10px] text-emerald-400 font-mono ml-1.5" title="Yield on Cost (retorno sobre o valor investido)">
+                (YoC {averageYieldOnCostPercent}%)
+              </span>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 

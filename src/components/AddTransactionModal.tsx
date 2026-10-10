@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { X, Search, Check, Sparkles } from 'lucide-react';
-import { FII_DATABASE, findFiiInfo } from '../data/fiiDatabase';
+import { findFiiInfo } from '../data/fiiDatabase';
+import { Transaction } from '../types/portfolio';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   initialTicker?: string;
+  editingTransaction?: Transaction | null;
+  monthlyTarget?: number;
   onClose: () => void;
   onAddTransaction: (data: {
     ticker: string;
@@ -16,6 +19,17 @@ interface AddTransactionModalProps {
     broker?: string;
     notes?: string;
   }) => void;
+  onUpdateTransaction?: (
+    id: string,
+    data: {
+      ticker: string;
+      date: string;
+      shares: number;
+      price: number;
+      broker?: string;
+      notes?: string;
+    }
+  ) => void;
 }
 
 const POPULAR_SUGGESTIONS = ['MXRF11', 'VGIR11', 'CPTS11', 'KISU11', 'XPML11', 'HGLG11', 'KNCR11'];
@@ -23,29 +37,31 @@ const POPULAR_SUGGESTIONS = ['MXRF11', 'VGIR11', 'CPTS11', 'KISU11', 'XPML11', '
 export function AddTransactionModal({
   isOpen,
   initialTicker = '',
+  editingTransaction = null,
+  monthlyTarget = 200,
   onClose,
   onAddTransaction,
+  onUpdateTransaction,
 }: AddTransactionModalProps) {
-  const [ticker, setTicker] = useState(initialTicker);
-  const [shares, setShares] = useState<number | string>(1);
-  const [price, setPrice] = useState<number | string>('');
-  const [date, setDate] = useState<string>('');
-  const [broker, setBroker] = useState<string>('XP Investimentos');
-  const [notes, setNotes] = useState<string>('');
+  const [ticker, setTicker] = useState(
+    editingTransaction ? editingTransaction.ticker : initialTicker
+  );
+  const [shares, setShares] = useState<number | string>(
+    editingTransaction ? editingTransaction.shares : 1
+  );
+  const [price, setPrice] = useState<number | string>(
+    editingTransaction ? editingTransaction.price : ''
+  );
+  const [date, setDate] = useState<string>(
+    editingTransaction ? editingTransaction.date : new Date().toISOString().slice(0, 10)
+  );
+  const [broker, setBroker] = useState<string>(
+    editingTransaction ? editingTransaction.broker : 'XP Investimentos'
+  );
+  const [notes, setNotes] = useState<string>(
+    editingTransaction?.notes || ''
+  );
   const [isFetchingPrice, setIsFetchingPrice] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!date) {
-      setDate(new Date().toISOString().slice(0, 10));
-    }
-  }, [date]);
-
-  useEffect(() => {
-    if (initialTicker) {
-      setTicker(initialTicker);
-      loadPriceForTicker(initialTicker);
-    }
-  }, [initialTicker]);
 
   const loadPriceForTicker = async (targetTicker: string) => {
     const clean = targetTicker.toUpperCase().trim();
@@ -68,12 +84,38 @@ export function AddTransactionModal({
       setIsFetchingPrice(false);
     }
 
-    // Fallback: se não tiver cotação ao vivo, usa valor padrão da base
     const info = findFiiInfo(clean);
-    if (!price) {
-      setPrice(info.base === 10 ? 9.50 : 100.00);
-    }
+    setPrice(info.base === 10 ? 9.5 : 100.0);
   };
+
+  useEffect(() => {
+    if (!isOpen || editingTransaction || !initialTicker) return;
+    let active = true;
+    const clean = initialTicker.toUpperCase().trim();
+    if (!clean) return;
+
+    fetch(`/api/quote?tickers=${encodeURIComponent(clean)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active) return;
+        const quote = data?.quotes?.[clean];
+        if (quote?.price) {
+          setPrice(quote.price);
+        } else {
+          const info = findFiiInfo(clean);
+          setPrice(info.base === 10 ? 9.5 : 100.0);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        const info = findFiiInfo(clean);
+        setPrice(info.base === 10 ? 9.5 : 100.0);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, initialTicker, editingTransaction]);
 
   const handleSelectSuggestion = (suggested: string) => {
     setTicker(suggested);
@@ -91,14 +133,20 @@ export function AddTransactionModal({
       return;
     }
 
-    onAddTransaction({
+    const payload = {
       ticker: cleanTicker,
       shares: numShares,
       price: numPrice,
       date: date || new Date().toISOString().slice(0, 10),
       broker: broker || 'XP Investimentos',
       notes: notes.trim() || undefined,
-    });
+    };
+
+    if (editingTransaction && onUpdateTransaction) {
+      onUpdateTransaction(editingTransaction.id, payload);
+    } else {
+      onAddTransaction(payload);
+    }
 
     onClose();
   };
@@ -127,8 +175,12 @@ export function AddTransactionModal({
               <Sparkles className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Registrar Novo Aporte</h2>
-              <p className="text-xs text-zinc-400">Adicione suas compras feitas na XP</p>
+              <h2 className="text-base font-bold text-white">
+                {editingTransaction ? 'Editar Aporte' : 'Registrar Novo Aporte'}
+              </h2>
+              <p className="text-xs text-zinc-400">
+                {editingTransaction ? 'Ajuste os dados deste lançamento' : 'Adicione suas compras feitas na XP'}
+              </p>
             </div>
           </div>
           <button
@@ -139,6 +191,7 @@ export function AddTransactionModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
 
         {/* Sugestões Rápidas */}
         <div className="mb-4">
@@ -230,9 +283,11 @@ export function AddTransactionModal({
               </span>
             </div>
             <div className="text-right">
-              <span className="text-[10px] text-zinc-400 block">Impacto na Meta (R$ 200)</span>
+              <span className="text-[10px] text-zinc-400 block">
+                Impacto na Meta ({formatBRL(monthlyTarget)})
+              </span>
               <span className="text-xs font-bold text-zinc-200">
-                {Math.round((currentTotal / 200) * 100)}% da meta
+                {Math.round((currentTotal / Math.max(1, monthlyTarget)) * 100)}% da meta
               </span>
             </div>
           </div>
@@ -289,7 +344,7 @@ export function AddTransactionModal({
               className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
             >
               <Check className="w-4 h-4" />
-              Confirmar Aporte
+              {editingTransaction ? 'Salvar Alterações' : 'Confirmar Aporte'}
             </button>
           </div>
         </form>

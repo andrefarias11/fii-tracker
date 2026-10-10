@@ -1,17 +1,31 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
-import { Trash2, Calendar, Building2 } from 'lucide-react';
+import { Trash2, Edit2, Calendar, Building2 } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
+  onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
 
 export function TransactionHistory({
   transactions,
+  onEditTransaction,
   onDeleteTransaction,
 }: TransactionHistoryProps) {
+  const [selectedTicker, setSelectedTicker] = useState<string>('TODOS');
+
+  const uniqueTickers = useMemo(() => {
+    return Array.from(new Set(transactions.map((t) => t.ticker))).sort();
+  }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    if (selectedTicker === 'TODOS') return transactions;
+    return transactions.filter((t) => t.ticker === selectedTicker);
+  }, [transactions, selectedTicker]);
+
   const formatBRL = (val: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -38,17 +52,39 @@ export function TransactionHistory({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-          Histórico de Aportes
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
-            {transactions.length}
-          </span>
-        </h3>
-      </div>
+      {/* Filtro rápido por FII (exibido apenas se houver mais de 1 ativo) */}
+      {uniqueTickers.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedTicker('TODOS')}
+            className={`text-xs px-3 py-1 rounded-xl whitespace-nowrap font-medium transition-all ${
+              selectedTicker === 'TODOS'
+                ? 'bg-emerald-500 text-zinc-950 font-bold'
+                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+            }`}
+          >
+            Todos ({transactions.length})
+          </button>
+          {uniqueTickers.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setSelectedTicker(t)}
+              className={`text-xs px-3 py-1 rounded-xl whitespace-nowrap font-mono font-medium transition-all ${
+                selectedTicker === t
+                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-2.5">
-        {transactions.map((tx) => (
+        {filteredTransactions.map((tx) => (
           <div
             key={tx.id}
             className="rounded-2xl bg-zinc-900 border border-zinc-800/80 p-3.5 flex items-center justify-between"
@@ -71,13 +107,24 @@ export function TransactionHistory({
                   <Building2 className="w-3 h-3 text-zinc-500" />
                   {tx.broker}
                 </span>
-                {tx.notes && <span className="text-zinc-500 truncate max-w-[120px]">• {tx.notes}</span>}
+                {tx.notes && <span className="text-zinc-500 truncate max-w-[110px]">• {tx.notes}</span>}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-white">{formatBRL(tx.total)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-white mr-1">{formatBRL(tx.total)}</span>
+              {onEditTransaction && (
+                <button
+                  type="button"
+                  onClick={() => onEditTransaction(tx)}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-95 transition-all"
+                  title="Editar aporte"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
+                type="button"
                 onClick={() => {
                   if (confirm(`Deseja remover este aporte de ${tx.ticker}?`)) {
                     onDeleteTransaction(tx.id);
@@ -95,4 +142,5 @@ export function TransactionHistory({
     </div>
   );
 }
+
 

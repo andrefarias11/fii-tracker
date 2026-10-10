@@ -4,40 +4,43 @@ import { useState } from 'react';
 import {
   Compass,
   Sparkles,
-  TrendingUp,
-  Percent,
   CheckCircle2,
   Plus,
   Coins,
-  ShieldCheck,
-  ChevronRight,
-  Filter,
+  Snowflake,
+  Scale,
 } from 'lucide-react';
-import { QuoteData, Transaction } from '../types/portfolio';
+import { QuoteData, Transaction, FiiPosition } from '../types/portfolio';
 import {
   evaluateAllFiis,
   generateDailyRecommendation,
-  EvaluatedFii,
   RecommendedBasketItem,
+  RecommendationStrategy,
 } from '../lib/recommendationEngine';
 import confetti from 'canvas-confetti';
 
 interface OpportunityRadarProps {
   quotes: Record<string, QuoteData>;
+  positions: FiiPosition[];
   monthlyTarget: number;
   currentMonthInvested: number;
+  totalMonthlyDividends: number;
   onOpenAddModalWithTicker: (ticker: string) => void;
   onImportTransactions: (newTransactions: Transaction[], replaceAll: boolean) => Promise<void>;
 }
 
 export function OpportunityRadar({
   quotes,
+  positions,
   monthlyTarget,
   currentMonthInvested,
+  totalMonthlyDividends,
   onOpenAddModalWithTicker,
   onImportTransactions,
 }: OpportunityRadarProps) {
   const [filterSegment, setFilterSegment] = useState<string>('TODOS');
+  const [strategyMode, setStrategyMode] = useState<RecommendationStrategy>('balanced');
+  const [reinvestDividends, setReinvestDividends] = useState<boolean>(false);
   const [isApplyingRecommendation, setIsApplyingRecommendation] = useState<boolean>(false);
   const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
 
@@ -48,10 +51,18 @@ export function OpportunityRadar({
     }).format(val);
   };
 
-  // Avaliação dos fundos e cálculo da cesta do dia
-  const evaluatedFiis = evaluateAllFiis(quotes);
-  const remainingBudget = Math.max(0, monthlyTarget - currentMonthInvested);
-  const recommendation = generateDailyRecommendation(remainingBudget, evaluatedFiis);
+  // Avaliação dos fundos considerando a carteira atual
+  const evaluatedFiis = evaluateAllFiis(quotes, positions);
+  const pocketRemaining = Math.max(0, monthlyTarget - currentMonthInvested);
+  const remainingBudget = Number(
+    (pocketRemaining + (reinvestDividends ? totalMonthlyDividends : 0)).toFixed(2)
+  );
+  const recommendation = generateDailyRecommendation(
+    remainingBudget,
+    evaluatedFiis,
+    positions,
+    strategyMode
+  );
 
   // Filtragem da lista
   const filteredFiis = evaluatedFiis.filter((fii) => {
@@ -77,7 +88,7 @@ export function OpportunityRadar({
         price: item.currentPrice,
         total: item.totalCost,
         broker: 'XP Investimentos',
-        notes: `Aporte do Radar (${item.reason})`
+        notes: `Aporte do Radar (${item.reason})`,
       }));
 
       await onImportTransactions(newTransactions, false);
@@ -113,30 +124,78 @@ export function OpportunityRadar({
                 Alocação Inteligente do Mês
               </h2>
               <p className="text-[11px] text-zinc-400">
-                Onde colocar o saldo restante dos seus R$ {monthlyTarget.toFixed(2)}
+                Sugestão calculada com base na sua carteira
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-            XP Investimentos
-          </span>
         </div>
 
-        {/* Resumo do Orçamento */}
-        <div className="p-3.5 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 mb-3.5 flex items-center justify-between">
-          <div>
-            <span className="text-[11px] text-zinc-400 block">Saldo Restante Deste Mês</span>
-            <span className="text-xl font-extrabold text-white">
-              {formatBRL(remainingBudget)}
-            </span>
+        {/* Seletor de Estratégia (Equilibrar vs Bola de Neve) */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-zinc-950/80 border border-zinc-800/80 mb-3">
+          <button
+            type="button"
+            onClick={() => setStrategyMode('balanced')}
+            className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              strategyMode === 'balanced'
+                ? 'bg-emerald-500 text-zinc-950 font-bold shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            Equilibrar Carteira
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStrategyMode('snowball')}
+            className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              strategyMode === 'snowball'
+                ? 'bg-sky-500 text-zinc-950 font-bold shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Snowflake className="w-3.5 h-3.5" />
+            Turbo Bola de Neve
+          </button>
+        </div>
+
+        {/* Resumo do Orçamento + Toggle de Reinvestimento */}
+        <div className="p-3.5 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 mb-3.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[11px] text-zinc-400 block">Poder de Compra Disponível</span>
+              <span className="text-xl font-extrabold text-white">
+                {formatBRL(remainingBudget)}
+              </span>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[11px] text-zinc-400 block">Aportado no mês</span>
+              <span className="text-xs font-semibold text-emerald-400">
+                {formatBRL(currentMonthInvested)} / {formatBRL(monthlyTarget)}
+              </span>
+            </div>
           </div>
 
-          <div className="text-right">
-            <span className="text-[11px] text-zinc-400 block">Aportado até agora</span>
-            <span className="text-xs font-semibold text-emerald-400">
-              {formatBRL(currentMonthInvested)} / {formatBRL(monthlyTarget)}
-            </span>
-          </div>
+          {totalMonthlyDividends > 0 && (
+            <div className="mt-2.5 pt-2.5 border-t border-zinc-800/70 flex items-center justify-between">
+              <span className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-emerald-400" />
+                Reinvestir proventos do mês ({formatBRL(totalMonthlyDividends)})
+              </span>
+              <button
+                type="button"
+                onClick={() => setReinvestDividends(!reinvestDividends)}
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                  reinvestDividends
+                    ? 'bg-emerald-500 text-zinc-950'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                }`}
+              >
+                {reinvestDividends ? 'Ativado' : '+ Somar'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Explicação da Estratégia */}
@@ -153,9 +212,9 @@ export function OpportunityRadar({
 
         {/* Cesta de Compras Recomendada */}
         {recommendation.items.length > 0 && (
-          <div className="space-y-2 mb-4">
+          <div className="space-y-2 mb-2">
             <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Cesta Sugerida para Comprar Hoje:</span>
+              <span>Cesta Sugerida Hoje:</span>
               <span className="text-emerald-400 font-semibold font-mono">
                 {formatBRL(recommendation.totalSuggestedCost)}
               </span>
@@ -189,15 +248,13 @@ export function OpportunityRadar({
               </div>
             ))}
 
-            {/* Troco */}
             {recommendation.unallocatedCash > 0 && (
               <div className="text-[11px] text-zinc-400 text-right pr-1">
-                Troco não alocado que fica na conta da XP:{' '}
+                Troco livre na corretora:{' '}
                 <strong className="text-zinc-200">{formatBRL(recommendation.unallocatedCash)}</strong>
               </div>
             )}
 
-            {/* Botão de Registro Rápido */}
             <div className="pt-2">
               <button
                 type="button"
@@ -216,13 +273,13 @@ export function OpportunityRadar({
       </div>
 
       {/* 2. RADAR DE TODOS OS FIIS MONITORADOS */}
-      <div className="space-y-3 pt-2">
+      <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-emerald-400" />
             <h3 className="text-sm font-bold text-white">Scanner de FIIs da Bolsa</h3>
           </div>
-          <span className="text-[11px] text-zinc-400">P/VP e Yield em tempo real</span>
+          <span className="text-[11px] text-zinc-400">P/VP e Preço Teto</span>
         </div>
 
         {/* Filtros em Chips */}
@@ -249,7 +306,7 @@ export function OpportunityRadar({
           ))}
         </div>
 
-        {/* Lista de FIIs com Análise Completa */}
+        {/* Lista de FIIs com Análise Enxuta e Intuitiva */}
         <div className="space-y-3">
           {filteredFiis.map((fii) => {
             const isOpportunity = fii.status === 'OPPORTUNITY';
@@ -262,16 +319,20 @@ export function OpportunityRadar({
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-base font-extrabold text-white">{fii.ticker}</span>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
                         {fii.segment}
                       </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400">
-                        Base {fii.base}
-                      </span>
+                      {fii.isBelowAveragePrice && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/25">
+                          Abaixo do seu PM
+                        </span>
+                      )}
                     </div>
-                    <div className="text-xs text-zinc-400 truncate max-w-[200px]">{fii.name}</div>
+                    <div className="text-xs text-zinc-400 truncate max-w-[210px] mt-0.5">
+                      {fii.name}
+                    </div>
                   </div>
 
                   <div className="text-right">
@@ -295,39 +356,30 @@ export function OpportunityRadar({
                   </div>
                 </div>
 
-                {/* Métricas Chave */}
-                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 mb-3 text-center text-xs">
+                {/* Métricas Chave (VP, Yield e Preço Teto) */}
+                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 mb-2.5 text-center text-xs">
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">VP por Cota</span>
+                    <span className="text-[10px] text-zinc-500 block">VP / Cota</span>
                     <span className="font-semibold text-zinc-300">{formatBRL(fii.vp)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">Dividend Yield</span>
+                    <span className="text-[10px] text-zinc-500 block">Yield Anual</span>
                     <span className="font-bold text-emerald-400">{fii.annualYieldPercent}% a.a.</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">Rendimento/mês</span>
-                    <span className="font-semibold text-white">{formatBRL(fii.monthlyDividend)}</span>
+                    <span className="text-[10px] text-zinc-500 block">Preço Teto (0,9%)</span>
+                    <span className="font-semibold text-zinc-200">{formatBRL(fii.ceilingPrice)}</span>
                   </div>
                 </div>
 
-                {/* Caixa do Racional Analítico */}
-                <div
-                  className={`p-3 rounded-2xl mb-3 text-xs leading-relaxed ${
-                    isOpportunity
-                      ? 'bg-emerald-950/25 border border-emerald-800/30 text-emerald-200'
-                      : isExpensive
-                      ? 'bg-rose-950/20 border border-rose-800/30 text-rose-200'
-                      : 'bg-zinc-950/70 border border-zinc-800/70 text-zinc-300'
-                  }`}
-                >
-                  <p>{fii.rationale}</p>
-                </div>
+                {/* Resumo direto + Ação */}
+                <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
+                  {fii.rationale}
+                </p>
 
-                {/* Rodapé com Gestão e Ação */}
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
                   <span className="text-[11px] text-zinc-500 truncate max-w-[190px]">
-                    🛡️ {fii.management}
+                    🛡️ {fii.management} • {formatBRL(fii.monthlyDividend)}/cota
                   </span>
 
                   <button
@@ -347,4 +399,5 @@ export function OpportunityRadar({
     </div>
   );
 }
+
 

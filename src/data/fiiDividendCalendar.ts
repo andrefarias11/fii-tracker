@@ -1,32 +1,20 @@
 import { DividendEvent, MonthProventosSummary, DividendStatus } from '../types/dividend';
 import { FiiPosition } from '../types/portfolio';
-import { FII_DATABASE } from './fiiDatabase';
+import { findFiiInfo } from './fiiDatabase';
 
 interface FiiScheduleInfo {
   announcementDay: number; // Dia típico do anúncio
   paymentDay: number; // Dia típico do pagamento
-  announcedAmount?: number; // Valor oficial divulgado recentemente
+  announcedAmount?: number; // Valor de referência do catálogo
 }
 
-const SCHEDULE_MAP: Record<string, FiiScheduleInfo> = {
-  MXRF11: { announcementDay: 1, paymentDay: 15, announcedAmount: 0.09 },
-  VGIR11: { announcementDay: 1, paymentDay: 14, announcedAmount: 0.10 },
-  CPTS11: { announcementDay: 1, paymentDay: 15, announcedAmount: 0.07 },
-  KISU11: { announcementDay: 1, paymentDay: 14, announcedAmount: 0.075 },
-  GALG11: { announcementDay: 7, paymentDay: 14, announcedAmount: 0.084 },
-  SNAG11: { announcementDay: 1, paymentDay: 15, announcedAmount: 0.105 },
-  VGIA11: { announcementDay: 1, paymentDay: 15, announcedAmount: 0.11 },
-  XPML11: { announcementDay: 15, paymentDay: 25, announcedAmount: 0.92 },
-  HGLG11: { announcementDay: 1, paymentDay: 15, announcedAmount: 1.10 },
-  BTLG11: { announcementDay: 15, paymentDay: 25, announcedAmount: 0.78 },
-  KNCR11: { announcementDay: 1, paymentDay: 14, announcedAmount: 1.05 },
-  TRXF11: { announcementDay: 1, paymentDay: 15, announcedAmount: 0.93 },
-  VISC11: { announcementDay: 15, paymentDay: 24, announcedAmount: 1.00 },
-};
-
 export function getFiiSchedule(ticker: string): FiiScheduleInfo {
-  const clean = ticker.toUpperCase().trim();
-  return SCHEDULE_MAP[clean] || { announcementDay: 5, paymentDay: 15 };
+  const info = findFiiInfo(ticker);
+  return {
+    announcementDay: info.announcementDay ?? 1,
+    paymentDay: info.paymentDay ?? 15,
+    announcedAmount: info.estimatedMonthlyDividend,
+  };
 }
 
 // Calcular os eventos de proventos do mês corrente para a carteira do usuário
@@ -48,11 +36,13 @@ export function calculateMonthDividends(
     if (pos.totalShares <= 0) continue;
 
     const schedule = getFiiSchedule(pos.ticker);
-    const catalogItem = FII_DATABASE.find((f) => f.ticker === pos.ticker);
+    const catalogItem = findFiiInfo(pos.ticker);
 
-    // Se a gestora já divulgou o valor oficial ou se usa o dividendo configurado
-    const isOfficialAnnounced = Boolean(schedule.announcedAmount);
-    const amountPerShare = schedule.announcedAmount ?? pos.monthlyDividendPerShare ?? catalogItem?.estimatedMonthlyDividend ?? 0.09;
+    // Prioriza o dividendo da posição (que já inclui edição manual do usuário ou dado real da API)
+    const amountPerShare =
+      pos.monthlyDividendPerShare > 0
+        ? pos.monthlyDividendPerShare
+        : schedule.announcedAmount ?? catalogItem.estimatedMonthlyDividend ?? 0.09;
     const totalValue = Number((pos.totalShares * amountPerShare).toFixed(2));
 
     // Determinar Status Automático
@@ -60,11 +50,12 @@ export function calculateMonthDividends(
 
     if (currentDay >= schedule.paymentDay) {
       status = 'PAID'; // Já passou do dia de pagamento -> Já caiu na conta da XP
-    } else if (currentDay >= schedule.announcementDay || isOfficialAnnounced) {
+    } else if (currentDay >= schedule.announcementDay) {
       status = 'CONFIRMED'; // Já foi anunciado pela gestora -> Aguardando a data de pagamento
     } else {
       status = 'ESTIMATED'; // Ainda no início do mês -> Estimativa histórica
     }
+
 
     // Respeitar override manual se o usuário tiver alterado o status
     if (customStatusOverrides[pos.ticker]) {
@@ -84,7 +75,7 @@ export function calculateMonthDividends(
       paymentDateFormatted,
       paymentDay: schedule.paymentDay,
       announcementDate,
-      isOfficial: isOfficialAnnounced,
+      isOfficial: status !== 'ESTIMATED',
     });
   }
 

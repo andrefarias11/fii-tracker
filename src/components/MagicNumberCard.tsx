@@ -1,14 +1,24 @@
 'use client';
 
-import { Snowflake, Info, ArrowRight } from 'lucide-react';
+import { Snowflake, Info, Plus } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
 
 interface MagicNumberCardProps {
   positions: FiiPosition[];
+  monthlyTarget?: number;
+  onOpenAddModalWithTicker?: (ticker: string) => void;
 }
 
-export function MagicNumberCard({ positions }: MagicNumberCardProps) {
+export function MagicNumberCard({
+  positions,
+  monthlyTarget = 200,
+  onOpenAddModalWithTicker,
+}: MagicNumberCardProps) {
   if (positions.length === 0) return null;
+
+  const sortedByMagic = [...positions].sort(
+    (a, b) => b.magicProgressPercent - a.magicProgressPercent
+  );
 
   return (
     <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">
@@ -18,21 +28,24 @@ export function MagicNumberCard({ positions }: MagicNumberCardProps) {
         </div>
         <div>
           <h3 className="text-sm font-bold text-white">Efeito Bola de Neve</h3>
-          <p className="text-[11px] text-zinc-400">O &quot;Número Mágico&quot; da independência</p>
+          <p className="text-[11px] text-zinc-400">O &quot;Número Mágico&quot; da cota infinita</p>
         </div>
       </div>
 
       <div className="p-3 rounded-2xl bg-sky-950/20 border border-sky-800/30 mb-4 flex items-start gap-2.5">
         <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
         <p className="text-xs text-sky-200/90 leading-relaxed">
-          O <strong>Número Mágico</strong> é quando o dividendo mensal do FII paga <strong>1 nova cota dele</strong> automaticamente, sem você gastar R$ 1 do seu bolso.
+          Quando você atinge o <strong>Número Mágico</strong>, os próprios dividendos do FII compram <strong>1 nova cota todo mês</strong> sem sair nada do seu bolso.
         </p>
       </div>
 
       <div className="space-y-3">
-        {positions.map((pos) => {
+        {sortedByMagic.map((pos) => {
           const sharesNeeded = Math.max(0, pos.magicNumber - pos.totalShares);
           const reachedMagicNumber = pos.totalShares >= pos.magicNumber;
+          const costNeeded = sharesNeeded * pos.currentPrice;
+          const monthlyPower = Math.max(10, monthlyTarget + pos.totalMonthlyDividend);
+          const monthsEstimated = Math.max(1, Math.ceil(costNeeded / monthlyPower));
 
           return (
             <div key={pos.ticker} className="p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/70">
@@ -50,7 +63,7 @@ export function MagicNumberCard({ positions }: MagicNumberCardProps) {
               </div>
 
               {/* Barra de Progresso */}
-              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden mb-1.5">
+              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     reachedMagicNumber
@@ -62,17 +75,32 @@ export function MagicNumberCard({ positions }: MagicNumberCardProps) {
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                <span>
+                <div>
                   {reachedMagicNumber ? (
                     <span className="text-emerald-400 font-semibold">🎉 Bola de Neve ativada!</span>
                   ) : (
-                    <span className="flex items-center gap-1">
-                      Faltam <strong className="text-zinc-200">{sharesNeeded} cotas</strong>
-                      <ArrowRight className="w-3 h-3 text-zinc-500" />
+                    <span>
+                      Faltam <strong className="text-zinc-200">{sharesNeeded} cotas</strong>{' '}
+                      <span className="text-zinc-500">
+                        (~{monthsEstimated} {monthsEstimated === 1 ? 'mês' : 'meses'} focando nele)
+                      </span>
                     </span>
                   )}
-                </span>
-                <span className="font-mono text-zinc-400">{pos.magicProgressPercent}%</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-zinc-400">{pos.magicProgressPercent}%</span>
+                  {!reachedMagicNumber && onOpenAddModalWithTicker && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenAddModalWithTicker(pos.ticker)}
+                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-zinc-800 hover:bg-sky-500 hover:text-zinc-950 text-zinc-300 text-[10px] font-semibold transition-all"
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      Focar
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -81,4 +109,5 @@ export function MagicNumberCard({ positions }: MagicNumberCardProps) {
     </div>
   );
 }
+
 

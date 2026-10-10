@@ -138,12 +138,10 @@ export function usePortfolio() {
       console.error('Falha ao carregar dados do LocalStorage:', e);
     } finally {
       setIsInitialized(true);
-      // Sincronizar imediatamente com a nuvem
-      syncWithCloud();
     }
-  }, [syncWithCloud]);
+  }, []);
 
-  // Tentativa de sincronização em nuvem após carregar dados locais
+  // Sincronização em nuvem única após carregar dados locais
   useEffect(() => {
     if (isInitialized) {
       syncWithCloud();
@@ -231,6 +229,40 @@ export function usePortfolio() {
     return newTx;
   };
 
+  // Editar aporte existente
+  const updateTransaction = async (
+    id: string,
+    data: {
+      ticker: string;
+      date: string;
+      shares: number;
+      price: number;
+      broker?: string;
+      notes?: string;
+    }
+  ) => {
+    const total = Number((data.shares * data.price).toFixed(2));
+    const updatedTx: Transaction = {
+      id,
+      ticker: data.ticker.toUpperCase().trim(),
+      date: data.date,
+      shares: Number(data.shares),
+      price: Number(data.price),
+      total,
+      broker: data.broker || 'XP Investimentos',
+      notes: data.notes,
+    };
+
+    const updatedList = transactions.map((t) => (t.id === id ? updatedTx : t));
+    persistTransactions(updatedList);
+
+    if (isCloudConnected) {
+      await upsertRemoteTransaction(updatedTx);
+    }
+
+    return updatedTx;
+  };
+
   // Excluir aporte
   const deleteTransaction = async (id: string) => {
     const updated = transactions.filter((t) => t.id !== id);
@@ -287,8 +319,23 @@ export function usePortfolio() {
 
   // Buscar cotações em tempo real (carteira + radar de oportunidades)
   const fetchLiveQuotes = useCallback(async () => {
-    const radarTickers = ['MXRF11', 'VGIR11', 'CPTS11', 'KISU11', 'GALG11', 'SNAG11', 'XPML11', 'HGLG11', 'BTLG11', 'KNCR11', 'TRXF11'];
-    const uniqueTickers = Array.from(new Set([...transactions.map((t) => t.ticker.toUpperCase().trim()), ...radarTickers]));
+    const radarTickers = [
+      'MXRF11',
+      'VGIR11',
+      'CPTS11',
+      'KISU11',
+      'GALG11',
+      'SNAG11',
+      'VGIA11',
+      'XPML11',
+      'HGLG11',
+      'BTLG11',
+      'KNCR11',
+      'TRXF11',
+    ];
+    const uniqueTickers = Array.from(
+      new Set([...transactions.map((t) => t.ticker.toUpperCase().trim()), ...radarTickers])
+    );
     if (uniqueTickers.length === 0) return;
 
     setIsLoadingQuotes(true);
@@ -308,9 +355,9 @@ export function usePortfolio() {
     }
   }, [transactions]);
 
-  // Atualizar cotações automaticamente quando as transações mudarem
+  // Atualizar cotações automaticamente ao iniciar e quando as transações mudarem
   useEffect(() => {
-    if (isInitialized && transactions.length > 0) {
+    if (isInitialized) {
       fetchLiveQuotes();
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);
@@ -341,8 +388,25 @@ export function usePortfolio() {
         ? Number(((profitLoss / data.totalInvested) * 100).toFixed(2))
         : 0;
 
-      const monthlyDividendPerShare = customDividends[ticker] ?? info.estimatedMonthlyDividend;
+      // Prioridade: 1) Dividendo customizado pelo usuário, 2) Último dividendo real da B3 via API, 3) Catálogo
+      const monthlyDividendPerShare =
+        customDividends[ticker] !== undefined
+          ? customDividends[ticker]
+          : liveQuote?.lastDividend && liveQuote.lastDividend > 0
+          ? Number(liveQuote.lastDividend.toFixed(3))
+          : info.estimatedMonthlyDividend;
+
       const totalMonthlyDividend = Number((data.totalShares * monthlyDividendPerShare).toFixed(2));
+
+      const vp = info.vp || currentPrice;
+      const pvp = vp > 0 ? Number((currentPrice / vp).toFixed(2)) : 1.0;
+
+      const currentYieldPercent =
+        currentPrice > 0 ? Number(((monthlyDividendPerShare / currentPrice) * 100).toFixed(2)) : 0;
+      const yieldOnCostPercent =
+        averagePrice > 0 ? Number(((monthlyDividendPerShare / averagePrice) * 100).toFixed(2)) : 0;
+      // Preço teto considerando meta mínima de 0,90% a.m. isento de IR
+      const ceilingPrice = Number((monthlyDividendPerShare / 0.009).toFixed(2));
 
       // Número Mágico
       const magicNumber = monthlyDividendPerShare > 0
@@ -355,6 +419,8 @@ export function usePortfolio() {
         name: info.name,
         segment: info.segment,
         base: info.base,
+        vp,
+        pvp,
         totalShares: data.totalShares,
         averagePrice,
         totalInvested: Number(data.totalInvested.toFixed(2)),
@@ -364,6 +430,9 @@ export function usePortfolio() {
         profitLossPercent,
         monthlyDividendPerShare,
         totalMonthlyDividend,
+        currentYieldPercent,
+        yieldOnCostPercent,
+        ceilingPrice,
         magicNumber,
         magicProgressPercent,
         dailyChangePercent: liveQuote?.changePercent,
@@ -385,6 +454,9 @@ export function usePortfolio() {
     const totalMonthlyDividends = Number(
       positions.reduce((acc, p) => acc + p.totalMonthlyDividend, 0).toFixed(2)
     );
+    const averageYieldOnCostPercent = totalInvested > 0
+      ? Number(((totalMonthlyDividends / totalInvested) * 100).toFixed(2))
+      : 0;
 
     // Aportes do mês atual
     const currentMonthInvested = currentYearMonth
@@ -414,6 +486,7 @@ export function usePortfolio() {
       totalProfitLoss,
       totalProfitLossPercent,
       totalMonthlyDividends,
+      averageYieldOnCostPercent,
       currentMonthInvested: Number(currentMonthInvested.toFixed(2)),
       monthlyGoalProgressPercent,
       equityGoalProgressPercent,
@@ -472,6 +545,7 @@ export function usePortfolio() {
     isSyncing,
     syncWithCloud,
     addTransaction,
+    updateTransaction,
     deleteTransaction,
     clearAllTransactions,
     resetDemo,
@@ -483,3 +557,4 @@ export function usePortfolio() {
     importTransactionsFromB3
   };
 }
+
