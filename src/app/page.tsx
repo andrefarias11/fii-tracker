@@ -61,6 +61,26 @@ export default function HomePage() {
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [targetTickerForAdd, setTargetTickerForAdd] = useState<string>('');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('fii_tracker_privacy_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleTogglePrivacy = () => {
+    setIsPrivacyMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('fii_tracker_privacy_mode', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const handleOpenAddModal = (ticker = '') => {
     setEditingTransaction(null);
@@ -92,25 +112,35 @@ export default function HomePage() {
     );
   }
 
+  const navItems: { id: TabType; label: string; icon: typeof PieChart }[] = [
+    { id: 'portfolio', label: 'Carteira', icon: PieChart },
+    { id: 'proventos', label: 'Proventos', icon: Coins },
+    { id: 'radar', label: 'Radar', icon: Compass },
+    { id: 'goals', label: 'Metas', icon: Target },
+    { id: 'history', label: 'Extrato', icon: History },
+  ];
+
   return (
     <div className="min-h-[100dvh] bg-zinc-950 text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
-      {/* Header com Atualizar e Configurações */}
+      {/* Header com Modo Privacidade, Atualizar e Configurações */}
       <Header
         lastSyncTime={lastSyncTime}
         isLoadingQuotes={isLoadingQuotes}
         isCloudConnected={isCloudConnected}
         isSyncingCloud={isSyncing}
+        isPrivacyMode={isPrivacyMode}
+        onTogglePrivacy={handleTogglePrivacy}
         onRefresh={fetchLiveQuotes}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
       {/* Conteúdo Principal (Mobile First) */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-28 space-y-4">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-32 space-y-4">
         <IosInstallBanner />
 
         {/* Aba: Carteira */}
         {activeTab === 'portfolio' && (
-          <>
+          <div className="space-y-4 animate-in fade-in duration-200">
             <PortfolioSummary
               currentEquity={summary.currentEquity}
               totalInvested={summary.totalInvested}
@@ -118,68 +148,13 @@ export default function HomePage() {
               totalProfitLossPercent={summary.totalProfitLossPercent}
               totalMonthlyDividends={summary.totalMonthlyDividends}
               averageYieldOnCostPercent={summary.averageYieldOnCostPercent}
+              currentMonthInvested={summary.currentMonthInvested}
+              monthlyTarget={goals.monthlyTarget}
+              monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
+              isPrivacyMode={isPrivacyMode}
+              onNavigateToProventos={() => setActiveTab('proventos')}
+              onNavigateToGoals={() => setActiveTab('goals')}
             />
-
-            {/* Ações Rápidas: Novo Aporte ou Importar da B3 */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={() => handleOpenAddModal('')}
-                className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2.5 text-left active:scale-95 transition-all"
-              >
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                  <Plus className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white">Novo Aporte</div>
-                  <div className="text-[10px] text-zinc-400">Lançar manual</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setIsB3ModalOpen(true)}
-                className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-sky-500/40 flex items-center gap-2.5 text-left active:scale-95 transition-all"
-              >
-                <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-500/20 flex items-center justify-center shrink-0">
-                  <FileSpreadsheet className="w-4 h-4 text-sky-400" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white">Importar B3</div>
-                  <div className="text-[10px] text-zinc-400">Extrato Excel</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Banner de Atalho para Proventos & Radar */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div
-                onClick={() => setActiveTab('proventos')}
-                className="cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-950/40 to-zinc-900 border border-emerald-500/25 p-3 flex flex-col justify-between hover:border-emerald-500/50 transition-all"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Coins className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-white">Proventos</span>
-                </div>
-                <div className="text-sm font-extrabold text-emerald-300">
-                  R$ {summary.totalMonthlyDividends.toFixed(2)}
-                  <span className="text-[10px] text-zinc-400 font-normal"> /mês</span>
-                </div>
-                <span className="text-[10px] text-emerald-400/80 mt-1">Ver calendário →</span>
-              </div>
-
-              <div
-                onClick={() => setActiveTab('radar')}
-                className="cursor-pointer rounded-2xl bg-gradient-to-br from-sky-950/40 to-zinc-900 border border-sky-500/25 p-3 flex flex-col justify-between hover:border-sky-500/50 transition-all"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Compass className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-bold text-white">Radar FII</span>
-                </div>
-                <div className="text-xs font-bold text-zinc-200">
-                  Onde comprar?
-                </div>
-                <span className="text-[10px] text-sky-400/80 mt-1">Ver oportunidades →</span>
-              </div>
-            </div>
 
             {/* Barra enxuta de Diversificação por Setor */}
             <AllocationCard
@@ -189,36 +164,43 @@ export default function HomePage() {
 
             <PositionList
               positions={positions}
+              isPrivacyMode={isPrivacyMode}
               onOpenAddModalWithTicker={handleOpenAddModal}
               onUpdateDividend={updateCustomDividend}
+              onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
-          </>
+          </div>
         )}
 
         {/* Aba: Proventos & Calendário de Dividendos */}
         {activeTab === 'proventos' && (
-          <DividendFlow
-            positions={positions}
-            monthlyContributionGoal={goals.monthlyTarget}
-          />
+          <div className="animate-in fade-in duration-200">
+            <DividendFlow
+              positions={positions}
+              monthlyContributionGoal={goals.monthlyTarget}
+              isPrivacyMode={isPrivacyMode}
+            />
+          </div>
         )}
 
         {/* Aba: Radar de Oportunidades & Alocação */}
         {activeTab === 'radar' && (
-          <OpportunityRadar
-            quotes={quotes}
-            positions={positions}
-            monthlyTarget={goals.monthlyTarget}
-            currentMonthInvested={summary.currentMonthInvested}
-            totalMonthlyDividends={summary.totalMonthlyDividends}
-            onOpenAddModalWithTicker={handleOpenAddModal}
-            onImportTransactions={importTransactionsFromB3}
-          />
+          <div className="animate-in fade-in duration-200">
+            <OpportunityRadar
+              quotes={quotes}
+              positions={positions}
+              monthlyTarget={goals.monthlyTarget}
+              currentMonthInvested={summary.currentMonthInvested}
+              totalMonthlyDividends={summary.totalMonthlyDividends}
+              onOpenAddModalWithTicker={handleOpenAddModal}
+              onImportTransactions={importTransactionsFromB3}
+            />
+          </div>
         )}
 
         {/* Aba: Metas & Bola de Neve */}
         {activeTab === 'goals' && (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <GoalsCard
               monthlyTarget={goals.monthlyTarget}
               currentMonthInvested={summary.currentMonthInvested}
@@ -245,7 +227,7 @@ export default function HomePage() {
 
         {/* Aba: Histórico de Aportes */}
         {activeTab === 'history' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-400">Total de compras: {transactions.length}</span>
               <button
@@ -258,6 +240,7 @@ export default function HomePage() {
             </div>
             <TransactionHistory
               transactions={transactions}
+              isPrivacyMode={isPrivacyMode}
               onEditTransaction={handleOpenEditModal}
               onDeleteTransaction={deleteTransaction}
             />
@@ -265,69 +248,46 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* Botão Flutuante (FAB) para Adicionar Aporte */}
-      <div className="fixed bottom-20 right-4 z-40 max-w-md mx-auto">
-        <button
-          onClick={() => handleOpenAddModal('')}
-          className="flex items-center gap-2 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-zinc-950 font-extrabold text-sm shadow-xl shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all"
-        >
-          <Plus className="w-5 h-5 stroke-[3]" />
-          <span>Novo Aporte</span>
-        </button>
+      {/* Botão Flutuante (FAB) alinhado ao container max-w-md */}
+      <div className="fixed bottom-20 inset-x-0 z-40 pointer-events-none">
+        <div className="max-w-md mx-auto px-4 flex justify-end">
+          <button
+            onClick={() => handleOpenAddModal('')}
+            className="pointer-events-auto flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-zinc-950 font-extrabold text-xs shadow-xl shadow-emerald-500/25 hover:scale-105 active:scale-95 transition-all"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Novo Aporte</span>
+          </button>
+        </div>
       </div>
 
-      {/* Barra de Navegação Inferior estilo iOS (5 Abas) */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-lg border-t border-zinc-800/80 pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-5 px-1 py-2">
-          <button
-            onClick={() => setActiveTab('portfolio')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'portfolio' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <PieChart className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Carteira</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('proventos')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'proventos' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Coins className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Proventos</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('radar')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'radar' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Compass className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Radar</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('goals')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'goals' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <Target className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Metas</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
-              activeTab === 'history' ? 'text-emerald-400 font-bold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            <History className="w-4 h-4 mb-0.5" />
-            <span className="text-[9px]">Extrato</span>
-          </button>
+      {/* Barra de Navegação Inferior estilo iOS com Pílula Ativa (5 Abas) */}
+      <nav className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/80 pb-safe">
+        <div className="max-w-md mx-auto grid grid-cols-5 px-2 py-1.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-col items-center justify-center py-1 rounded-2xl transition-all ${
+                  isActive ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <div
+                  className={`px-3 py-0.5 rounded-full transition-all mb-0.5 ${
+                    isActive ? 'bg-emerald-500/15' : ''
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -353,6 +313,7 @@ export default function HomePage() {
       />
 
       <SettingsModal
+        key={isSettingsModalOpen ? 'settings-open' : 'settings-closed'}
         isOpen={isSettingsModalOpen}
         goals={goals}
         isCloudConnected={isCloudConnected}

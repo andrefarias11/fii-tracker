@@ -1,12 +1,14 @@
 'use client';
 
-import { RefreshCw, SlidersHorizontal, TrendingUp, Cloud, CloudOff } from 'lucide-react';
+import { RefreshCw, SlidersHorizontal, TrendingUp, Cloud, CloudOff, Eye, EyeOff } from 'lucide-react';
 
 interface HeaderProps {
   lastSyncTime: Date | null;
   isLoadingQuotes: boolean;
   isCloudConnected: boolean;
   isSyncingCloud: boolean;
+  isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
 }
@@ -16,6 +18,8 @@ export function Header({
   isLoadingQuotes,
   isCloudConnected,
   isSyncingCloud,
+  isPrivacyMode = false,
+  onTogglePrivacy,
   onRefresh,
   onOpenSettings,
 }: HeaderProps) {
@@ -45,6 +49,22 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Modo Privacidade (Ocultar Valores) */}
+          {onTogglePrivacy && (
+            <button
+              onClick={onTogglePrivacy}
+              aria-label={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
+              title={isPrivacyMode ? 'Mostrar valores' : 'Modo Privacidade (Ocultar valores)'}
+              className={`p-2 rounded-xl border transition-all active:scale-95 ${
+                isPrivacyMode
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+              }`}
+            >
+              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* Indicador de Nuvem */}
           <button
             onClick={onOpenSettings}

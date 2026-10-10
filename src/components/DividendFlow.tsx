@@ -16,9 +16,14 @@ import { DividendStatus } from '../types/dividend';
 interface DividendFlowProps {
   positions: FiiPosition[];
   monthlyContributionGoal?: number;
+  isPrivacyMode?: boolean;
 }
 
-export function DividendFlow({ positions, monthlyContributionGoal = 200 }: DividendFlowProps) {
+export function DividendFlow({
+  positions,
+  monthlyContributionGoal = 200,
+  isPrivacyMode = false,
+}: DividendFlowProps) {
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
 
   const currentDate = new Date();
@@ -36,6 +41,7 @@ export function DividendFlow({ positions, monthlyContributionGoal = 200 }: Divid
 
 
   const formatBRL = (val: number) => {
+    if (isPrivacyMode) return 'R$ •••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',

@@ -2,20 +2,23 @@
 
 import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
-import { Trash2, Edit2, Calendar, Building2 } from 'lucide-react';
+import { Trash2, Edit2, Calendar, Building2, X } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
+  isPrivacyMode?: boolean;
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
 
 export function TransactionHistory({
   transactions,
+  isPrivacyMode = false,
   onEditTransaction,
   onDeleteTransaction,
 }: TransactionHistoryProps) {
   const [selectedTicker, setSelectedTicker] = useState<string>('TODOS');
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const uniqueTickers = useMemo(() => {
     return Array.from(new Set(transactions.map((t) => t.ticker))).sort();
@@ -27,6 +30,7 @@ export function TransactionHistory({
   }, [transactions, selectedTicker]);
 
   const formatBRL = (val: number) => {
+    if (isPrivacyMode) return 'R$ ••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -84,60 +88,88 @@ export function TransactionHistory({
       )}
 
       <div className="space-y-2.5">
-        {filteredTransactions.map((tx) => (
-          <div
-            key={tx.id}
-            className="rounded-2xl bg-zinc-900 border border-zinc-800/80 p-3.5 flex items-center justify-between"
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-bold text-white">{tx.ticker}</span>
-                <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                  {tx.shares} {tx.shares === 1 ? 'cota' : 'cotas'}
-                </span>
-                <span className="text-[11px] text-zinc-400">a {formatBRL(tx.price)}</span>
+        {filteredTransactions.map((tx) => {
+          const isConfirming = confirmingDeleteId === tx.id;
+
+          return (
+            <div
+              key={tx.id}
+              className="rounded-2xl bg-zinc-900 border border-zinc-800/80 p-3.5 flex items-center justify-between gap-2"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-sm font-bold text-white">{tx.ticker}</span>
+                  <span className="text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                    {tx.shares} {tx.shares === 1 ? 'cota' : 'cotas'}
+                  </span>
+                  <span className="text-[11px] text-zinc-400">a {formatBRL(tx.price)}</span>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-[11px] text-zinc-400">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-zinc-500" />
+                    {formatDate(tx.date)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-zinc-500" />
+                    {tx.broker}
+                  </span>
+                  {tx.notes && <span className="text-zinc-500 truncate max-w-[110px]">• {tx.notes}</span>}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2.5 text-[11px] text-zinc-400">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-zinc-500" />
-                  {formatDate(tx.date)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Building2 className="w-3 h-3 text-zinc-500" />
-                  {tx.broker}
-                </span>
-                {tx.notes && <span className="text-zinc-500 truncate max-w-[110px]">• {tx.notes}</span>}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!isConfirming && (
+                  <span className="text-sm font-bold text-white mr-1">{formatBRL(tx.total)}</span>
+                )}
+
+                {isConfirming ? (
+                  <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDeleteTransaction(tx.id);
+                        setConfirmingDeleteId(null);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-rose-500 text-white text-[11px] font-bold hover:bg-rose-600 active:scale-95 transition-all"
+                    >
+                      Excluir?
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteId(null)}
+                      className="p-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white"
+                      title="Cancelar"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {onEditTransaction && (
+                      <button
+                        type="button"
+                        onClick={() => onEditTransaction(tx)}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-95 transition-all"
+                        title="Editar aporte"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteId(tx.id)}
+                      className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
+                      title="Excluir aporte"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-white mr-1">{formatBRL(tx.total)}</span>
-              {onEditTransaction && (
-                <button
-                  type="button"
-                  onClick={() => onEditTransaction(tx)}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-95 transition-all"
-                  title="Editar aporte"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Deseja remover este aporte de ${tx.ticker}?`)) {
-                    onDeleteTransaction(tx.id);
-                  }
-                }}
-                className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
-                title="Excluir aporte"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
