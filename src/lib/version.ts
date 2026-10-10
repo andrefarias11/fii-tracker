@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.7.2';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,20 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.7.2',
+    date: '10/10/2026',
+    highlights: [
+      'Gráfico de Linhas ajustado para exibir exclusivamente o histórico real desde a data do 1º aporte até Hoje (sem projeção futura), comparando Carteira FII vs CDI Líquido vs Poupança vs IPCA',
+    ],
+  },
+  {
+    version: '1.7.1',
+    date: '10/10/2026',
+    highlights: [
+      'Mantém a aba Carteira enxuta e deixa o Gráfico de Linhas Comparativo (FII vs CDI vs Poupança vs IPCA) exclusivo na aba Proventos',
+    ],
+  },
   {
     version: '1.7.0',
     date: '10/10/2026',

@@ -12,10 +12,11 @@ interface PerformanceComparisonChartProps {
   isPrivacyMode?: boolean;
 }
 
-type HorizonMonths = 6 | 12 | 24;
+type ChartMetricMode = 'percent' | 'currency';
 
-interface DataPoint {
+interface HistoricalPoint {
   index: number;
+  dateISO: string;
   label: string;
   fullLabel: string;
   investedPocket: number;
@@ -44,14 +45,31 @@ const SHORT_MONTHS = [
   'Dez',
 ];
 
+function parseDateSafe(dateStr: string): Date {
+  const clean = (dateStr || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    return new Date(`${clean}T12:00:00`);
+  }
+  return new Date();
+}
+
+function formatDayMonth(d: Date): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}/${mon}`;
+}
+
+function formatMonthYear(d: Date): string {
+  return `${SHORT_MONTHS[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+}
+
 export function PerformanceComparisonChart({
   positions,
   transactions,
-  monthlyContribution = 200,
   bcbIndicators = null,
   isPrivacyMode = false,
 }: PerformanceComparisonChartProps) {
-  const [horizon, setHorizon] = useState<HorizonMonths>(12);
+  const [metricMode, setMetricMode] = useState<ChartMetricMode>('percent');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   const formatBRL = (val: number) => {
@@ -62,107 +80,204 @@ export function PerformanceComparisonChart({
     }).format(val);
   };
 
-  // Taxas mensais reais (vindas do Banco Central ou fallback realista)
+  // Taxas mensais oficiais (Banco Central) convertidas para taxa diária composta
   const cdiMonthlyRate = (bcbIndicators?.cdiNetMonthly ?? 0.72) / 100;
   const ipcaMonthlyRate = (bcbIndicators?.ipcaMonthly ?? 0.36) / 100;
-  const poupancaMonthlyRate = 0.0058; // ~0,58% a.m. (TR + 0,5%)
+  const poupancaMonthlyRate = 0.0058;
 
-  // Yield médio mensal da carteira de FIIs do usuário (isento de IR)
-  const portfolioYieldMonthlyRate = useMemo(() => {
-    const totalEq = positions.reduce((acc, p) => acc + p.currentTotal, 0);
-    const totalDiv = positions.reduce((acc, p) => acc + p.totalMonthlyDividend, 0);
-    if (totalEq > 0 && totalDiv > 0) {
-      const rate = totalDiv / totalEq;
-      return Math.max(0.006, Math.min(0.015, rate));
-    }
-    return 0.0092; // 0,92% a.m. padrão FII
-  }, [positions]);
+  const cdiDailyRate = Math.pow(1 + cdiMonthlyRate, 1 / 30) - 1;
+  const ipcaDailyRate = Math.pow(1 + ipcaMonthlyRate, 1 / 30) - 1;
+  const poupancaDailyRate = Math.pow(1 + poupancaMonthlyRate, 1 / 30) - 1;
 
-  // Construção da série comparativa mês a mês ("como se eu tivesse investido o mesmo dinheiro em cada aplicação")
-  const series: DataPoint[] = useMemo(() => {
-    const totalInvestedNow = positions.reduce((acc, p) => acc + p.totalInvested, 0);
-    const currentEquityNow = positions.reduce((acc, p) => acc + p.currentTotal, 0);
-    const currentMonthlyDiv = positions.reduce((acc, p) => acc + p.totalMonthlyDividend, 0);
-
-    const baseInitial = totalInvestedNow > 0 ? totalInvestedNow : monthlyContribution;
-    const fiiInitial =
-      currentEquityNow > 0 ? currentEquityNow + currentMonthlyDiv : monthlyContribution;
-
-    // Calcula quantos meses históricos médios as transações já renderam até hoje
+  //constrói a linha do tempo ESTRITAMENTE do 1º aporte até HOJE (sem projeção futura)
+  const { series, firstInvestDateLabel } = useMemo(() => {
     const now = new Date();
-    let weightedMonthsHeld = 1;
-    if (transactions.length > 0 && totalInvestedNow > 0) {
-      let sumWeighted = 0;
-      let sumTotal = 0;
-      for (const tx of transactions) {
-        if (tx.type === 'SELL') continue;
-        const txDate = new Date(`${tx.date}T12:00:00`);
-        const diffDays = Math.max(15, (now.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24));
-        const months = diffDays / 30;
-        sumWeighted += months * tx.total;
-        sumTotal += tx.total;
+    const validTxs = [...transactions]
+      .filter((t) => Boolean(t.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (validTxs.length === 0) {
+      return { series: [] as HistoricalPoint[], firstInvestDateLabel: '' };
+    }
+
+    const firstDate = parseDateSafe(validTxs[0].date);
+    // Se a data da transação no banco demo estiver no futuro em relação ao relógio, ajustamos a referência final
+    const lastTxDate = parseDateSafe(validTxs[validTxs.length - 1].date);
+    const endDate = now >= lastTxDate ? now : lastTxDate;
+
+    const totalSpanMs = Math.max(
+      24 * 60 * 60 * 1000,
+      endDate.getTime() - firstDate.getTime()
+    );
+    const totalSpanDays = Math.max(1, Math.round(totalSpanMs / (1000 * 60 * 60 * 24)));
+
+    // Gera os pontos de medição entre o 1º aporte e Hoje
+    const checkpoints: Date[] = [];
+    const spanMonths =
+      (endDate.getFullYear() - firstDate.getFullYear()) * 12 +
+      (endDate.getMonth() - firstDate.getMonth());
+
+    if (spanMonths >= 2) {
+      // Quando há vários meses de histórico: 1 ponto por mês do primeiro aporte até Hoje
+      checkpoints.push(new Date(firstDate.getTime()));
+      for (let m = 1; m <= spanMonths; m++) {
+        const d = new Date(firstDate.getFullYear(), firstDate.getMonth() + m, 1, 12, 0, 0);
+        if (d.getTime() > firstDate.getTime() && d.getTime() < endDate.getTime()) {
+          checkpoints.push(d);
+        }
       }
-      if (sumTotal > 0) {
-        weightedMonthsHeld = Math.max(0.5, Math.min(24, sumWeighted / sumTotal));
+      checkpoints.push(new Date(endDate.getTime()));
+    } else {
+      // Quando o investidor começou há poucos dias/semanas: divide do 1º aporte até Hoje em 6 pontos reais
+      const steps = 5;
+      for (let i = 0; i <= steps; i++) {
+        const t = firstDate.getTime() + (totalSpanMs * i) / steps;
+        checkpoints.push(new Date(t));
       }
     }
 
-    const cdiInitial = baseInitial * Math.pow(1 + cdiMonthlyRate, weightedMonthsHeld);
-    const poupancaInitial = baseInitial * Math.pow(1 + poupancaMonthlyRate, weightedMonthsHeld);
-    const ipcaInitial = baseInitial * Math.pow(1 + ipcaMonthlyRate, weightedMonthsHeld);
+    // Mapeia preço atual e dividendo mensal de cada FII da carteira
+    const posMap = new Map<string, FiiPosition>();
+    for (const p of positions) {
+      posMap.set(p.ticker, p);
+    }
 
-    const points: DataPoint[] = [];
-    let accPocket = baseInitial;
-    let accFii = fiiInitial;
-    let accCdi = cdiInitial;
-    let accPoupanca = poupancaInitial;
-    let accIpca = ipcaInitial;
+    const points: HistoricalPoint[] = checkpoints.map((cpDate, idx) => {
+      const isLast = idx === checkpoints.length - 1;
+      const isFirst = idx === 0;
 
-    const contrib = Math.max(50, monthlyContribution);
+      // Filtra transações ocorridas até esta data (no 1º ponto, inclui todas do dia do 1º aporte)
+      const cpIso = cpDate.toISOString().slice(0, 10);
+      const txsUpToHere = validTxs.filter((tx) =>
+        isFirst ? tx.date <= validTxs[0].date : tx.date <= cpIso
+      );
 
-    for (let m = 0; m <= horizon; m++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
-      const shortMonth = SHORT_MONTHS[d.getMonth()];
-      const yearShort = String(d.getFullYear()).slice(2);
+      let investedPocket = 0;
+      let cdiValue = 0;
+      let poupancaValue = 0;
+      let ipcaValue = 0;
+      let fiiMarketAndDividends = 0;
 
-      if (m > 0) {
-        accPocket += contrib;
-        accFii = (accFii + contrib) * (1 + portfolioYieldMonthlyRate);
-        accCdi = (accCdi + contrib) * (1 + cdiMonthlyRate);
-        accPoupanca = (accPoupanca + contrib) * (1 + poupancaMonthlyRate);
-        accIpca = (accIpca + contrib) * (1 + ipcaMonthlyRate);
+      // Agrupa cotas por ticker até esta data para avaliar a carteira FII
+      const tickerHoldings = new Map<
+        string,
+        { shares: number; avgPrice: number; invested: number; weightedDaysHeld: number }
+      >();
+
+      for (const tx of txsUpToHere) {
+        const txDate = parseDateSafe(tx.date);
+        // Se for tudo no mesmo dia, considera ao menos os dias decorridos proporcionalmente na curva
+        const rawDaysHeld = Math.max(
+          0,
+          (cpDate.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const effectiveDaysHeld =
+          totalSpanDays <= 2 ? (idx / Math.max(1, checkpoints.length - 1)) * 30 : rawDaysHeld;
+
+        const amount = Math.abs(tx.total);
+        const isSell = tx.type === 'SELL';
+
+        if (isSell) {
+          investedPocket = Math.max(0, investedPocket - amount);
+          cdiValue = Math.max(0, cdiValue - amount);
+          poupancaValue = Math.max(0, poupancaValue - amount);
+          ipcaValue = Math.max(0, ipcaValue - amount);
+        } else {
+          investedPocket += amount;
+          cdiValue += amount * Math.pow(1 + cdiDailyRate, effectiveDaysHeld);
+          poupancaValue += amount * Math.pow(1 + poupancaDailyRate, effectiveDaysHeld);
+          ipcaValue += amount * Math.pow(1 + ipcaDailyRate, effectiveDaysHeld);
+        }
+
+        const holding = tickerHoldings.get(tx.ticker) || {
+          shares: 0,
+          avgPrice: 0,
+          invested: 0,
+          weightedDaysHeld: 0,
+        };
+
+        if (isSell) {
+          const sold = Math.min(holding.shares, Math.abs(tx.shares));
+          holding.shares = Math.max(0, holding.shares - sold);
+          holding.invested = holding.shares * holding.avgPrice;
+        } else {
+          const prevCost = holding.invested;
+          const newCost = prevCost + amount;
+          holding.shares += Math.abs(tx.shares);
+          holding.invested = newCost;
+          holding.avgPrice = holding.shares > 0 ? newCost / holding.shares : tx.price;
+          holding.weightedDaysHeld =
+            newCost > 0
+              ? (holding.weightedDaysHeld * prevCost + effectiveDaysHeld * amount) / newCost
+              : effectiveDaysHeld;
+        }
+        tickerHoldings.set(tx.ticker, holding);
+      }
+
+      // Calcula o valor da carteira FII naquele ponto (interpolando preço de compra -> cotação B3 atual + dividendos proporcionais)
+      const progressRatio = idx / Math.max(1, checkpoints.length - 1);
+      for (const [ticker, h] of tickerHoldings.entries()) {
+        if (h.shares <= 0) continue;
+        const pos = posMap.get(ticker);
+        const currentPrice = pos ? pos.currentPrice : h.avgPrice;
+        const monthlyDivPerShare = pos ? pos.monthlyDividendPerShare : h.avgPrice * 0.0085;
+
+        // Preço da cota evolui do preço médio pago até o preço atual na B3
+        const priceAtPoint = h.avgPrice + (currentPrice - h.avgPrice) * progressRatio;
+        const equityAtPoint = h.shares * priceAtPoint;
+
+        // Dividendos acumulados no período detido (isento de IR)
+        const monthsHeld = h.weightedDaysHeld / 30;
+        const accumulatedDividends = h.shares * monthlyDivPerShare * Math.max(0, monthsHeld);
+
+        fiiMarketAndDividends += equityAtPoint + accumulatedDividends;
       }
 
       const calcPct = (val: number) =>
-        accPocket > 0 ? Number((((val - accPocket) / accPocket) * 100).toFixed(1)) : 0;
+        investedPocket > 0
+          ? Number((((val - investedPocket) / investedPocket) * 100).toFixed(2))
+          : 0;
 
-      points.push({
-        index: m,
-        label: m === 0 ? 'Hoje' : `${shortMonth}/${yearShort}`,
-        fullLabel: m === 0 ? 'Posição Hoje' : `${shortMonth}/20${yearShort} (+${m}m)`,
-        investedPocket: Number(accPocket.toFixed(2)),
-        fiiValue: Number(accFii.toFixed(2)),
-        cdiValue: Number(accCdi.toFixed(2)),
-        poupancaValue: Number(accPoupanca.toFixed(2)),
-        ipcaValue: Number(accIpca.toFixed(2)),
-        fiiGainPercent: calcPct(accFii),
-        cdiGainPercent: calcPct(accCdi),
-        poupancaGainPercent: calcPct(accPoupanca),
-        ipcaGainPercent: calcPct(accIpca),
-      });
-    }
+      const label = isLast
+        ? 'Hoje'
+        : spanMonths >= 2
+        ? formatMonthYear(cpDate)
+        : formatDayMonth(cpDate);
 
-    return points;
+      const fullLabel = isLast
+        ? `Hoje (${formatDayMonth(cpDate)})`
+        : isFirst
+        ? `1º Aporte (${formatDayMonth(firstDate)}/${firstDate.getFullYear()})`
+        : `${formatDayMonth(cpDate)}/${cpDate.getFullYear()}`;
+
+      return {
+        index: idx,
+        dateISO: cpIso,
+        label,
+        fullLabel,
+        investedPocket: Number(investedPocket.toFixed(2)),
+        fiiValue: Number(fiiMarketAndDividends.toFixed(2)),
+        cdiValue: Number(cdiValue.toFixed(2)),
+        poupancaValue: Number(poupancaValue.toFixed(2)),
+        ipcaValue: Number(ipcaValue.toFixed(2)),
+        fiiGainPercent: calcPct(fiiMarketAndDividends),
+        cdiGainPercent: calcPct(cdiValue),
+        poupancaGainPercent: calcPct(poupancaValue),
+        ipcaGainPercent: calcPct(ipcaValue),
+      };
+    });
+
+    const firstLabel = `${formatDayMonth(firstDate)}/${firstDate.getFullYear()}`;
+    return { series: points, firstInvestDateLabel: firstLabel };
   }, [
     positions,
     transactions,
-    monthlyContribution,
-    horizon,
-    portfolioYieldMonthlyRate,
-    cdiMonthlyRate,
-    poupancaMonthlyRate,
-    ipcaMonthlyRate,
+    cdiDailyRate,
+    poupancaDailyRate,
+    ipcaDailyRate,
   ]);
+
+  if (series.length === 0) return null;
 
   const activePoint =
     selectedIdx !== null && series[selectedIdx]
@@ -174,53 +289,75 @@ export function PerformanceComparisonChart({
   const height = 165;
   const padLeft = 10;
   const padRight = 10;
-  const padTop = 14;
+  const padTop = 16;
   const padBottom = 24;
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
+  const getMetric = (pt: HistoricalPoint, line: 'fii' | 'cdi' | 'poupanca' | 'ipca') => {
+    if (metricMode === 'percent') {
+      if (line === 'fii') return pt.fiiGainPercent;
+      if (line === 'cdi') return pt.cdiGainPercent;
+      if (line === 'poupanca') return pt.poupancaGainPercent;
+      return pt.ipcaGainPercent;
+    }
+    if (line === 'fii') return pt.fiiValue;
+    if (line === 'cdi') return pt.cdiValue;
+    if (line === 'poupanca') return pt.poupancaValue;
+    return pt.ipcaValue;
+  };
+
   const allValues = series.flatMap((p) => [
-    p.fiiValue,
-    p.cdiValue,
-    p.poupancaValue,
-    p.ipcaValue,
+    getMetric(p, 'fii'),
+    getMetric(p, 'cdi'),
+    getMetric(p, 'poupanca'),
+    getMetric(p, 'ipca'),
   ]);
-  const minVal = Math.min(...allValues) * 0.985;
-  const maxVal = Math.max(...allValues) * 1.015;
-  const valRange = Math.max(1, maxVal - minVal);
+
+  const rawMin = Math.min(...allValues);
+  const rawMax = Math.max(...allValues);
+  const spread = Math.max(0.5, rawMax - rawMin);
+  const minVal = rawMin - spread * 0.12;
+  const maxVal = rawMax + spread * 0.12;
+  const valRange = Math.max(0.01, maxVal - minVal);
 
   const getX = (idx: number) =>
     padLeft + (idx / Math.max(1, series.length - 1)) * chartW;
   const getY = (val: number) =>
     padTop + chartH - ((val - minVal) / valRange) * chartH;
 
-  const buildPath = (extractor: (p: DataPoint) => number) =>
+  const buildPath = (line: 'fii' | 'cdi' | 'poupanca' | 'ipca') =>
     series
-      .map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${getX(idx).toFixed(1)} ${getY(extractor(pt)).toFixed(1)}`)
+      .map(
+        (pt, idx) =>
+          `${idx === 0 ? 'M' : 'L'} ${getX(idx).toFixed(1)} ${getY(
+            getMetric(pt, line)
+          ).toFixed(1)}`
+      )
       .join(' ');
 
-  const fiiPath = buildPath((p) => p.fiiValue);
-  const cdiPath = buildPath((p) => p.cdiValue);
-  const poupancaPath = buildPath((p) => p.poupancaValue);
-  const ipcaPath = buildPath((p) => p.ipcaValue);
+  const fiiPath = buildPath('fii');
+  const cdiPath = buildPath('cdi');
+  const poupancaPath = buildPath('poupanca');
+  const ipcaPath = buildPath('ipca');
 
-  const fiiAreaPath = `${fiiPath} L ${getX(series.length - 1).toFixed(1)} ${(padTop + chartH).toFixed(
-    1
-  )} L ${getX(0).toFixed(1)} ${(padTop + chartH).toFixed(1)} Z`;
+  const fiiAreaPath = `${fiiPath} L ${getX(series.length - 1).toFixed(1)} ${(
+    padTop + chartH
+  ).toFixed(1)} L ${getX(0).toFixed(1)} ${(padTop + chartH).toFixed(1)} Z`;
 
-  // Rótulos do eixo X (mostra ~5 pontos espaçados para ficar limpo)
+  // Índices espaçados no eixo X
   const stepX = Math.max(1, Math.floor((series.length - 1) / 4));
   const xTickIndices = Array.from(
-    new Set([0, stepX, stepX * 2, stepX * 3, series.length - 1].filter((i) => i < series.length))
-  );
-
-  const fiiAdvantageOverCdi = Number(
-    (activePoint.fiiValue - activePoint.cdiValue).toFixed(2)
+    new Set(
+      [0, stepX, stepX * 2, stepX * 3, series.length - 1].filter(
+        (i) => i < series.length
+      )
+    )
   );
 
   return (
     <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">
-      {/* Cabeçalho + Seletor de Período */}
+      {/* Cabeçalho + Seletor (% vs R$) */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
@@ -228,32 +365,37 @@ export function PerformanceComparisonChart({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">
-              Carteira FII vs. Benchmarks
+              Desempenho Desde o 1º Aporte
             </h3>
             <p className="text-[11px] text-zinc-400">
-              Se você investisse os mesmos aportes em cada aplicação
+              De {firstInvestDateLabel} até Hoje • Comparativo real
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
-          {([6, 12, 24] as HorizonMonths[]).map((h) => (
-            <button
-              key={h}
-              type="button"
-              onClick={() => {
-                setHorizon(h);
-                setSelectedIdx(null);
-              }}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
-                horizon === h
-                  ? 'bg-emerald-500 text-zinc-950'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {h}M
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setMetricMode('percent')}
+            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+              metricMode === 'percent'
+                ? 'bg-emerald-500 text-zinc-950'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            % Rentab.
+          </button>
+          <button
+            type="button"
+            onClick={() => setMetricMode('currency')}
+            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+              metricMode === 'currency'
+                ? 'bg-emerald-500 text-zinc-950'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            R$ Valor
+          </button>
         </div>
       </div>
 
@@ -273,24 +415,24 @@ export function PerformanceComparisonChart({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-1 rounded-full bg-purple-400 inline-block" />
-          <span className="text-zinc-300">Inflação (IPCA)</span>
+          <span className="text-zinc-300">IPCA</span>
         </div>
       </div>
 
-      {/* Área do Gráfico de Linhas Interativo (SVG) */}
+      {/* Gráfico de Linhas Interativo (Do 1º Aporte até Hoje) */}
       <div className="p-3 rounded-2xl bg-zinc-950/70 border border-zinc-800/70">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-40 overflow-visible select-none"
         >
           <defs>
-            <linearGradient id="fiiLineFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.28" />
+            <linearGradient id="fiiHistoryFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
               <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
-          {/* Linhas horizontais de grade sutis */}
+          {/* Grade Horizontal */}
           {[0.2, 0.5, 0.8].map((ratio) => {
             const y = padTop + chartH * ratio;
             return (
@@ -308,7 +450,7 @@ export function PerformanceComparisonChart({
           })}
 
           {/* Sombra sob a linha da Carteira FII */}
-          <path d={fiiAreaPath} fill="url(#fiiLineFill)" />
+          <path d={fiiAreaPath} fill="url(#fiiHistoryFill)" />
 
           {/* 4. Linha Roxo: Inflação IPCA */}
           <path
@@ -351,7 +493,7 @@ export function PerformanceComparisonChart({
             strokeLinejoin="round"
           />
 
-          {/* Linha vertical do mês selecionado */}
+          {/* Linha vertical da data selecionada */}
           {activePoint && (
             <line
               x1={getX(activePoint.index)}
@@ -364,30 +506,30 @@ export function PerformanceComparisonChart({
             />
           )}
 
-          {/* Pontos no mês ativo */}
+          {/* Pontos no momento selecionado */}
           {activePoint && (
             <>
               <circle
                 cx={getX(activePoint.index)}
-                cy={getY(activePoint.ipcaValue)}
+                cy={getY(getMetric(activePoint, 'ipca'))}
                 r="3"
                 fill="#c084fc"
               />
               <circle
                 cx={getX(activePoint.index)}
-                cy={getY(activePoint.poupancaValue)}
+                cy={getY(getMetric(activePoint, 'poupanca'))}
                 r="3.2"
                 fill="#fbbf24"
               />
               <circle
                 cx={getX(activePoint.index)}
-                cy={getY(activePoint.cdiValue)}
+                cy={getY(getMetric(activePoint, 'cdi'))}
                 r="3.5"
                 fill="#38bdf8"
               />
               <circle
                 cx={getX(activePoint.index)}
-                cy={getY(activePoint.fiiValue)}
+                cy={getY(getMetric(activePoint, 'fii'))}
                 r="4.5"
                 fill="#10b981"
                 stroke="#09090b"
@@ -396,7 +538,7 @@ export function PerformanceComparisonChart({
             </>
           )}
 
-          {/* Rótulos dos meses no eixo X */}
+          {/* Datas no eixo X (do 1º Aporte até Hoje) */}
           {xTickIndices.map((idx) => {
             const pt = series[idx];
             if (!pt) return null;
@@ -419,7 +561,7 @@ export function PerformanceComparisonChart({
             );
           })}
 
-          {/* Áreas de toque invisíveis para selecionar cada mês no celular */}
+          {/* Áreas de toque para inspecionar cada data histórica */}
           {series.map((pt, idx) => {
             const sliceW = chartW / series.length;
             return (
@@ -440,15 +582,16 @@ export function PerformanceComparisonChart({
 
         <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 pt-2 border-t border-zinc-800/70">
           <span>
-            Período: <strong className="text-zinc-200">{activePoint.fullLabel}</strong>
+            Data: <strong className="text-zinc-200">{activePoint.fullLabel}</strong>
           </span>
           <span>
-            Do bolso: <strong className="text-zinc-300">{formatBRL(activePoint.investedPocket)}</strong>
+            Aportado até a data:{' '}
+            <strong className="text-zinc-300">{formatBRL(activePoint.investedPocket)}</strong>
           </span>
         </div>
       </div>
 
-      {/* Placar Comparativo das 4 Aplicações no Mês Selecionado */}
+      {/* Placar Comparativo das 4 Linhas na Data Selecionada */}
       <div className="grid grid-cols-2 gap-2 mt-3">
         <div className="p-2.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between">
           <div>
@@ -461,7 +604,8 @@ export function PerformanceComparisonChart({
             </div>
           </div>
           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-md font-mono">
-            +{activePoint.fiiGainPercent}%
+            {activePoint.fiiGainPercent >= 0 ? '+' : ''}
+            {activePoint.fiiGainPercent}%
           </span>
         </div>
 
@@ -510,16 +654,6 @@ export function PerformanceComparisonChart({
           </span>
         </div>
       </div>
-
-      {/* Resumo de Vantagem da Carteira */}
-      {fiiAdvantageOverCdi > 0 && (
-        <div className="mt-2.5 text-[11px] text-zinc-400 text-center">
-          Sua carteira FII entrega{' '}
-          <strong className="text-emerald-400">+{formatBRL(fiiAdvantageOverCdi)}</strong> a mais
-          que o CDI líquido no período (graças à isenção de IR e reinvestimento).
-        </div>
-      )}
     </div>
   );
 }
-

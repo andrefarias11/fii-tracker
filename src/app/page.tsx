@@ -5,7 +5,6 @@ import { usePortfolio } from '../hooks/usePortfolio';
 import { Transaction } from '../types/portfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
-import { PerformanceComparisonChart } from '../components/PerformanceComparisonChart';
 import { AllocationCard } from '../components/AllocationCard';
 import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
@@ -160,15 +159,6 @@ export default function HomePage() {
               isPrivacyMode={isPrivacyMode}
               onNavigateToProventos={() => setActiveTab('proventos')}
               onNavigateToGoals={() => setActiveTab('goals')}
-            />
-
-            {/* Gráfico de Linhas: Desempenho da Carteira vs CDI vs Poupança vs IPCA */}
-            <PerformanceComparisonChart
-              positions={positions}
-              transactions={transactions}
-              monthlyContribution={goals.monthlyTarget}
-              bcbIndicators={bcbIndicators}
-              isPrivacyMode={isPrivacyMode}
             />
 
             {/* Barra enxuta de Diversificação por Setor */}
