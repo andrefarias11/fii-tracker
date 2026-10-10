@@ -22,6 +22,7 @@ import {
   clearSupabaseConfig,
   checkSupabaseConnection,
 } from '../lib/supabase';
+import { APP_VERSION, APP_UPDATED_AT, APP_CHANGELOG } from '../lib/version';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -449,6 +450,47 @@ export function SettingsModal({
                 Limpar Carteira
               </button>
             )}
+          </div>
+        </div>
+
+        {/* 5. VERSÃO DO APP & CONTROLE DE ATUALIZAÇÃO */}
+        <div className="mt-6 pt-4 border-t border-zinc-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-white">Versão do Sistema</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-0.5">
+                Última atualização: {APP_UPDATED_AT}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-semibold active:scale-95 transition-all"
+              title="Recarregar o aplicativo para buscar a versão mais recente"
+            >
+              <RefreshCw className="w-3 h-3 text-emerald-400" />
+              Recarregar App
+            </button>
+          </div>
+
+          <div className="rounded-2xl bg-zinc-950/70 border border-zinc-800/70 p-3 space-y-2">
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              Novidades da v{APP_CHANGELOG[0]?.version}
+            </div>
+            <ul className="space-y-1">
+              {APP_CHANGELOG[0]?.highlights.map((item, idx) => (
+                <li key={idx} className="text-[11px] text-zinc-300 flex items-start gap-1.5 leading-snug">
+                  <span className="text-emerald-400 font-bold">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

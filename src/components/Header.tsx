@@ -1,6 +1,7 @@
 'use client';
 
 import { RefreshCw, SlidersHorizontal, TrendingUp, Cloud, CloudOff, Eye, EyeOff } from 'lucide-react';
+import { APP_VERSION } from '../lib/version';
 
 interface HeaderProps {
   lastSyncTime: Date | null;
@@ -38,12 +39,17 @@ export function Header({
           <div>
             <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
               FII Tracker
-              <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                B3 • XP
-              </span>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                title="Ver detalhes da versão e novidades"
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+              >
+                v{APP_VERSION}
+              </button>
             </h1>
             <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-              <span>{isLoadingQuotes ? 'Atualizando cotações...' : `Cotações: ${formatTime(lastSyncTime)}`}</span>
+              <span>{isLoadingQuotes ? 'Sincronizando B3...' : `B3 Sync: ${formatTime(lastSyncTime)}`}</span>
             </div>
           </div>
         </div>

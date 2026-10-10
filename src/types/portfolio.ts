@@ -44,6 +44,11 @@ export interface FiiPosition {
   magicProgressPercent: number;
   dailyChangePercent?: number;
   lastUpdated?: string;
+  dividendExDate?: string; // Data-Com oficial (DD/MM/YYYY)
+  dividendPaymentDate?: string; // Data de pagamento oficial (DD/MM/YYYY)
+  dividendPaymentDay?: number; // Dia numérico de pagamento
+  isCurrentMonthAnnounced?: boolean; // Se o comunicado do mês atual já saiu oficialmente
+  dividendSource?: 'B3_OFICIAL' | 'MERCADO' | 'CATALOGO' | 'MANUAL';
 }
 
 export interface PortfolioGoals {
@@ -58,6 +63,13 @@ export interface QuoteData {
   changePercent: number;
   prevClose: number;
   lastDividend?: number;
+  dividendExDate?: string; // Ex: "30/09/2026"
+  dividendPaymentDate?: string; // Ex: "15/10/2026"
+  dividendPaymentDay?: number;
+  isCurrentMonthAnnounced?: boolean;
+  dividendSource?: 'B3_OFICIAL' | 'MERCADO';
+  vp?: number;
+  pvp?: number;
   updatedAt: string;
 }
 

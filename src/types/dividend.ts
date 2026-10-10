@@ -9,8 +9,9 @@ export interface DividendEvent {
   status: DividendStatus;
   paymentDateFormatted: string; // Ex: "15/10/2026"
   paymentDay: number; // Ex: 15
-  announcementDate?: string; // Ex: "30/09/2026"
+  announcementDate?: string; // Ex: "30/09/2026" (Data-Com)
   isOfficial: boolean; // Se foi anunciado oficialmente pela gestora
+  dividendSource?: 'B3_OFICIAL' | 'MERCADO' | 'CATALOGO' | 'MANUAL';
 }
 
 export interface MonthProventosSummary {

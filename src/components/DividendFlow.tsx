@@ -219,6 +219,8 @@ export function DividendFlow({
             const isPaid = ev.status === 'PAID';
             const isConfirmed = ev.status === 'CONFIRMED';
             const isEstimated = ev.status === 'ESTIMATED';
+            const isSyncedFromMarket =
+              ev.dividendSource === 'B3_OFICIAL' || ev.dividendSource === 'MERCADO';
 
             return (
               <div
@@ -227,15 +229,27 @@ export function DividendFlow({
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-extrabold text-sm text-white">{ev.ticker}</span>
+                      {isSyncedFromMarket && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          B3 Auto
+                        </span>
+                      )}
                       <span className="text-[10px] text-zinc-400">
                         {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} • {formatBRL(ev.dividendPerShare)}/cota
                       </span>
                     </div>
+                    {ev.announcementDate && (
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
+                        Data-Com: <span className="text-zinc-300 font-medium">{ev.announcementDate}</span>
+                        <span className="mx-1.5">•</span>
+                        Pagamento: <span className="text-zinc-300 font-medium">{ev.paymentDateFormatted}</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <span className="text-sm font-extrabold text-emerald-400">
                       {formatBRL(ev.totalValue)}
                     </span>
@@ -271,9 +285,9 @@ export function DividendFlow({
                     type="button"
                     onClick={() => handleToggleStatus(ev.ticker, ev.status)}
                     className="text-[10px] text-zinc-400 hover:text-white bg-zinc-800/80 px-2 py-1 rounded-lg transition-all active:scale-95"
-                    title="Alternar entre Estimado / Confirmado / Pago"
+                    title="Alternar manualmente caso queira sobrescrever o status automático"
                   >
-                    Alternar Status
+                    {statusOverrides[ev.ticker] ? 'Manual (Alterar)' : 'Status Auto'}
                   </button>
                 </div>
               </div>

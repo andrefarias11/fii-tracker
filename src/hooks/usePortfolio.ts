@@ -389,16 +389,24 @@ export function usePortfolio() {
         : 0;
 
       // Prioridade: 1) Dividendo customizado pelo usuário, 2) Último dividendo real da B3 via API, 3) Catálogo
-      const monthlyDividendPerShare =
-        customDividends[ticker] !== undefined
-          ? customDividends[ticker]
-          : liveQuote?.lastDividend && liveQuote.lastDividend > 0
-          ? Number(liveQuote.lastDividend.toFixed(3))
-          : info.estimatedMonthlyDividend;
+      const hasCustomDiv = customDividends[ticker] !== undefined;
+      const hasLiveDiv = Boolean(liveQuote?.lastDividend && liveQuote.lastDividend > 0);
+
+      const monthlyDividendPerShare = hasCustomDiv
+        ? customDividends[ticker]
+        : hasLiveDiv
+        ? Number((liveQuote!.lastDividend || 0).toFixed(3))
+        : info.estimatedMonthlyDividend;
+
+      const dividendSource: FiiPosition['dividendSource'] = hasCustomDiv
+        ? 'MANUAL'
+        : hasLiveDiv
+        ? liveQuote?.dividendSource || 'MERCADO'
+        : 'CATALOGO';
 
       const totalMonthlyDividend = Number((data.totalShares * monthlyDividendPerShare).toFixed(2));
 
-      const vp = info.vp || currentPrice;
+      const vp = liveQuote?.vp || info.vp || currentPrice;
       const pvp = vp > 0 ? Number((currentPrice / vp).toFixed(2)) : 1.0;
 
       const currentYieldPercent =
@@ -436,7 +444,12 @@ export function usePortfolio() {
         magicNumber,
         magicProgressPercent,
         dailyChangePercent: liveQuote?.changePercent,
-        lastUpdated: liveQuote?.updatedAt
+        lastUpdated: liveQuote?.updatedAt,
+        dividendExDate: liveQuote?.dividendExDate,
+        dividendPaymentDate: liveQuote?.dividendPaymentDate,
+        dividendPaymentDay: liveQuote?.dividendPaymentDay,
+        isCurrentMonthAnnounced: liveQuote?.isCurrentMonthAnnounced,
+        dividendSource,
       });
     }
 

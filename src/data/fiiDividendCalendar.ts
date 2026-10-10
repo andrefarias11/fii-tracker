@@ -45,25 +45,36 @@ export function calculateMonthDividends(
         : schedule.announcedAmount ?? catalogItem.estimatedMonthlyDividend ?? 0.09;
     const totalValue = Number((pos.totalShares * amountPerShare).toFixed(2));
 
-    // Determinar Status Automático
+    // Usar o dia de pagamento real retornado pela API (se for do ciclo atual) ou o dia típico do catálogo
+    const paymentDay =
+      pos.isCurrentMonthAnnounced && pos.dividendPaymentDay
+        ? pos.dividendPaymentDay
+        : schedule.paymentDay;
+
+    // Determinar Status Automático (100% sincronizado com comunicado da B3/StatusInvest + calendário)
     let status: DividendStatus = 'ESTIMATED';
 
-    if (currentDay >= schedule.paymentDay) {
-      status = 'PAID'; // Já passou do dia de pagamento -> Já caiu na conta da XP
-    } else if (currentDay >= schedule.announcementDay) {
-      status = 'CONFIRMED'; // Já foi anunciado pela gestora -> Aguardando a data de pagamento
+    if (currentDay >= paymentDay) {
+      status = 'PAID'; // Já chegou ou passou do dia de pagamento -> Pago na conta
+    } else if (pos.isCurrentMonthAnnounced || currentDay >= schedule.announcementDay) {
+      status = 'CONFIRMED'; // Comunicado oficial do mês já divulgado -> Confirmado a receber
     } else {
-      status = 'ESTIMATED'; // Ainda no início do mês -> Estimativa histórica
+      status = 'ESTIMATED'; // Aguardando anúncio oficial da gestora neste mês
     }
-
 
     // Respeitar override manual se o usuário tiver alterado o status
     if (customStatusOverrides[pos.ticker]) {
       status = customStatusOverrides[pos.ticker];
     }
 
-    const paymentDateFormatted = `${String(schedule.paymentDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
-    const announcementDate = `${String(schedule.announcementDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
+    const paymentDateFormatted =
+      pos.isCurrentMonthAnnounced && pos.dividendPaymentDate
+        ? pos.dividendPaymentDate
+        : `${String(paymentDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
+
+    const announcementDate =
+      pos.dividendExDate ||
+      `${String(schedule.announcementDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
 
     events.push({
       id: `div-${pos.ticker}-${currentYear}-${currentMonth}`,
@@ -73,9 +84,10 @@ export function calculateMonthDividends(
       totalValue,
       status,
       paymentDateFormatted,
-      paymentDay: schedule.paymentDay,
+      paymentDay,
       announcementDate,
-      isOfficial: status !== 'ESTIMATED',
+      isOfficial: status !== 'ESTIMATED' || Boolean(pos.isCurrentMonthAnnounced),
+      dividendSource: pos.dividendSource,
     });
   }
 
