@@ -10,19 +10,22 @@ import {
   HelpCircle,
   ExternalLink,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
-import { parseB3FileBuffer, B3ParseResult } from '../lib/b3Parser';
+import { parseB3FileBuffer, B3ParseResult, deduplicateB3Transactions } from '../lib/b3Parser';
 import { Transaction } from '../types/portfolio';
 import confetti from 'canvas-confetti';
 
 interface B3ImportModalProps {
   isOpen: boolean;
+  existingTransactions?: Transaction[];
   onClose: () => void;
   onImportTransactions: (newTransactions: Transaction[], replaceAll: boolean) => Promise<void>;
 }
 
 export function B3ImportModal({
   isOpen,
+  existingTransactions = [],
   onClose,
   onImportTransactions,
 }: B3ImportModalProps) {
@@ -33,36 +36,49 @@ export function B3ImportModal({
   const [replaceAll, setReplaceAll] = useState<boolean>(false);
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleFileChange = async (selectedFile: File) => {
+  const handleFileChange = async (selectedFile: File, onlyFiis = filterOnlyFIIs) => {
     setFile(selectedFile);
     setIsProcessing(true);
     setParseResult(null);
+    setErrorMessage(null);
 
     try {
       const buffer = await selectedFile.arrayBuffer();
-      const result = parseB3FileBuffer(buffer, filterOnlyFIIs);
+      const result = parseB3FileBuffer(buffer, onlyFiis);
       setParseResult(result);
     } catch {
       setParseResult({
         success: false,
         transactions: [],
         summary: { totalRows: 0, fiiRowsFound: 0, nonFiiRowsSkipped: 0, totalAmountInvested: 0 },
-        error: 'Erro inesperado ao processar arquivo.'
+        error: 'Erro inesperado ao processar arquivo.',
       });
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const dedupInfo =
+    parseResult?.success && !replaceAll
+      ? deduplicateB3Transactions(parseResult.transactions, existingTransactions)
+      : {
+          uniqueTransactions: parseResult?.transactions || [],
+          duplicatesCount: 0,
+        };
+
+  const transactionsToImport = dedupInfo.uniqueTransactions;
+
   const handleConfirmImport = async () => {
-    if (!parseResult || parseResult.transactions.length === 0) return;
+    if (!parseResult || transactionsToImport.length === 0) return;
 
     setIsSaving(true);
+    setErrorMessage(null);
     try {
-      await onImportTransactions(parseResult.transactions, replaceAll);
+      await onImportTransactions(transactionsToImport, replaceAll);
       confetti({
         particleCount: 100,
         spread: 80,
@@ -72,7 +88,7 @@ export function B3ImportModal({
       onClose();
     } catch (err) {
       console.error('Erro ao salvar importação:', err);
-      alert('Erro ao salvar no banco de dados. Tente novamente.');
+      setErrorMessage('Erro ao salvar no banco de dados. Tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -98,7 +114,7 @@ export function B3ImportModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Importar Extrato da B3</h2>
-              <p className="text-xs text-zinc-400">Puxe seu histórico real de FIIs da XP</p>
+              <p className="text-xs text-zinc-400">Com filtro automático anti-duplicidade</p>
             </div>
           </div>
           <button
@@ -147,7 +163,7 @@ export function B3ImportModal({
                 4. Escolha o período desejado e clique no botão <strong>Exportar para Excel (.xlsx)</strong>.
               </p>
               <p className="text-[11px] text-zinc-400 pt-1">
-                💡 O arquivo baixado é 100% processado no seu próprio navegador, mantendo seus dados financeiros totalmente privados.
+                💡 Você pode subir a planilha do ano inteiro sem medo: o sistema ignora sozinho os lançamentos que você já importou antes.
               </p>
             </div>
           )}
@@ -194,31 +210,63 @@ export function B3ImportModal({
         ) : (
           /* Prévia das Transações Encontradas */
           <div className="space-y-4 mb-4">
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-start justify-between">
-              <div>
-                <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Arquivo lido com sucesso!
-                </span>
-                <div className="text-sm font-bold text-white">
-                  {parseResult.transactions.length} compras de FIIs identificadas
+            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Arquivo lido com sucesso!
+                  </span>
+                  <div className="text-sm font-bold text-white">
+                    {transactionsToImport.length}{' '}
+                    {transactionsToImport.length === 1
+                      ? 'novo lançamento para importar'
+                      : 'novos lançamentos para importar'}
+                  </div>
+                  <div className="text-xs text-zinc-400">
+                    Volume das novas compras:{' '}
+                    <strong className="text-emerald-300">
+                      {formatBRL(
+                        transactionsToImport
+                          .filter((t) => t.type !== 'SELL')
+                          .reduce((acc, t) => acc + t.total, 0)
+                      )}
+                    </strong>
+                  </div>
                 </div>
-                <div className="text-xs text-zinc-400">
-                  Total investido: <strong className="text-emerald-300">{formatBRL(parseResult.summary.totalAmountInvested)}</strong>
-                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParseResult(null);
+                    setFile(null);
+                  }}
+                  className="text-xs text-zinc-400 hover:text-zinc-200 underline"
+                >
+                  Trocar arquivo
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setParseResult(null);
-                  setFile(null);
-                }}
-                className="text-xs text-zinc-400 hover:text-zinc-200 underline"
-              >
-                Trocar arquivo
-              </button>
+              {dedupInfo.duplicatesCount > 0 && !replaceAll && (
+                <div className="pt-2 border-t border-emerald-500/20 flex items-center gap-1.5 text-[11px] text-sky-300">
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span>
+                    <strong>{dedupInfo.duplicatesCount}</strong>{' '}
+                    {dedupInfo.duplicatesCount === 1
+                      ? 'aporte já existente foi ignorado'
+                      : 'aportes já existentes foram ignorados'}{' '}
+                    automaticamente.
+                  </span>
+                </div>
+              )}
             </div>
+
+            {errorMessage && (
+              <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-400 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
             {/* Opções de Importação */}
             <div className="space-y-2 p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800 text-xs">
@@ -227,8 +275,9 @@ export function B3ImportModal({
                   type="checkbox"
                   checked={filterOnlyFIIs}
                   onChange={(e) => {
-                    setFilterOnlyFIIs(e.target.checked);
-                    if (file) handleFileChange(file);
+                    const checked = e.target.checked;
+                    setFilterOnlyFIIs(checked);
+                    if (file) handleFileChange(file, checked);
                   }}
                   className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
                 />
@@ -242,52 +291,71 @@ export function B3ImportModal({
                   onChange={(e) => setReplaceAll(e.target.checked)}
                   className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
                 />
-                <span>Substituir carteira atual (apaga os dados demo anteriores)</span>
+                <span>Substituir carteira inteira (apaga todos os dados anteriores)</span>
               </label>
             </div>
 
             {/* Lista Resumo dos Fundos Encontrados */}
-            <div>
-              <span className="text-xs font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
-                Prévia dos Aportes:
-              </span>
-              <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                {parseResult.transactions.slice(0, 15).map((t, idx) => (
-                  <div
-                    key={`${t.ticker}-${idx}`}
-                    className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-white mr-2">{t.ticker}</span>
-                      <span className="text-zinc-400">
-                        {t.shares} cotas a {formatBRL(t.price)}
-                      </span>
+            {transactionsToImport.length > 0 ? (
+              <div>
+                <span className="text-xs font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
+                  Prévia dos Novos Lançamentos:
+                </span>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {transactionsToImport.slice(0, 15).map((t, idx) => (
+                    <div
+                      key={`${t.ticker}-${idx}`}
+                      className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white">{t.ticker}</span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            t.type === 'SELL'
+                              ? 'bg-rose-500/15 text-rose-400'
+                              : 'bg-emerald-500/15 text-emerald-400'
+                          }`}
+                        >
+                          {t.type === 'SELL' ? 'Venda' : 'Compra'}
+                        </span>
+                        <span className="text-zinc-400">
+                          {t.shares} cotas a {formatBRL(t.price)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-semibold text-zinc-200 block">{formatBRL(t.total)}</span>
+                        <span className="text-[10px] text-zinc-500">{t.date}</span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className="font-semibold text-zinc-200 block">{formatBRL(t.total)}</span>
-                      <span className="text-[10px] text-zinc-500">{t.date}</span>
+                  ))}
+                  {transactionsToImport.length > 15 && (
+                    <div className="text-center text-[11px] text-zinc-500 py-1">
+                      + {transactionsToImport.length - 15} outros lançamentos encontrados
                     </div>
-                  </div>
-                ))}
-                {parseResult.transactions.length > 15 && (
-                  <div className="text-center text-[11px] text-zinc-500 py-1">
-                    + {parseResult.transactions.length - 15} outros aportes encontrados
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800 text-center text-xs text-zinc-400">
+                Todos os {parseResult.transactions.length} lançamentos desta planilha já estão cadastrados na sua carteira!
+              </div>
+            )}
 
             {/* Botão de Confirmação */}
             <button
               type="button"
               onClick={handleConfirmImport}
-              disabled={isSaving}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              disabled={isSaving || transactionsToImport.length === 0}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40"
             >
               <Sparkles className="w-4 h-4" />
               {isSaving
-                ? 'Salvando no Supabase...'
-                : `Confirmar e Importar ${parseResult.transactions.length} Aportes`}
+                ? 'Salvando...'
+                : transactionsToImport.length === 0
+                ? 'Nenhum Novo Aporte para Importar'
+                : `Importar ${transactionsToImport.length} ${
+                    transactionsToImport.length === 1 ? 'Novo Lançamento' : 'Novos Lançamentos'
+                  }`}
             </button>
           </div>
         )}

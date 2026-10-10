@@ -95,16 +95,25 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
     if (error) throw error;
     if (!data) return [];
 
-    return data.map((item) => ({
-      id: item.id,
-      ticker: item.ticker,
-      date: item.date,
-      shares: Number(item.shares),
-      price: Number(item.price),
-      total: Number(item.total),
-      broker: item.broker || 'XP Investimentos',
-      notes: item.notes || undefined,
-    }));
+    return data.map((item) => {
+      const rawShares = Number(item.shares);
+      const isSell = rawShares < 0;
+      const absShares = Math.abs(rawShares);
+      const absPrice = Math.abs(Number(item.price));
+      const absTotal = Math.abs(Number(item.total));
+
+      return {
+        id: item.id,
+        ticker: item.ticker,
+        type: isSell ? 'SELL' : 'BUY',
+        date: item.date,
+        shares: absShares,
+        price: absPrice,
+        total: absTotal,
+        broker: item.broker || 'XP Investimentos',
+        notes: item.notes || undefined,
+      };
+    });
   } catch (err) {
     console.error('Erro ao buscar transações no Supabase:', err);
     return null;
@@ -115,14 +124,18 @@ export async function upsertRemoteTransaction(tx: Transaction): Promise<boolean>
   const client = getSupabaseClient();
   if (!client) return false;
 
+  const isSell = tx.type === 'SELL';
+  const signedShares = isSell ? -Math.abs(tx.shares) : Math.abs(tx.shares);
+  const signedTotal = isSell ? -Math.abs(tx.total) : Math.abs(tx.total);
+
   try {
     const { error } = await client.from('transactions').upsert({
       id: tx.id,
       ticker: tx.ticker,
       date: tx.date,
-      shares: tx.shares,
-      price: tx.price,
-      total: tx.total,
+      shares: signedShares,
+      price: Math.abs(tx.price),
+      total: signedTotal,
       broker: tx.broker,
       notes: tx.notes || null,
     });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Transaction, FiiPosition, PortfolioGoals, QuoteData } from '../types/portfolio';
 import { findFiiInfo } from '../data/fiiDatabase';
+import { deduplicateB3Transactions } from '../lib/b3Parser';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
@@ -198,25 +199,29 @@ export function usePortfolio() {
     }
   };
 
-  // Adicionar aporte
+  // Adicionar aporte ou venda
   const addTransaction = async (data: {
     ticker: string;
+    type?: 'BUY' | 'SELL';
     date: string;
     shares: number;
     price: number;
     broker?: string;
     notes?: string;
   }) => {
-    const total = Number((data.shares * data.price).toFixed(2));
+    const absShares = Math.abs(Number(data.shares));
+    const absPrice = Math.abs(Number(data.price));
+    const total = Number((absShares * absPrice).toFixed(2));
     const newTx: Transaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       ticker: data.ticker.toUpperCase().trim(),
+      type: data.type === 'SELL' ? 'SELL' : 'BUY',
       date: data.date,
-      shares: Number(data.shares),
-      price: Number(data.price),
+      shares: absShares,
+      price: absPrice,
       total,
       broker: data.broker || 'XP Investimentos',
-      notes: data.notes
+      notes: data.notes,
     };
 
     const updated = [newTx, ...transactions];
@@ -229,11 +234,12 @@ export function usePortfolio() {
     return newTx;
   };
 
-  // Editar aporte existente
+  // Editar aporte/venda existente
   const updateTransaction = async (
     id: string,
     data: {
       ticker: string;
+      type?: 'BUY' | 'SELL';
       date: string;
       shares: number;
       price: number;
@@ -241,13 +247,16 @@ export function usePortfolio() {
       notes?: string;
     }
   ) => {
-    const total = Number((data.shares * data.price).toFixed(2));
+    const absShares = Math.abs(Number(data.shares));
+    const absPrice = Math.abs(Number(data.price));
+    const total = Number((absShares * absPrice).toFixed(2));
     const updatedTx: Transaction = {
       id,
       ticker: data.ticker.toUpperCase().trim(),
+      type: data.type === 'SELL' ? 'SELL' : 'BUY',
       date: data.date,
-      shares: Number(data.shares),
-      price: Number(data.price),
+      shares: absShares,
+      price: absPrice,
       total,
       broker: data.broker || 'XP Investimentos',
       notes: data.notes,
@@ -293,9 +302,10 @@ export function usePortfolio() {
     }
   };
 
-  // Importar transações vindas da planilha da B3
+  // Importar transações vindas da planilha da B3 (com proteção anti-duplicidade)
   const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
     let finalTransactions: Transaction[] = [];
+    let txsToUpsert: Transaction[] = newTxs;
 
     if (replaceAll) {
       if (isCloudConnected) {
@@ -305,13 +315,15 @@ export function usePortfolio() {
       }
       finalTransactions = newTxs;
     } else {
-      finalTransactions = [...newTxs, ...transactions];
+      const { uniqueTransactions } = deduplicateB3Transactions(newTxs, transactions);
+      txsToUpsert = uniqueTransactions;
+      finalTransactions = [...uniqueTransactions, ...transactions];
     }
 
     persistTransactions(finalTransactions);
 
-    if (isCloudConnected) {
-      for (const tx of newTxs) {
+    if (isCloudConnected && txsToUpsert.length > 0) {
+      for (const tx of txsToUpsert) {
         await upsertRemoteTransaction(tx);
       }
     }
@@ -362,14 +374,29 @@ export function usePortfolio() {
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);
 
-  // Agrupar posições por FII
+  // Agrupar posições por FII (respeitando ordem cronológica para compras e vendas pela regra da B3/IR)
   const positions: FiiPosition[] = useMemo(() => {
-    const map = new Map<string, { totalShares: number; totalInvested: number }>();
+    const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
 
-    for (const tx of transactions) {
-      const current = map.get(tx.ticker) || { totalShares: 0, totalInvested: 0 };
-      current.totalShares += tx.shares;
-      current.totalInvested += tx.total;
+    // Ordenar cronologicamente (do mais antigo para o mais recente) para apurar o Preço Médio corretamente
+    const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const tx of chronologicalTxs) {
+      const current = map.get(tx.ticker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
+      const isSell = tx.type === 'SELL';
+
+      if (isSell) {
+        const soldShares = Math.min(current.totalShares, Math.abs(tx.shares));
+        current.totalShares = Math.max(0, current.totalShares - soldShares);
+        // Na venda, o Preço Médio de compra não muda; o custo investido reduz proporcionalmente
+        current.totalInvested = Number((current.totalShares * current.avgPrice).toFixed(2));
+      } else {
+        current.totalShares += Math.abs(tx.shares);
+        current.totalInvested += Math.abs(tx.total);
+        current.avgPrice =
+          current.totalShares > 0 ? current.totalInvested / current.totalShares : 0;
+      }
+
       map.set(tx.ticker, current);
     }
 
@@ -379,7 +406,7 @@ export function usePortfolio() {
       if (data.totalShares <= 0) continue;
 
       const info = findFiiInfo(ticker);
-      const averagePrice = Number((data.totalInvested / data.totalShares).toFixed(2));
+      const averagePrice = Number(data.avgPrice.toFixed(2));
       const liveQuote = quotes[ticker];
       const currentPrice = liveQuote?.price ? liveQuote.price : averagePrice;
       const currentTotal = Number((data.totalShares * currentPrice).toFixed(2));
@@ -471,10 +498,10 @@ export function usePortfolio() {
       ? Number(((totalMonthlyDividends / totalInvested) * 100).toFixed(2))
       : 0;
 
-    // Aportes do mês atual
+    // Aportes de compra do mês atual
     const currentMonthInvested = currentYearMonth
       ? transactions
-          .filter((t) => t.date.startsWith(currentYearMonth))
+          .filter((t) => t.date.startsWith(currentYearMonth) && t.type !== 'SELL')
           .reduce((acc, t) => acc + t.total, 0)
       : 0;
 

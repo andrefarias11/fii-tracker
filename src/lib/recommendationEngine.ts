@@ -1,4 +1,5 @@
 import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
+import { findFiiInfo } from '../data/fiiDatabase';
 import { QuoteData, FiiPosition } from '../types/portfolio';
 
 export type RecommendationStrategy = 'balanced' | 'snowball';
@@ -24,6 +25,8 @@ export interface EvaluatedFii {
   userAveragePrice?: number;
   isBelowAveragePrice?: boolean;
   rebalancesPortfolio?: boolean;
+  announcementDay: number;
+  daysUntilExDate: number;
 }
 
 export interface RecommendedBasketItem {
@@ -72,8 +75,20 @@ export function evaluateAllFiis(
     }
   }
 
+  const now = new Date();
+  const todayDay = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
   return FII_FUNDAMENTALS.map((fii) => {
     const quote = quotes[fii.ticker];
+    const catalogInfo = findFiiInfo(fii.ticker);
+    const announcementDay = catalogInfo.announcementDay ?? 30;
+    const effectiveExDay = Math.min(announcementDay, daysInMonth);
+    const daysUntilExDate =
+      effectiveExDay >= todayDay
+        ? effectiveExDay - todayDay
+        : daysInMonth - todayDay + announcementDay;
+
     const currentPrice =
       quote?.price && quote.price > 0 ? quote.price : fii.base === 10 ? 9.5 : 100.0;
     const pvp = Number((currentPrice / fii.vp).toFixed(2));
@@ -127,6 +142,10 @@ export function evaluateAllFiis(
       score += 6;
     }
 
+    if (daysUntilExDate <= 5 && status !== 'EXPENSIVE') {
+      score += 5;
+    }
+
     return {
       ticker: fii.ticker,
       name: fii.name,
@@ -148,6 +167,8 @@ export function evaluateAllFiis(
       userAveragePrice,
       isBelowAveragePrice,
       rebalancesPortfolio,
+      announcementDay,
+      daysUntilExDate,
     };
   }).sort((a, b) => b.score - a.score);
 }

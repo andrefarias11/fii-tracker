@@ -1,9 +1,10 @@
 export interface Transaction {
   id: string;
   ticker: string;
+  type?: 'BUY' | 'SELL'; // Padrão: 'BUY'
   date: string; // YYYY-MM-DD
   shares: number;
-  price: number; // Preço pago por cota
+  price: number; // Preço pago/recebido por cota
   total: number;
   broker: string; // Ex: "XP Investimentos"
   notes?: string;

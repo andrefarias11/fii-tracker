@@ -9,6 +9,7 @@ import {
   Coins,
   Snowflake,
   Scale,
+  Zap,
 } from 'lucide-react';
 import { QuoteData, Transaction, FiiPosition } from '../types/portfolio';
 import {
@@ -25,6 +26,7 @@ interface OpportunityRadarProps {
   monthlyTarget: number;
   currentMonthInvested: number;
   totalMonthlyDividends: number;
+  isPrivacyMode?: boolean;
   onOpenAddModalWithTicker: (ticker: string) => void;
   onImportTransactions: (newTransactions: Transaction[], replaceAll: boolean) => Promise<void>;
 }
@@ -35,6 +37,7 @@ export function OpportunityRadar({
   monthlyTarget,
   currentMonthInvested,
   totalMonthlyDividends,
+  isPrivacyMode = false,
   onOpenAddModalWithTicker,
   onImportTransactions,
 }: OpportunityRadarProps) {
@@ -44,7 +47,8 @@ export function OpportunityRadar({
   const [isApplyingRecommendation, setIsApplyingRecommendation] = useState<boolean>(false);
   const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
 
-  const formatBRL = (val: number) => {
+  const formatBRL = (val: number, hideInPrivacy = false) => {
+    if (hideInPrivacy && isPrivacyMode) return 'R$ ••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -67,6 +71,7 @@ export function OpportunityRadar({
   // Filtragem da lista
   const filteredFiis = evaluatedFiis.filter((fii) => {
     if (filterSegment === 'OPORTUNIDADES') return fii.status === 'OPPORTUNITY';
+    if (filterSegment === 'DATA_COM') return fii.daysUntilExDate <= 5;
     if (filterSegment === 'BASE_10') return fii.base === 10;
     if (filterSegment === 'PAPEL') return fii.segment.includes('Papel');
     if (filterSegment === 'TIJOLO') return fii.segment.includes('Tijolo');
@@ -287,6 +292,7 @@ export function OpportunityRadar({
           {[
             { id: 'TODOS', label: 'Todos' },
             { id: 'OPORTUNIDADES', label: '🔥 Descontados' },
+            { id: 'DATA_COM', label: '⚡ Data-Com Próxima' },
             { id: 'BASE_10', label: 'Base 10 (R$ ~10)' },
             { id: 'PAPEL', label: 'Papel (CRI)' },
             { id: 'TIJOLO', label: 'Tijolo' },
@@ -311,6 +317,7 @@ export function OpportunityRadar({
           {filteredFiis.map((fii) => {
             const isOpportunity = fii.status === 'OPPORTUNITY';
             const isExpensive = fii.status === 'EXPENSIVE';
+            const isExDateSoon = fii.daysUntilExDate <= 5;
 
             return (
               <div
@@ -327,6 +334,14 @@ export function OpportunityRadar({
                       {fii.isBelowAveragePrice && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/25">
                           Abaixo do seu PM
+                        </span>
+                      )}
+                      {isExDateSoon && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          <Zap className="w-2.5 h-2.5 text-amber-400" />
+                          {fii.daysUntilExDate === 0
+                            ? `Data-Com hoje! (dia ${fii.announcementDay})`
+                            : `Data-Com em ${fii.daysUntilExDate}d (dia ${fii.announcementDay})`}
                         </span>
                       )}
                     </div>

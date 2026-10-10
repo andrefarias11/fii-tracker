@@ -192,6 +192,7 @@ export default function HomePage() {
               monthlyTarget={goals.monthlyTarget}
               currentMonthInvested={summary.currentMonthInvested}
               totalMonthlyDividends={summary.totalMonthlyDividends}
+              isPrivacyMode={isPrivacyMode}
               onOpenAddModalWithTicker={handleOpenAddModal}
               onImportTransactions={importTransactionsFromB3}
             />
@@ -220,8 +221,13 @@ export default function HomePage() {
               onOpenAddModalWithTicker={handleOpenAddModal}
             />
 
-            {/* Simulador integrado na aba de metas */}
-            <InvestmentSimulator />
+            {/* Simulador integrado na aba de metas conectado ao patrimônio real */}
+            <InvestmentSimulator
+              currentEquity={summary.currentEquity}
+              monthlyTarget={goals.monthlyTarget}
+              averageYieldPercent={summary.averageYieldOnCostPercent}
+              isPrivacyMode={isPrivacyMode}
+            />
           </div>
         )}
 
@@ -229,7 +235,9 @@ export default function HomePage() {
         {activeTab === 'history' && (
           <div className="space-y-3 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-zinc-400">Total de compras: {transactions.length}</span>
+              <span className="text-xs text-zinc-400">
+                Total de operações: {transactions.length}
+              </span>
               <button
                 onClick={() => setIsB3ModalOpen(true)}
                 className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 bg-sky-500/10 px-2.5 py-1 rounded-xl border border-sky-500/20 active:scale-95 transition-all"
@@ -240,6 +248,7 @@ export default function HomePage() {
             </div>
             <TransactionHistory
               transactions={transactions}
+              monthlyTarget={goals.monthlyTarget}
               isPrivacyMode={isPrivacyMode}
               onEditTransaction={handleOpenEditModal}
               onDeleteTransaction={deleteTransaction}
@@ -298,6 +307,7 @@ export default function HomePage() {
         initialTicker={targetTickerForAdd}
         editingTransaction={editingTransaction}
         monthlyTarget={goals.monthlyTarget}
+        currentMonthInvested={summary.currentMonthInvested}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingTransaction(null);
@@ -308,6 +318,7 @@ export default function HomePage() {
 
       <B3ImportModal
         isOpen={isB3ModalOpen}
+        existingTransactions={transactions}
         onClose={() => setIsB3ModalOpen(false)}
         onImportTransactions={importTransactionsFromB3}
       />

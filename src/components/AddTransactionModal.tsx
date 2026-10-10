@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, Sparkles } from 'lucide-react';
+import { X, Search, Check, Sparkles, ArrowDownLeft, ArrowUpRight, AlertCircle } from 'lucide-react';
 import { findFiiInfo } from '../data/fiiDatabase';
 import { Transaction } from '../types/portfolio';
 
@@ -10,9 +10,11 @@ interface AddTransactionModalProps {
   initialTicker?: string;
   editingTransaction?: Transaction | null;
   monthlyTarget?: number;
+  currentMonthInvested?: number;
   onClose: () => void;
   onAddTransaction: (data: {
     ticker: string;
+    type?: 'BUY' | 'SELL';
     date: string;
     shares: number;
     price: number;
@@ -23,6 +25,7 @@ interface AddTransactionModalProps {
     id: string,
     data: {
       ticker: string;
+      type?: 'BUY' | 'SELL';
       date: string;
       shares: number;
       price: number;
@@ -39,10 +42,14 @@ export function AddTransactionModal({
   initialTicker = '',
   editingTransaction = null,
   monthlyTarget = 200,
+  currentMonthInvested = 0,
   onClose,
   onAddTransaction,
   onUpdateTransaction,
 }: AddTransactionModalProps) {
+  const [txType, setTxType] = useState<'BUY' | 'SELL'>(
+    editingTransaction?.type === 'SELL' ? 'SELL' : 'BUY'
+  );
   const [ticker, setTicker] = useState(
     editingTransaction ? editingTransaction.ticker : initialTicker
   );
@@ -58,10 +65,9 @@ export function AddTransactionModal({
   const [broker, setBroker] = useState<string>(
     editingTransaction ? editingTransaction.broker : 'XP Investimentos'
   );
-  const [notes, setNotes] = useState<string>(
-    editingTransaction?.notes || ''
-  );
+  const [notes, setNotes] = useState<string>(editingTransaction?.notes || '');
   const [isFetchingPrice, setIsFetchingPrice] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadPriceForTicker = async (targetTicker: string) => {
     const clean = targetTicker.toUpperCase().trim();
@@ -122,19 +128,34 @@ export function AddTransactionModal({
     loadPriceForTicker(suggested);
   };
 
+  const parsedPrice =
+    typeof price === 'number' ? price : parseFloat(price.toString().replace(',', '.') || '0');
+  const validPrice = !isNaN(parsedPrice) && parsedPrice > 0 ? parsedPrice : 0;
+
+  const remainingGoal = Math.max(0, monthlyTarget - currentMonthInvested);
+
+  const handleQuickFillByBudget = (budgetAmount: number) => {
+    if (validPrice <= 0) return;
+    const maxShares = Math.max(1, Math.floor(budgetAmount / validPrice));
+    setShares(maxShares);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     const cleanTicker = ticker.toUpperCase().trim();
     const numShares = Number(shares);
-    const numPrice = typeof price === 'number' ? price : parseFloat(price.toString().replace(',', '.'));
+    const numPrice =
+      typeof price === 'number' ? price : parseFloat(price.toString().replace(',', '.'));
 
     if (!cleanTicker || isNaN(numShares) || numShares <= 0 || isNaN(numPrice) || numPrice <= 0) {
-      alert('Por favor, informe um código válido, quantidade de cotas e valor pago.');
+      setErrorMsg('Informe o código do FII, quantidade de cotas e o preço unitário.');
       return;
     }
 
     const payload = {
       ticker: cleanTicker,
+      type: txType,
       shares: numShares,
       price: numPrice,
       date: date || new Date().toISOString().slice(0, 10),
@@ -153,8 +174,7 @@ export function AddTransactionModal({
 
   if (!isOpen) return null;
 
-  const currentTotal =
-    Number(shares || 0) * (typeof price === 'number' ? price : parseFloat(price.toString().replace(',', '.') || '0'));
+  const currentTotal = Number(shares || 0) * validPrice;
 
   const formatBRL = (val: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -176,10 +196,10 @@ export function AddTransactionModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
-                {editingTransaction ? 'Editar Aporte' : 'Registrar Novo Aporte'}
+                {editingTransaction ? 'Editar Lançamento' : 'Registrar Operação'}
               </h2>
               <p className="text-xs text-zinc-400">
-                {editingTransaction ? 'Ajuste os dados deste lançamento' : 'Adicione suas compras feitas na XP'}
+                {editingTransaction ? 'Ajuste os dados deste registro' : 'Compra ou venda na sua corretora'}
               </p>
             </div>
           </div>
@@ -192,10 +212,46 @@ export function AddTransactionModal({
           </button>
         </div>
 
+        {errorMsg && (
+          <div className="mb-3 p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-400 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Chave Compra vs Venda */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-zinc-950 border border-zinc-800 mb-4">
+          <button
+            type="button"
+            onClick={() => setTxType('BUY')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+              txType === 'BUY'
+                ? 'bg-emerald-500 text-zinc-950 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <ArrowDownLeft className="w-3.5 h-3.5" />
+            Compra (Aporte)
+          </button>
+          <button
+            type="button"
+            onClick={() => setTxType('SELL')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+              txType === 'SELL'
+                ? 'bg-rose-500 text-white shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <ArrowUpRight className="w-3.5 h-3.5" />
+            Venda (Saída)
+          </button>
+        </div>
 
         {/* Sugestões Rápidas */}
-        <div className="mb-4">
-          <span className="text-[11px] text-zinc-400 block mb-1.5 font-medium">Sugestões Populares (Base 10 / Base 100):</span>
+        <div className="mb-3.5">
+          <span className="text-[11px] text-zinc-400 block mb-1.5 font-medium">
+            Ativos Populares:
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {POPULAR_SUGGESTIONS.map((sug) => (
               <button
@@ -274,26 +330,85 @@ export function AddTransactionModal({
             </div>
           </div>
 
-          {/* Resumo do Aporte */}
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+          {/* Pílulas Rápidas: Calculadora de Quantas Cotas Comprar */}
+          {txType === 'BUY' && validPrice > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-zinc-500 mr-0.5">Calcular cotas:</span>
+              {validPrice <= 100 && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickFillByBudget(100)}
+                  className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                >
+                  R$ 100 ({Math.floor(100 / validPrice)} cotas)
+                </button>
+              )}
+              {remainingGoal >= validPrice && remainingGoal !== monthlyTarget && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickFillByBudget(remainingGoal)}
+                  className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+                >
+                  Falta p/ Meta ({Math.floor(remainingGoal / validPrice)} cotas)
+                </button>
+              )}
+              {monthlyTarget >= validPrice && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickFillByBudget(monthlyTarget)}
+                  className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
+                >
+                  Meta R$ {monthlyTarget} ({Math.floor(monthlyTarget / validPrice)} cotas)
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Resumo da Operação */}
+          <div
+            className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+              txType === 'SELL'
+                ? 'bg-rose-500/10 border-rose-500/20'
+                : 'bg-emerald-500/10 border-emerald-500/20'
+            }`}
+          >
             <div>
-              <span className="text-[11px] text-emerald-300/80 block">Total Deste Aporte</span>
-              <span className="text-lg font-extrabold text-emerald-400">
+              <span
+                className={`text-[11px] block ${
+                  txType === 'SELL' ? 'text-rose-300/80' : 'text-emerald-300/80'
+                }`}
+              >
+                {txType === 'SELL' ? 'Valor Total da Venda' : 'Total Deste Aporte'}
+              </span>
+              <span
+                className={`text-lg font-extrabold ${
+                  txType === 'SELL' ? 'text-rose-400' : 'text-emerald-400'
+                }`}
+              >
                 {formatBRL(currentTotal)}
               </span>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] text-zinc-400 block">
-                Impacto na Meta ({formatBRL(monthlyTarget)})
-              </span>
-              <span className="text-xs font-bold text-zinc-200">
-                {Math.round((currentTotal / Math.max(1, monthlyTarget)) * 100)}% da meta
-              </span>
-            </div>
+            {txType === 'BUY' ? (
+              <div className="text-right">
+                <span className="text-[10px] text-zinc-400 block">
+                  Impacto na Meta ({formatBRL(monthlyTarget)})
+                </span>
+                <span className="text-xs font-bold text-zinc-200">
+                  {Math.round((currentTotal / Math.max(1, monthlyTarget)) * 100)}% da meta
+                </span>
+              </div>
+            ) : (
+              <div className="text-right">
+                <span className="text-[10px] text-zinc-400 block">Regra B3 / IRPF</span>
+                <span className="text-[11px] font-semibold text-zinc-300">
+                  Mantém seu Preço Médio
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {/* Data da Compra */}
+            {/* Data da Operação */}
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">Data</label>
               <input
@@ -331,7 +446,9 @@ export function AddTransactionModal({
             </label>
             <input
               type="text"
-              placeholder="Ex: Aporte mensal de outubro"
+              placeholder={
+                txType === 'SELL' ? 'Ex: Reciclagem de carteira' : 'Ex: Aporte mensal'
+              }
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500"
@@ -341,10 +458,18 @@ export function AddTransactionModal({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
+              className={`w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg ${
+                txType === 'SELL'
+                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-rose-500/20'
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 shadow-emerald-500/20'
+              }`}
             >
               <Check className="w-4 h-4" />
-              {editingTransaction ? 'Salvar Alterações' : 'Confirmar Aporte'}
+              {editingTransaction
+                ? 'Salvar Alterações'
+                : txType === 'SELL'
+                ? 'Confirmar Venda'
+                : 'Confirmar Aporte'}
             </button>
           </div>
         </form>

@@ -156,11 +156,21 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
         continue;
       }
 
-      const operationType = typeKey ? String(row[typeKey] || '').toLowerCase() : 'compra';
-      const isBuy = operationType.includes('compra') || operationType.includes('c') || operationType === '';
+      const operationType = typeKey ? String(row[typeKey] || '').toLowerCase().trim() : 'compra';
+      const isSell =
+        operationType.includes('venda') ||
+        operationType === 'v' ||
+        operationType.includes('débito') ||
+        operationType.includes('debito');
+      const isBuy =
+        !isSell &&
+        (operationType.includes('compra') ||
+          operationType === 'c' ||
+          operationType.includes('crédito') ||
+          operationType.includes('credito') ||
+          operationType === '');
 
-      // Foco em aportes de compra
-      if (!isBuy) {
+      if (!isBuy && !isSell) {
         continue;
       }
 
@@ -184,16 +194,19 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
       validTransactions.push({
         id: `b3-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
         ticker: rawTicker,
+        type: isSell ? 'SELL' : 'BUY',
         date,
         shares,
         price,
         total,
         broker,
-        notes: 'Importado da B3'
+        notes: isSell ? 'Venda importada da B3' : 'Importado da B3'
       });
 
       fiiCount++;
-      totalInvested += total;
+      if (!isSell) {
+        totalInvested += total;
+      }
     }
 
     return {
@@ -215,5 +228,45 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
       error: 'Não foi possível ler o arquivo. Certifique-se de que é um Excel (.xlsx/.xls) ou CSV válido da B3.'
     };
   }
+}
+
+export function buildTransactionSignature(tx: Pick<Transaction, 'ticker' | 'date' | 'shares' | 'price' | 'type'>): string {
+  const cleanTicker = tx.ticker.toUpperCase().trim();
+  const txType = tx.type === 'SELL' ? 'SELL' : 'BUY';
+  const absShares = Math.abs(tx.shares);
+  const absPrice = Math.abs(tx.price).toFixed(2);
+  return `${cleanTicker}|${tx.date}|${absShares}|${absPrice}|${txType}`;
+}
+
+export function deduplicateB3Transactions(
+  incoming: Transaction[],
+  existing: Transaction[]
+): {
+  uniqueTransactions: Transaction[];
+  duplicatesCount: number;
+} {
+  // Contar quantas ocorrências de cada assinatura já existem na carteira
+  const existingCounts = new Map<string, number>();
+  for (const tx of existing) {
+    const sig = buildTransactionSignature(tx);
+    existingCounts.set(sig, (existingCounts.get(sig) || 0) + 1);
+  }
+
+  const uniqueTransactions: Transaction[] = [];
+  let duplicatesCount = 0;
+
+  for (const tx of incoming) {
+    const sig = buildTransactionSignature(tx);
+    const remainingExisting = existingCounts.get(sig) || 0;
+    if (remainingExisting > 0) {
+      // Já existe esse exato lançamento na carteira; consome 1 ocorrência e ignora
+      existingCounts.set(sig, remainingExisting - 1);
+      duplicatesCount++;
+    } else {
+      uniqueTransactions.push(tx);
+    }
+  }
+
+  return { uniqueTransactions, duplicatesCount };
 }
 

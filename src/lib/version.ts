@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,15 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.4.0',
+    date: '10/10/2026',
+    highlights: [
+      'Simulador conectado ao patrimônio real com estimativa de tempo para R$ 5 mil, R$ 10 mil e R$ 50 mil',
+      'Detector anti-duplicidade na importação B3 e suporte a Venda de Cotas (mantendo Preço Médio fiscal)',
+      'Botões rápidos de cálculo de cotas no Novo Aporte, filtro Data-Com Próxima no Radar e Extrato agrupado por mês',
+    ],
+  },
   {
     version: '1.3.0',
     date: '10/10/2026',
