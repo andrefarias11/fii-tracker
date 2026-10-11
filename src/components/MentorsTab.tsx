@@ -5,7 +5,6 @@ import {
   GraduationCap,
   Award,
   Sparkles,
-  Plus,
   CheckCircle2,
   ShieldCheck,
   TrendingUp,
@@ -27,7 +26,6 @@ interface MentorsTabProps {
   positions: FiiPosition[];
   monthlyTarget: number;
   isPrivacyMode?: boolean;
-  onOpenAddModalWithTicker: (ticker: string) => void;
 }
 
 export function MentorsTab({
@@ -35,7 +33,6 @@ export function MentorsTab({
   positions,
   monthlyTarget,
   isPrivacyMode = false,
-  onOpenAddModalWithTicker,
 }: MentorsTabProps) {
   const [selectedMentor, setSelectedMentor] = useState<'ALL' | MentorId>('ALL');
   const [expandedMentors, setExpandedMentors] = useState<Record<string, boolean>>({});
@@ -72,7 +69,6 @@ export function MentorsTab({
           badgeBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
           pillBg: 'bg-emerald-500/10 text-emerald-400',
           highlightText: 'text-emerald-400',
-          buttonHover: 'hover:bg-emerald-500 hover:text-zinc-950',
         };
       case 'amber':
         return {
@@ -82,7 +78,6 @@ export function MentorsTab({
           badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
           pillBg: 'bg-amber-500/10 text-amber-400',
           highlightText: 'text-amber-400',
-          buttonHover: 'hover:bg-amber-500 hover:text-zinc-950',
         };
       case 'sky':
         return {
@@ -92,7 +87,6 @@ export function MentorsTab({
           badgeBg: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
           pillBg: 'bg-sky-500/10 text-sky-400',
           highlightText: 'text-sky-400',
-          buttonHover: 'hover:bg-sky-500 hover:text-zinc-950',
         };
       case 'violet':
         return {
@@ -102,7 +96,6 @@ export function MentorsTab({
           badgeBg: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
           pillBg: 'bg-violet-500/10 text-violet-400',
           highlightText: 'text-violet-400',
-          buttonHover: 'hover:bg-violet-500 hover:text-zinc-950',
         };
     }
   };
@@ -181,15 +174,6 @@ export function MentorsTab({
                       ))}
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => onOpenAddModalWithTicker(item.fii.ticker)}
-                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-500 text-zinc-950 text-xs font-extrabold hover:bg-emerald-400 active:scale-95 transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    Aportar
-                  </button>
                 </div>
               ))}
             </div>
@@ -364,14 +348,9 @@ export function MentorsTab({
                     (+{formatBRL(top1.monthlyIncomeFromBudget, true)}/mês)
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => onOpenAddModalWithTicker(top1.fii.ticker)}
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-800 text-white text-xs font-bold transition-all active:scale-95 ${styles.buttonHover}`}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Aportar em {top1.fii.ticker}
-                  </button>
+                  <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                    Teto {formatBRL(top1.fii.ceilingPrice)}
+                  </span>
                 </div>
               </div>
 
@@ -427,13 +406,9 @@ export function MentorsTab({
                               <span className="text-xs font-bold text-white">
                                 {formatBRL(pick.fii.currentPrice)}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => onOpenAddModalWithTicker(pick.fii.ticker)}
-                                className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-emerald-500 hover:text-zinc-950 text-zinc-200 text-[10px] font-bold transition-all"
-                              >
-                                + Aportar
-                              </button>
+                              <span className="text-[10px] font-semibold text-emerald-400">
+                                P/VP {pick.fii.pvp}
+                              </span>
                             </div>
                           </div>
 

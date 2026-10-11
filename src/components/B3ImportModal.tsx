@@ -54,7 +54,14 @@ export function B3ImportModal({
       setParseResult({
         success: false,
         transactions: [],
-        summary: { totalRows: 0, fiiRowsFound: 0, nonFiiRowsSkipped: 0, totalAmountInvested: 0 },
+        summary: {
+          totalRows: 0,
+          fiiRowsFound: 0,
+          nonFiiRowsSkipped: 0,
+          intraFileDuplicatesRemoved: 0,
+          uniqueTickersFound: [],
+          totalAmountInvested: 0,
+        },
         error: 'Erro inesperado ao processar arquivo.',
       });
     } finally {
@@ -67,10 +74,14 @@ export function B3ImportModal({
       ? deduplicateB3Transactions(parseResult.transactions, existingTransactions)
       : {
           uniqueTransactions: parseResult?.transactions || [],
+          skippedTransactions: [] as Transaction[],
           duplicatesCount: 0,
         };
 
   const transactionsToImport = dedupInfo.uniqueTransactions;
+  const existingRealTickers = new Set(
+    existingTransactions.filter((t) => !t.id.startsWith('demo-')).map((t) => t.ticker)
+  );
 
   const handleConfirmImport = async () => {
     if (!parseResult || transactionsToImport.length === 0) return;
@@ -247,15 +258,44 @@ export function B3ImportModal({
                 </button>
               </div>
 
-              {dedupInfo.duplicatesCount > 0 && !replaceAll && (
+              {parseResult.summary.uniqueTickersFound && parseResult.summary.uniqueTickersFound.length > 0 && (
+                <div className="pt-2 border-t border-emerald-500/20">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 block mb-1.5">
+                    Fundos Consolidados ({parseResult.summary.uniqueTickersFound.length} FIIs únicos):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parseResult.summary.uniqueTickersFound.map((ticker) => (
+                      <span
+                        key={ticker}
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
+                      >
+                        {ticker}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {((dedupInfo.duplicatesCount > 0 && !replaceAll) ||
+                (parseResult.summary.intraFileDuplicatesRemoved || 0) > 0) && (
                 <div className="pt-2 border-t border-emerald-500/20 flex items-center gap-1.5 text-[11px] text-sky-300">
                   <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                   <span>
-                    <strong>{dedupInfo.duplicatesCount}</strong>{' '}
-                    {dedupInfo.duplicatesCount === 1
-                      ? 'aporte já existente foi ignorado'
-                      : 'aportes já existentes foram ignorados'}{' '}
-                    automaticamente.
+                    {dedupInfo.duplicatesCount > 0 && !replaceAll && (
+                      <>
+                        <strong>{dedupInfo.duplicatesCount}</strong>{' '}
+                        {dedupInfo.duplicatesCount === 1
+                          ? 'aporte já existente foi ignorado'
+                          : 'aportes já existentes foram ignorados'}
+                        .{' '}
+                      </>
+                    )}
+                    {(parseResult.summary.intraFileDuplicatesRemoved || 0) > 0 && (
+                      <>
+                        <strong>{parseResult.summary.intraFileDuplicatesRemoved}</strong>{' '}
+                        linhas repetidas na própria planilha foram mescladas/removidas.
+                      </>
+                    )}
                   </span>
                 </div>
               )}
@@ -297,43 +337,69 @@ export function B3ImportModal({
 
             {/* Lista Resumo dos Fundos Encontrados */}
             {transactionsToImport.length > 0 ? (
-              <div>
-                <span className="text-xs font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
-                  Prévia dos Novos Lançamentos:
-                </span>
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {transactionsToImport.slice(0, 15).map((t, idx) => (
-                    <div
-                      key={`${t.ticker}-${idx}`}
-                      className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-white">{t.ticker}</span>
-                        <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            t.type === 'SELL'
-                              ? 'bg-rose-500/15 text-rose-400'
-                              : 'bg-emerald-500/15 text-emerald-400'
-                          }`}
+              <div className="space-y-3">
+                <div>
+                  <span className="text-xs font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
+                    Novos Aportes a Importar ({transactionsToImport.length}):
+                  </span>
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                    {transactionsToImport.slice(0, 15).map((t, idx) => {
+                      const alreadyInPortfolio = existingRealTickers.has(t.ticker);
+                      return (
+                        <div
+                          key={`${t.ticker}-${idx}`}
+                          className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs"
                         >
-                          {t.type === 'SELL' ? 'Venda' : 'Compra'}
-                        </span>
-                        <span className="text-zinc-400">
-                          {t.shares} cotas a {formatBRL(t.price)}
-                        </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-white">{t.ticker}</span>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                t.type === 'SELL'
+                                  ? 'bg-rose-500/15 text-rose-400'
+                                  : 'bg-emerald-500/15 text-emerald-400'
+                              }`}
+                            >
+                              {t.type === 'SELL' ? 'Venda' : 'Compra'}
+                            </span>
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
+                              {alreadyInPortfolio ? '+ Somar cotas' : 'Novo FII'}
+                            </span>
+                            <span className="text-zinc-400">
+                              {t.shares} cotas a {formatBRL(t.price)}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-semibold text-zinc-200 block">{formatBRL(t.total)}</span>
+                            <span className="text-[10px] text-zinc-500">{t.date}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {transactionsToImport.length > 15 && (
+                      <div className="text-center text-[11px] text-zinc-500 py-1">
+                        + {transactionsToImport.length - 15} outros lançamentos encontrados
                       </div>
-                      <div className="text-right">
-                        <span className="font-semibold text-zinc-200 block">{formatBRL(t.total)}</span>
-                        <span className="text-[10px] text-zinc-500">{t.date}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {transactionsToImport.length > 15 && (
-                    <div className="text-center text-[11px] text-zinc-500 py-1">
-                      + {transactionsToImport.length - 15} outros lançamentos encontrados
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
+
+                {dedupInfo.skippedTransactions.length > 0 && !replaceAll && (
+                  <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300 block mb-1">
+                      Ignorados por já estarem no sistema ({dedupInfo.skippedTransactions.length}):
+                    </span>
+                    <div className="text-[11px] text-zinc-400 space-y-0.5 max-h-24 overflow-y-auto">
+                      {dedupInfo.skippedTransactions.slice(0, 8).map((s, i) => (
+                        <div key={`${s.ticker}-skip-${i}`} className="flex items-center justify-between">
+                          <span>
+                            ✓ <strong className="text-zinc-300">{s.ticker}</strong> ({s.shares} cotas a {formatBRL(s.price)})
+                          </span>
+                          <span className="text-[10px] text-zinc-500">{s.date} (já importado)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800 text-center text-xs text-zinc-400">

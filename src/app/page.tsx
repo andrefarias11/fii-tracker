@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
-import { Transaction } from '../types/portfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
 import { AllocationCard } from '../components/AllocationCard';
@@ -14,7 +13,7 @@ import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { OpportunityRadar } from '../components/OpportunityRadar';
 import { MentorsTab } from '../components/MentorsTab';
 import { DividendFlow } from '../components/DividendFlow';
-import { AddTransactionModal } from '../components/AddTransactionModal';
+import { AchievementsTimeline } from '../components/AchievementsTimeline';
 import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
@@ -27,6 +26,7 @@ import {
   Layers,
   ReceiptText,
   Sparkles,
+  Trophy,
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
@@ -45,8 +45,6 @@ export default function HomePage() {
     isCloudConnected,
     isSyncing,
     syncWithCloud,
-    addTransaction,
-    updateTransaction,
     deleteTransaction,
     clearAllTransactions,
     resetDemo,
@@ -63,7 +61,7 @@ export default function HomePage() {
     const raw = new URLSearchParams(window.location.search).get('tab');
     if (raw === 'proventos') return 'proventos';
     if (raw === 'radar' || raw === 'mentors') return 'radar';
-    if (raw === 'goals') return 'goals';
+    if (raw === 'goals' || raw === 'achievements') return 'goals';
     return 'portfolio';
   });
   // Sub-seções estilo Apple iOS Segmented Control para evitar poluição visual
@@ -79,13 +77,12 @@ export default function HomePage() {
       ? 'mentors'
       : 'radar';
   });
-  const [goalsSubView, setGoalsSubView] = useState<'targets' | 'simulator'>('targets');
+  const [goalsSubView, setGoalsSubView] = useState<'achievements' | 'targets' | 'simulator'>(
+    'achievements'
+  );
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
-  const [targetTickerForAdd, setTargetTickerForAdd] = useState<string>('');
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -107,18 +104,6 @@ export default function HomePage() {
     });
   };
 
-  const handleOpenAddModal = (ticker = '') => {
-    setEditingTransaction(null);
-    setTargetTickerForAdd(ticker);
-    setIsAddModalOpen(true);
-  };
-
-  const handleOpenEditModal = (tx: Transaction) => {
-    setTargetTickerForAdd('');
-    setEditingTransaction(tx);
-    setIsAddModalOpen(true);
-  };
-
   const navigateFromTabParam = (rawTab: string | null) => {
     if (!rawTab) return;
     if (rawTab === 'portfolio') {
@@ -135,8 +120,9 @@ export default function HomePage() {
     } else if (rawTab === 'mentors') {
       setActiveTab('radar');
       setExploreSubView('mentors');
-    } else if (rawTab === 'goals') {
+    } else if (rawTab === 'goals' || rawTab === 'achievements') {
       setActiveTab('goals');
+      setGoalsSubView('achievements');
     }
   };
 
@@ -180,7 +166,7 @@ export default function HomePage() {
     { id: 'portfolio', label: 'Início', icon: Wallet },
     { id: 'proventos', label: 'Proventos', icon: Coins },
     { id: 'radar', label: 'Explorar', icon: Compass },
-    { id: 'goals', label: 'Metas', icon: Target },
+    { id: 'goals', label: 'Troféus', icon: Trophy },
   ];
 
   return (
@@ -217,8 +203,10 @@ export default function HomePage() {
               bcbIndicators={bcbIndicators}
               isPrivacyMode={isPrivacyMode}
               onNavigateToProventos={() => setActiveTab('proventos')}
-              onNavigateToGoals={() => setActiveTab('goals')}
-              onOpenAddModal={() => handleOpenAddModal('')}
+              onNavigateToGoals={() => {
+                setActiveTab('goals');
+                setGoalsSubView('achievements');
+              }}
               onOpenExtrato={() =>
                 setHomeSubView((prev) => (prev === 'history' ? 'assets' : 'history'))
               }
@@ -250,7 +238,7 @@ export default function HomePage() {
                 }`}
               >
                 <ReceiptText className="w-3.5 h-3.5 text-emerald-400" />
-                Extrato ({transactions.length})
+                Extrato B3 ({transactions.length})
               </button>
             </div>
 
@@ -267,7 +255,6 @@ export default function HomePage() {
                 <PositionList
                   positions={positions}
                   isPrivacyMode={isPrivacyMode}
-                  onOpenAddModalWithTicker={handleOpenAddModal}
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
                 />
@@ -278,7 +265,6 @@ export default function HomePage() {
                   transactions={transactions}
                   monthlyTarget={goals.monthlyTarget}
                   isPrivacyMode={isPrivacyMode}
-                  onEditTransaction={handleOpenEditModal}
                   onDeleteTransaction={deleteTransaction}
                 />
               </div>
@@ -340,8 +326,7 @@ export default function HomePage() {
                   currentMonthInvested={summary.currentMonthInvested}
                   totalMonthlyDividends={summary.totalMonthlyDividends}
                   isPrivacyMode={isPrivacyMode}
-                  onOpenAddModalWithTicker={handleOpenAddModal}
-                  onImportTransactions={importTransactionsFromB3}
+                  onOpenB3Modal={() => setIsB3ModalOpen(true)}
                 />
               </div>
             ) : (
@@ -351,18 +336,30 @@ export default function HomePage() {
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
                   isPrivacyMode={isPrivacyMode}
-                  onOpenAddModalWithTicker={handleOpenAddModal}
                 />
               </div>
             )}
           </div>
         )}
 
-        {/* 4. ABA: METAS (BOLA DE NEVE + SIMULADOR) */}
+        {/* 4. ABA: TROFÉUS & METAS (PLATINA 20 METAS + BOLA DE NEVE + SIMULADOR) */}
         {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado iOS: Minhas Metas vs Simulador */}
-            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            {/* Seletor Segmentado iOS: Conquistas (20) vs Bola de Neve vs Simulador */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setGoalsSubView('achievements')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  goalsSubView === 'achievements'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-cyan-400" />
+                Platina (20)
+              </button>
+
               <button
                 type="button"
                 onClick={() => setGoalsSubView('targets')}
@@ -373,7 +370,7 @@ export default function HomePage() {
                 }`}
               >
                 <Target className="w-3.5 h-3.5 text-emerald-400" />
-                Metas & Bola de Neve
+                Bola de Neve
               </button>
 
               <button
@@ -386,11 +383,26 @@ export default function HomePage() {
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                Simulador de Futuro
+                Simulador
               </button>
             </div>
 
-            {goalsSubView === 'targets' ? (
+            {goalsSubView === 'achievements' && (
+              <div className="animate-in fade-in duration-150">
+                <AchievementsTimeline
+                  positions={positions}
+                  transactions={transactions}
+                  summary={{
+                    totalInvested: summary.totalInvested,
+                    currentEquity: summary.currentEquity,
+                    totalMonthlyDividends: summary.totalMonthlyDividends,
+                  }}
+                  onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                />
+              </div>
+            )}
+
+            {goalsSubView === 'targets' && (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <GoalsCard
                   monthlyTarget={goals.monthlyTarget}
@@ -408,10 +420,11 @@ export default function HomePage() {
                 <MagicNumberCard
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
-                  onOpenAddModalWithTicker={handleOpenAddModal}
                 />
               </div>
-            ) : (
+            )}
+
+            {goalsSubView === 'simulator' && (
               <div className="animate-in fade-in duration-150">
                 <InvestmentSimulator
                   currentEquity={summary.currentEquity}
@@ -460,21 +473,6 @@ export default function HomePage() {
       </nav>
 
       {/* Modais */}
-      <AddTransactionModal
-        key={editingTransaction?.id || targetTickerForAdd || (isAddModalOpen ? 'open' : 'closed')}
-        isOpen={isAddModalOpen}
-        initialTicker={targetTickerForAdd}
-        editingTransaction={editingTransaction}
-        monthlyTarget={goals.monthlyTarget}
-        currentMonthInvested={summary.currentMonthInvested}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingTransaction(null);
-        }}
-        onAddTransaction={addTransaction}
-        onUpdateTransaction={updateTransaction}
-      />
-
       <B3ImportModal
         isOpen={isB3ModalOpen}
         existingTransactions={transactions}

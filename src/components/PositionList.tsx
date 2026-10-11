@@ -3,18 +3,17 @@
 import { useState } from 'react';
 import { FiiPosition } from '../types/portfolio';
 import {
-  Plus,
   Edit2,
   Check,
   X,
   ChevronDown,
   FileSpreadsheet,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface PositionListProps {
   positions: FiiPosition[];
   isPrivacyMode?: boolean;
-  onOpenAddModalWithTicker: (ticker: string) => void;
   onUpdateDividend: (ticker: string, dividend: number) => void;
   onOpenB3Modal?: () => void;
 }
@@ -34,7 +33,6 @@ const formatShortSegment = (segment: string): string => {
 export function PositionList({
   positions,
   isPrivacyMode = false,
-  onOpenAddModalWithTicker,
   onUpdateDividend,
   onOpenB3Modal,
 }: PositionListProps) {
@@ -77,30 +75,23 @@ export function PositionList({
       <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center space-y-4">
         <div>
           <p className="text-sm font-semibold text-zinc-200 mb-1">
-            Sua carteira está vazia
+            Sua carteira B3 está vazia
           </p>
           <p className="text-xs text-zinc-500">
-            Registre seu primeiro aporte ou importe a planilha da B3.
+            Importe seu extrato oficial da B3 (.xlsx) para consolidar seus FIIs e desbloquear as conquistas da Platina.
           </p>
         </div>
-        <div className="flex items-center justify-center gap-2.5">
-          <button
-            onClick={() => onOpenAddModalWithTicker('')}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            Novo Aporte
-          </button>
-          {onOpenB3Modal && (
+        {onOpenB3Modal && (
+          <div className="flex items-center justify-center">
             <button
               onClick={onOpenB3Modal}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/[0.06] text-zinc-200 font-semibold text-xs active:scale-95 transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
             >
-              <FileSpreadsheet className="w-4 h-4 text-sky-400" />
-              Importar B3
+              <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
+              Importar Planilha B3
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -306,16 +297,10 @@ export function PositionList({
                     )}
                   </div>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenAddModalWithTicker(pos.ticker);
-                    }}
-                    className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500 hover:text-zinc-950 active:scale-95 transition-all text-xs font-bold shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Aportar
-                  </button>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-zinc-400 text-[10px] font-semibold shrink-0">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    Nº Mágico: {pos.magicProgressPercent}% ({pos.totalShares}/{pos.magicNumber})
+                  </span>
                 </div>
               </div>
             )}

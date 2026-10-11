@@ -4,21 +4,18 @@ import { useState } from 'react';
 import {
   Compass,
   Sparkles,
-  CheckCircle2,
-  Plus,
+  FileSpreadsheet,
   Coins,
   Snowflake,
   Scale,
   Zap,
 } from 'lucide-react';
-import { QuoteData, Transaction, FiiPosition } from '../types/portfolio';
+import { QuoteData, FiiPosition } from '../types/portfolio';
 import {
   evaluateAllFiis,
   generateDailyRecommendation,
-  RecommendedBasketItem,
   RecommendationStrategy,
 } from '../lib/recommendationEngine';
-import confetti from 'canvas-confetti';
 
 interface OpportunityRadarProps {
   quotes: Record<string, QuoteData>;
@@ -27,8 +24,7 @@ interface OpportunityRadarProps {
   currentMonthInvested: number;
   totalMonthlyDividends: number;
   isPrivacyMode?: boolean;
-  onOpenAddModalWithTicker: (ticker: string) => void;
-  onImportTransactions: (newTransactions: Transaction[], replaceAll: boolean) => Promise<void>;
+  onOpenB3Modal?: () => void;
 }
 
 export function OpportunityRadar({
@@ -38,14 +34,11 @@ export function OpportunityRadar({
   currentMonthInvested,
   totalMonthlyDividends,
   isPrivacyMode = false,
-  onOpenAddModalWithTicker,
-  onImportTransactions,
+  onOpenB3Modal,
 }: OpportunityRadarProps) {
   const [filterSegment, setFilterSegment] = useState<string>('TODOS');
   const [strategyMode, setStrategyMode] = useState<RecommendationStrategy>('balanced');
   const [reinvestDividends, setReinvestDividends] = useState<boolean>(false);
-  const [isApplyingRecommendation, setIsApplyingRecommendation] = useState<boolean>(false);
-  const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
 
   const formatBRL = (val: number, hideInPrivacy = false) => {
     if (hideInPrivacy && isPrivacyMode) return 'R$ ••••';
@@ -78,42 +71,6 @@ export function OpportunityRadar({
     if (filterSegment === 'FIAGRO') return fii.segment.includes('Fiagro');
     return true;
   });
-
-  const handleApplyBasket = async (items: RecommendedBasketItem[]) => {
-    if (items.length === 0) return;
-
-    setIsApplyingRecommendation(true);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const newTransactions: Transaction[] = items.map((item, idx) => ({
-        id: `rec-${Date.now()}-${idx}`,
-        ticker: item.ticker,
-        date: today,
-        shares: item.shares,
-        price: item.currentPrice,
-        total: item.totalCost,
-        broker: 'XP Investimentos',
-        notes: `Aporte do Radar (${item.reason})`,
-      }));
-
-      await onImportTransactions(newTransactions, false);
-
-      confetti({
-        particleCount: 100,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#10b981', '#34d399', '#059669', '#38bdf8', '#fbbf24'],
-      });
-
-      setAppliedMessage('Aporte sugerido registrado com sucesso na sua carteira!');
-      setTimeout(() => setAppliedMessage(null), 4000);
-    } catch (err) {
-      console.error('Erro ao aplicar recomendação:', err);
-      alert('Erro ao registrar aporte.');
-    } finally {
-      setIsApplyingRecommendation(false);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -208,13 +165,6 @@ export function OpportunityRadar({
           {recommendation.strategyExplanation}
         </p>
 
-        {appliedMessage && (
-          <div className="mb-4 p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-xs text-emerald-300 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            {appliedMessage}
-          </div>
-        )}
-
         {/* Cesta de Compras Recomendada */}
         {recommendation.items.length > 0 && (
           <div className="space-y-2 mb-2">
@@ -260,19 +210,18 @@ export function OpportunityRadar({
               </div>
             )}
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => handleApplyBasket(recommendation.items)}
-                disabled={isApplyingRecommendation}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 text-zinc-950 font-extrabold text-xs flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                {isApplyingRecommendation
-                  ? 'Registrando compras...'
-                  : 'Registrar Esse Aporte na Minha Carteira'}
-              </button>
-            </div>
+            {onOpenB3Modal && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={onOpenB3Modal}
+                  className="w-full py-3 px-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-200 font-bold text-xs flex items-center justify-center gap-2 transition-all"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  Já comprei na corretora → Importar Planilha B3
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -393,18 +342,13 @@ export function OpportunityRadar({
                 </p>
 
                 <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
-                  <span className="text-[11px] text-zinc-500 truncate max-w-[190px]">
+                  <span className="text-[11px] text-zinc-500 truncate max-w-[230px]">
                     🛡️ {fii.management} • {formatBRL(fii.monthlyDividend)}/cota
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => onOpenAddModalWithTicker(fii.ticker)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-emerald-600 hover:text-white text-zinc-200 text-xs font-semibold active:scale-95 transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Aportar
-                  </button>
+                  <span className="text-[10px] font-semibold text-zinc-400">
+                    Yield {fii.monthlyYieldPercent}% a.m.
+                  </span>
                 </div>
               </div>
             );

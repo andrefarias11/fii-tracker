@@ -1,18 +1,16 @@
 'use client';
 
-import { Snowflake, Info, Plus } from 'lucide-react';
+import { Snowflake, Info } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
 
 interface MagicNumberCardProps {
   positions: FiiPosition[];
   monthlyTarget?: number;
-  onOpenAddModalWithTicker?: (ticker: string) => void;
 }
 
 export function MagicNumberCard({
   positions,
   monthlyTarget = 200,
-  onOpenAddModalWithTicker,
 }: MagicNumberCardProps) {
   if (positions.length === 0) return null;
 
@@ -88,19 +86,9 @@ export function MagicNumberCard({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-zinc-400">{pos.magicProgressPercent}%</span>
-                  {!reachedMagicNumber && onOpenAddModalWithTicker && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenAddModalWithTicker(pos.ticker)}
-                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-zinc-800 hover:bg-sky-500 hover:text-zinc-950 text-zinc-300 text-[10px] font-semibold transition-all"
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                      Focar
-                    </button>
-                  )}
-                </div>
+                <span className="font-mono text-zinc-300 font-semibold">
+                  {pos.magicProgressPercent}%
+                </span>
               </div>
             </div>
           );

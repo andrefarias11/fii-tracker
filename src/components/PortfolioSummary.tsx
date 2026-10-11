@@ -6,7 +6,6 @@ import {
   Coins,
   ChevronRight,
   Target,
-  Plus,
   FileSpreadsheet,
   ReceiptText,
 } from 'lucide-react';
@@ -26,7 +25,6 @@ interface SummaryProps {
   isPrivacyMode?: boolean;
   onNavigateToProventos?: () => void;
   onNavigateToGoals?: () => void;
-  onOpenAddModal?: () => void;
   onOpenExtrato?: () => void;
   onOpenB3Modal?: () => void;
 }
@@ -44,7 +42,6 @@ export function PortfolioSummary({
   isPrivacyMode = false,
   onNavigateToProventos,
   onNavigateToGoals,
-  onOpenAddModal,
   onOpenExtrato,
   onOpenB3Modal,
 }: SummaryProps) {
@@ -72,7 +69,7 @@ export function PortfolioSummary({
 
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-medium text-zinc-400 tracking-wide">
-            Patrimônio em FIIs
+            Patrimônio em FIIs (Custódia B3)
           </span>
           {realReturnAboveIpca !== null && realReturnAboveIpca >= 0 && (
             <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
@@ -110,17 +107,17 @@ export function PortfolioSummary({
           </span>
         </div>
 
-        {/* Fileira de Ações Rápidas Estilo Nubank */}
-        {(onOpenAddModal || onOpenExtrato || onOpenB3Modal) && (
-          <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-white/[0.06]">
-            {onOpenAddModal && (
+        {/* Fileira de Ações Rápidas Estilo Nubank (Modo Exclusivo B3) */}
+        {(onOpenExtrato || onOpenB3Modal) && (
+          <div className="grid grid-cols-2 gap-2.5 mt-5 pt-4 border-t border-white/[0.06]">
+            {onOpenB3Modal && (
               <button
                 type="button"
-                onClick={onOpenAddModal}
+                onClick={onOpenB3Modal}
                 className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
               >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                Aportar
+                <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
+                Importar Planilha B3
               </button>
             )}
 
@@ -131,18 +128,7 @@ export function PortfolioSummary({
                 className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 font-semibold text-xs active:scale-95 transition-all"
               >
                 <ReceiptText className="w-3.5 h-3.5 text-zinc-400" />
-                Extrato
-              </button>
-            )}
-
-            {onOpenB3Modal && (
-              <button
-                type="button"
-                onClick={onOpenB3Modal}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 font-semibold text-xs active:scale-95 transition-all"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400" />
-                Planilha B3
+                Extrato B3
               </button>
             )}
           </div>

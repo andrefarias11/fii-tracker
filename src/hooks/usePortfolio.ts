@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Transaction, FiiPosition, PortfolioGoals, QuoteData, BcbIndicators } from '../types/portfolio';
 import { findFiiInfo } from '../data/fiiDatabase';
-import { deduplicateB3Transactions } from '../lib/b3Parser';
+import { deduplicateB3Transactions, normalizeB3Ticker } from '../lib/b3Parser';
 import { runAutoDailyPushCheck } from '../lib/pushNotifications';
 import { syncPortfolioToWidgetServer } from '../lib/iphoneWidget';
 import {
@@ -307,10 +307,14 @@ export function usePortfolio() {
     }
   };
 
-  // Importar transações vindas da planilha da B3 (com proteção anti-duplicidade)
+  // Importar transações vindas da planilha da B3 (com proteção anti-duplicidade e remoção de demo)
   const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
     let finalTransactions: Transaction[] = [];
     let txsToUpsert: Transaction[] = newTxs;
+
+    // Sempre remove transações demo quando o usuário importa sua planilha oficial da B3
+    const demoTxs = transactions.filter((t) => t.id.startsWith('demo-'));
+    const realExistingTxs = transactions.filter((t) => !t.id.startsWith('demo-'));
 
     if (replaceAll) {
       if (isCloudConnected) {
@@ -320,9 +324,14 @@ export function usePortfolio() {
       }
       finalTransactions = newTxs;
     } else {
-      const { uniqueTransactions } = deduplicateB3Transactions(newTxs, transactions);
+      if (isCloudConnected && demoTxs.length > 0) {
+        for (const dTx of demoTxs) {
+          await deleteRemoteTransaction(dTx.id);
+        }
+      }
+      const { uniqueTransactions } = deduplicateB3Transactions(newTxs, realExistingTxs);
       txsToUpsert = uniqueTransactions;
-      finalTransactions = [...uniqueTransactions, ...transactions];
+      finalTransactions = [...uniqueTransactions, ...realExistingTxs];
     }
 
     persistTransactions(finalTransactions);
@@ -351,7 +360,10 @@ export function usePortfolio() {
       'TRXF11',
     ];
     const uniqueTickers = Array.from(
-      new Set([...transactions.map((t) => t.ticker.toUpperCase().trim()), ...radarTickers])
+      new Set([
+        ...transactions.map((t) => normalizeB3Ticker(t.ticker)).filter(Boolean),
+        ...radarTickers,
+      ])
     );
     if (uniqueTickers.length === 0) return;
 
@@ -389,7 +401,7 @@ export function usePortfolio() {
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);
 
-  // Agrupar posições por FII (respeitando ordem cronológica para compras e vendas pela regra da B3/IR)
+  // Agrupar posições por FII (respeitando ordem cronológica e normalizando ticker para nunca duplicar fundos)
   const positions: FiiPosition[] = useMemo(() => {
     const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
 
@@ -397,7 +409,10 @@ export function usePortfolio() {
     const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
 
     for (const tx of chronologicalTxs) {
-      const current = map.get(tx.ticker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
+      const cleanTicker = normalizeB3Ticker(tx.ticker);
+      if (!cleanTicker) continue;
+
+      const current = map.get(cleanTicker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
       const isSell = tx.type === 'SELL';
 
       if (isSell) {
@@ -412,7 +427,7 @@ export function usePortfolio() {
           current.totalShares > 0 ? current.totalInvested / current.totalShares : 0;
       }
 
-      map.set(tx.ticker, current);
+      map.set(cleanTicker, current);
     }
 
     const result: FiiPosition[] = [];

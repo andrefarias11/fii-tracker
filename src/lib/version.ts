@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.0.4';
+export const APP_VERSION = '2.1.1';
 export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,22 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.1.1',
+    date: '11/10/2026',
+    highlights: [
+      'Detalhamento visual na importação acumulada da B3 (ex: planilha Outubro + Novembro): exibe quais aportes de meses anteriores foram ignorados por já estarem no sistema e marca os novos aportes do mesmo FII como "+ Somar cotas"',
+    ],
+  },
+  {
+    version: '2.1.0',
+    date: '11/10/2026',
+    highlights: [
+      'Linha do Tempo de Conquistas (20 Troféus + Sistema de Platina 🏆) com XP, níveis de investidor e datas históricas de desbloqueio calculadas automaticamente',
+      'Modo 100% Oficial B3: remove inserção manual de aportes para garantir que todas as conquistas sejam auditadas exclusivamente por planilhas oficiais da B3',
+      'Super-Parser B3 2.0 anti-fundo repetido: normaliza códigos com nome do fundo ("MXRF11 - MAXI RENDA"), mercado fracionário ("11F"), ignora ETFs/Units e linhas de proventos, e consolida posições sem duplicar nenhum FII',
+    ],
+  },
   {
     version: '2.0.4',
     date: '11/10/2026',
