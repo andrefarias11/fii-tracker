@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.1.1';
+export const APP_VERSION = '2.1.2';
 export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.1.2',
+    date: '11/10/2026',
+    highlights: [
+      'Documentação completa atualizada no README.md cobrindo Design Minimalista 2.0, Modo 100% Oficial B3, Linha do Tempo de 20 Conquistas (Platina 🏆), Gráfico Diário BCB, Mentores, Widget iPhone e Web Push Anti-Spam',
+    ],
+  },
   {
     version: '2.1.1',
     date: '11/10/2026',
