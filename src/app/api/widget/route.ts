@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { findFiiInfo, FII_DATABASE } from '../../../data/fiiDatabase';
 import { QuoteData } from '../../../types/portfolio';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export interface WidgetSummaryResponse {
   equity: number;
   invested: number;
@@ -24,8 +27,20 @@ interface ParsedHolding {
   avgPrice: number;
 }
 
+// Estado sincronizado automaticamente quando o usuário abre ou edita o FII Tracker
+let latestAppSyncedState: {
+  portfolioParam: string;
+  incomeGoal: number;
+  updatedAtMs: number;
+} | null = null;
+
 function parsePortfolioParam(param: string | null): ParsedHolding[] {
-  if (!param || !param.trim()) {
+  const effectiveParam =
+    latestAppSyncedState?.portfolioParam && latestAppSyncedState.portfolioParam.trim()
+      ? latestAppSyncedState.portfolioParam
+      : param;
+
+  if (!effectiveParam || !effectiveParam.trim()) {
     return [
       { ticker: 'MXRF11', shares: 11, avgPrice: 9.42 },
       { ticker: 'VGIR11', shares: 10, avgPrice: 9.6 },
@@ -33,7 +48,7 @@ function parsePortfolioParam(param: string | null): ParsedHolding[] {
   }
 
   const holdings: ParsedHolding[] = [];
-  const entries = param.split(',');
+  const entries = effectiveParam.split(',');
   for (const entry of entries) {
     const [rawTicker, rawShares, rawAvg] = entry.split(':');
     const ticker = (rawTicker || '').trim().toUpperCase();
@@ -76,12 +91,40 @@ function getBrasiliaTimeHHMM(): string {
   }
 }
 
+// Sincroniza a carteira ativa do app com o endpoint do Widget
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    if (typeof body.p === 'string') {
+      latestAppSyncedState = {
+        portfolioParam: body.p,
+        incomeGoal: Math.max(1, Number(body.goal) || 10),
+        updatedAtMs: Date.now(),
+      };
+    }
+    return NextResponse.json({ ok: true, syncedAt: getBrasiliaTimeHHMM() });
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const holdings = parsePortfolioParam(searchParams.get('p'));
-  const incomeGoal = Math.max(1, parseFloat(searchParams.get('goal') || '10'));
+  const incomeGoal =
+    latestAppSyncedState?.incomeGoal ||
+    Math.max(1, parseFloat(searchParams.get('goal') || '10'));
 
-  const radarTickers = ['MXRF11', 'VGIR11', 'CPTS11', 'KISU11', 'GALG11', 'XPML11', 'BTLG11', 'KNCR11'];
+  const radarTickers = [
+    'MXRF11',
+    'VGIR11',
+    'CPTS11',
+    'KISU11',
+    'GALG11',
+    'XPML11',
+    'BTLG11',
+    'KNCR11',
+  ];
   const allTickers = Array.from(
     new Set([...holdings.map((h) => h.ticker), ...radarTickers])
   );
@@ -90,7 +133,7 @@ export async function GET(request: Request) {
   try {
     const quoteRes = await fetch(
       `${origin}/api/quote?tickers=${encodeURIComponent(allTickers.join(','))}`,
-      { next: { revalidate: 300 } }
+      { cache: 'no-store' }
     );
     if (quoteRes.ok) {
       const data = await quoteRes.json();
@@ -147,7 +190,10 @@ export async function GET(request: Request) {
     const q = quotesMap[cat.ticker];
     const price = q?.price || cat.vp;
     const vp = q?.vp || cat.vp;
-    const div = q?.lastDividend && q.lastDividend > 0 ? q.lastDividend : cat.estimatedMonthlyDividend;
+    const div =
+      q?.lastDividend && q.lastDividend > 0
+        ? q.lastDividend
+        : cat.estimatedMonthlyDividend;
     const pvp = vp > 0 ? price / vp : 1;
     const dy = price > 0 ? (div / price) * 100 : 0;
 
@@ -183,8 +229,8 @@ export async function GET(request: Request) {
 
   return NextResponse.json(payload, {
     headers: {
-      'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
     },
   });
 }
-

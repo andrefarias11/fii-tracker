@@ -1,6 +1,6 @@
 'use client';
 
-import { PieChart, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
 
 interface AllocationCardProps {
@@ -19,22 +19,22 @@ interface SectorSlice {
 function normalizeSector(segment: string): { label: string; colorClass: string; dotClass: string } {
   const s = segment.toLowerCase();
   if (s.includes('papel')) {
-    return { label: 'Papel (CRI)', colorClass: 'bg-emerald-500', dotClass: 'bg-emerald-400' };
+    return { label: 'Papel', colorClass: 'bg-emerald-400', dotClass: 'bg-emerald-400' };
   }
   if (s.includes('logística') || s.includes('logistica')) {
-    return { label: 'Logística', colorClass: 'bg-sky-500', dotClass: 'bg-sky-400' };
+    return { label: 'Logística', colorClass: 'bg-sky-400', dotClass: 'bg-sky-400' };
   }
   if (s.includes('shopping')) {
-    return { label: 'Shoppings', colorClass: 'bg-violet-500', dotClass: 'bg-violet-400' };
+    return { label: 'Shoppings', colorClass: 'bg-violet-400', dotClass: 'bg-violet-400' };
   }
   if (s.includes('fiagro')) {
-    return { label: 'Fiagro', colorClass: 'bg-amber-500', dotClass: 'bg-amber-400' };
+    return { label: 'Fiagro', colorClass: 'bg-amber-400', dotClass: 'bg-amber-400' };
   }
   if (s.includes('fof')) {
-    return { label: 'FOF', colorClass: 'bg-teal-500', dotClass: 'bg-teal-400' };
+    return { label: 'FOF', colorClass: 'bg-teal-400', dotClass: 'bg-teal-400' };
   }
   if (s.includes('renda urbana') || s.includes('lajes')) {
-    return { label: 'Tijolo Urbano', colorClass: 'bg-indigo-500', dotClass: 'bg-indigo-400' };
+    return { label: 'Tijolo Urbano', colorClass: 'bg-indigo-400', dotClass: 'bg-indigo-400' };
   }
   return { label: 'Outros', colorClass: 'bg-zinc-500', dotClass: 'bg-zinc-400' };
 }
@@ -68,19 +68,28 @@ export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardP
   const isConcentrated = topSlice && topSlice.percent >= 70;
 
   return (
-    <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="flex items-center gap-1.5">
-          <PieChart className="w-3.5 h-3.5 text-emerald-400" />
-          <h3 className="text-xs font-bold text-white">Diversificação por Setor</h3>
-        </div>
-        <span className="text-[11px] text-zinc-400">
-          {slices.length} {slices.length === 1 ? 'setor' : 'setores'}
+    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-zinc-300">
+          Distribuição por Setor
         </span>
+        {isConcentrated && onNavigateToRadar ? (
+          <button
+            type="button"
+            onClick={onNavigateToRadar}
+            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
+          >
+            Diversificar <ArrowRight className="w-3 h-3" />
+          </button>
+        ) : (
+          <span className="text-[11px] text-zinc-500">
+            {slices.length} {slices.length === 1 ? 'setor' : 'setores'}
+          </span>
+        )}
       </div>
 
-      {/* Barra Segmentada */}
-      <div className="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden flex gap-0.5 mb-3">
+      {/* Barra Segmentada Minimalista */}
+      <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-2.5">
         {slices.map((s) => (
           <div
             key={s.label}
@@ -91,33 +100,16 @@ export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardP
         ))}
       </div>
 
-      {/* Legenda enxuta */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {/* Legenda Limpa */}
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
         {slices.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
-            <span className={`w-2 h-2 rounded-full ${s.dotClass}`} />
-            <span className="text-zinc-300 font-medium">{s.label}</span>
-            <span className="text-zinc-500 font-mono">{s.percent}%</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${s.dotClass}`} />
+            <span className="text-zinc-400">{s.label}</span>
+            <span className="text-zinc-200 font-semibold">{s.percent}%</span>
           </div>
         ))}
       </div>
-
-      {/* Alerta sutil quando muito concentrado */}
-      {isConcentrated && onNavigateToRadar && (
-        <div className="mt-3 pt-2.5 border-t border-zinc-800/70 flex items-center justify-between text-[11px]">
-          <span className="text-zinc-400">
-            Carteira concentrada em <strong className="text-zinc-200">{topSlice.label}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={onNavigateToRadar}
-            className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
-          >
-            Equilibrar <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
-

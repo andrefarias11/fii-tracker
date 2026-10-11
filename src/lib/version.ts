@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.9.1';
+export const APP_VERSION = '2.0.1';
 export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,20 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.0.1',
+    date: '11/10/2026',
+    highlights: [
+      'Correção do Widget do iPhone que ficava travado no horário antigo: adiciona anti-cache (&_t=timestamp), atualização a cada 15 min (inclusive no fim de semana) e sincronização automática entre o app e a API /api/widget',
+    ],
+  },
+  {
+    version: '2.0.0',
+    date: '11/10/2026',
+    highlights: [
+      'Novo Design Minimalista 2.0 (inspirado no Nubank e Apple iOS): Dock flutuante translúcida com apenas 4 abas (Início, Proventos, Explorar e Metas), seletores segmentados iOS para dividir cada seção sem poluição visual e ações rápidas integradas no topo',
+    ],
+  },
   {
     version: '1.9.1',
     date: '11/10/2026',

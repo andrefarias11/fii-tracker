@@ -5,6 +5,7 @@ import { Transaction, FiiPosition, PortfolioGoals, QuoteData, BcbIndicators } fr
 import { findFiiInfo } from '../data/fiiDatabase';
 import { deduplicateB3Transactions } from '../lib/b3Parser';
 import { runAutoDailyPushCheck } from '../lib/pushNotifications';
+import { syncPortfolioToWidgetServer } from '../lib/iphoneWidget';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
@@ -583,12 +584,15 @@ export function usePortfolio() {
     }
   };
 
-  // Verifica alertas automáticos de Web Push (Oportunidades B3, Data-Com confirmada, Pagamento hoje, Abaixo do PM)
+  // Verifica alertas automáticos de Web Push e sincroniza carteira com o Widget do iPhone
   useEffect(() => {
+    if (isInitialized) {
+      syncPortfolioToWidgetServer(positions, goals);
+    }
     if (isInitialized && lastSyncTime) {
       runAutoDailyPushCheck(positions, quotes);
     }
-  }, [isInitialized, positions, quotes, lastSyncTime]);
+  }, [isInitialized, positions, goals, quotes, lastSyncTime]);
 
   return {
     isInitialized,

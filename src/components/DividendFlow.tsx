@@ -7,6 +7,7 @@ import {
   Clock,
   HelpCircle,
   Calendar,
+  TrendingUp,
 } from 'lucide-react';
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
@@ -28,6 +29,7 @@ export function DividendFlow({
   monthlyContributionGoal = 200,
   isPrivacyMode = false,
 }: DividendFlowProps) {
+  const [subView, setSubView] = useState<'calendar' | 'chart'>('calendar');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
 
   const currentDate = new Date();
@@ -76,10 +78,10 @@ export function DividendFlow({
 
   if (positions.length === 0) {
     return (
-      <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-8 text-center">
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center">
         <Coins className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" />
         <h3 className="text-sm font-bold text-white mb-1">Nenhum dividendo previsto ainda</h3>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-500">
           Quando você registrar seus primeiros FIIs, o fluxo de proventos aparecerá aqui automaticamente.
         </p>
       </div>
@@ -88,190 +90,186 @@ export function DividendFlow({
 
   return (
     <div className="space-y-4">
-      {/* 1. CARD PRINCIPAL: RESUMO DE PROVENTOS DO MÊS */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800/80 p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
-              <Coins className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">Proventos • {capitalizedMonth}</h2>
-              <p className="text-[11px] text-zinc-400">Fluxo de dividendos isentos de IR</p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            Total: {formatBRL(summary.totalExpected)}
-          </span>
-        </div>
+      {/* Seletor Segmentado Estilo Apple iOS */}
+      <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+        <button
+          type="button"
+          onClick={() => setSubView('calendar')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+            subView === 'calendar'
+              ? 'bg-white/[0.1] text-white shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+          Calendário do Mês
+        </button>
 
-        {/* 3 COLUNAS VISUAIS DE STATUS */}
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <div
-            onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
-            className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
-              filterStatus === 'PAID'
-                ? 'bg-emerald-500/20 border-emerald-500/50 ring-1 ring-emerald-500/50'
-                : 'bg-emerald-950/20 border-emerald-800/30 hover:border-emerald-700/50'
-            }`}
-          >
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 mb-0.5">
-              <CheckCircle2 className="w-3 h-3" />
-              Recebido
-            </div>
-            <div className="text-sm font-extrabold text-white">{formatBRL(summary.totalReceived)}</div>
-            <div className="text-[9px] text-zinc-400 mt-0.5">
-              {summary.receivedCount} {summary.receivedCount === 1 ? 'fundo pago' : 'fundos pagos'}
-            </div>
-          </div>
-
-          <div
-            onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
-            className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
-              filterStatus === 'CONFIRMED'
-                ? 'bg-amber-500/20 border-amber-500/50 ring-1 ring-amber-500/50'
-                : 'bg-amber-950/20 border-amber-800/30 hover:border-amber-700/50'
-            }`}
-          >
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-400 mb-0.5">
-              <Clock className="w-3 h-3" />
-              Confirmado
-            </div>
-            <div className="text-sm font-extrabold text-white">{formatBRL(summary.totalConfirmed)}</div>
-            <div className="text-[9px] text-zinc-400 mt-0.5">
-              {summary.confirmedCount} a receber
-            </div>
-          </div>
-
-          <div
-            onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
-            className={`cursor-pointer p-3 rounded-2xl border transition-all text-left ${
-              filterStatus === 'ESTIMATED'
-                ? 'bg-sky-500/20 border-sky-500/50 ring-1 ring-sky-500/50'
-                : 'bg-sky-950/20 border-sky-800/30 hover:border-sky-700/50'
-            }`}
-          >
-            <div className="flex items-center gap-1 text-[10px] font-semibold text-sky-400 mb-0.5">
-              <HelpCircle className="w-3 h-3" />
-              Estimado
-            </div>
-            <div className="text-sm font-extrabold text-white">{formatBRL(summary.totalEstimated)}</div>
-            <div className="text-[9px] text-zinc-400 mt-0.5">
-              {summary.estimatedCount} a anunciar
-            </div>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setSubView('chart')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+            subView === 'chart'
+              ? 'bg-white/[0.1] text-white shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+          Desempenho vs CDI
+        </button>
       </div>
 
-      {/* 2. LISTAGEM DOS DIVIDENDOS POR FUNDO */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white">Calendário de Pagamentos</h3>
-          </div>
-          {filterStatus !== 'ALL' && (
-            <button
-              onClick={() => setFilterStatus('ALL')}
-              className="text-[11px] text-emerald-400 font-semibold"
-            >
-              Ver todos ({events.length})
-            </button>
-          )}
-        </div>
+      {subView === 'calendar' ? (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          {/* HERO CARD DE PROVENTOS ESTILO NUBANK */}
+          <div className="rounded-[28px] bg-[#121215] border border-white/[0.07] p-6">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-zinc-400 font-medium">
+                Proventos • {capitalizedMonth}
+              </span>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                Isento de IR
+              </span>
+            </div>
 
-        <div className="space-y-2.5">
-          {filteredEvents.map((ev) => {
-            const isPaid = ev.status === 'PAID';
-            const isConfirmed = ev.status === 'CONFIRMED';
-            const isEstimated = ev.status === 'ESTIMATED';
-            const isSyncedFromMarket =
-              ev.dividendSource === 'B3_OFICIAL' || ev.dividendSource === 'MERCADO';
+            <div className="text-[32px] font-extrabold text-white tracking-tight mb-4">
+              {formatBRL(summary.totalExpected)}
+            </div>
 
-            return (
-              <div
-                key={ev.id}
-                className="rounded-2xl bg-zinc-900 border border-zinc-800/80 p-3.5 shadow-sm hover:border-zinc-700 transition-all"
+            {/* 3 Pílulas de Status Limpas */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  filterStatus === 'PAID'
+                    ? 'bg-emerald-500/15 border-emerald-500/40'
+                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                }`}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-extrabold text-sm text-white">{ev.ticker}</span>
-                      {isSyncedFromMarket && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          B3 Auto
-                        </span>
-                      )}
-                      <span className="text-[10px] text-zinc-400">
-                        {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} • {formatBRL(ev.dividendPerShare)}/cota
-                      </span>
+                <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 mb-0.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Pago
+                </div>
+                <div className="text-sm font-bold text-white">{formatBRL(summary.totalReceived)}</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  filterStatus === 'CONFIRMED'
+                    ? 'bg-amber-500/15 border-amber-500/40'
+                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                }`}
+              >
+                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-400 mb-0.5">
+                  <Clock className="w-3 h-3" />
+                  Confirmado
+                </div>
+                <div className="text-sm font-bold text-white">{formatBRL(summary.totalConfirmed)}</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  filterStatus === 'ESTIMATED'
+                    ? 'bg-sky-500/15 border-sky-500/40'
+                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                }`}
+              >
+                <div className="flex items-center gap-1 text-[10px] font-medium text-sky-400 mb-0.5">
+                  <HelpCircle className="w-3 h-3" />
+                  Previsto
+                </div>
+                <div className="text-sm font-bold text-white">{formatBRL(summary.totalEstimated)}</div>
+              </button>
+            </div>
+          </div>
+
+          {/* LISTA MINIMALISTA DE PAGAMENTOS */}
+          <div className="space-y-2">
+            {filterStatus !== 'ALL' && (
+              <div className="flex justify-end px-1">
+                <button
+                  onClick={() => setFilterStatus('ALL')}
+                  className="text-xs text-emerald-400 font-semibold"
+                >
+                  Mostrar todos ({events.length})
+                </button>
+              </div>
+            )}
+
+            {filteredEvents.map((ev) => {
+              const isPaid = ev.status === 'PAID';
+              const isConfirmed = ev.status === 'CONFIRMED';
+
+              return (
+                <div
+                  key={ev.id}
+                  onClick={() => handleToggleStatus(ev.ticker, ev.status)}
+                  className="rounded-[22px] bg-[#121215] border border-white/[0.06] hover:border-white/[0.12] p-4 flex items-center justify-between gap-3 cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shrink-0 ${
+                        isPaid
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : isConfirmed
+                          ? 'bg-amber-500/15 text-amber-400'
+                          : 'bg-white/[0.05] text-zinc-400'
+                      }`}
+                    >
+                      <span className="text-[9px] uppercase font-bold leading-none">Dia</span>
+                      <span className="text-xs font-extrabold leading-tight">{ev.paymentDay}</span>
                     </div>
-                    {ev.announcementDate && (
-                      <div className="text-[10px] text-zinc-500 mt-0.5">
-                        Data-Com: <span className="text-zinc-300 font-medium">{ev.announcementDate}</span>
-                        <span className="mx-1.5">•</span>
-                        Pagamento: <span className="text-zinc-300 font-medium">{ev.paymentDateFormatted}</span>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">{ev.ticker}</span>
+                        <span
+                          className={`text-[9px] font-semibold px-2 py-0.2 rounded-full ${
+                            isPaid
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : isConfirmed
+                              ? 'bg-amber-500/10 text-amber-400'
+                              : 'bg-white/[0.06] text-zinc-400'
+                          }`}
+                        >
+                          {isPaid ? 'Pago' : isConfirmed ? 'Confirmado' : 'Previsto'}
+                        </span>
                       </div>
-                    )}
+
+                      <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
+                        {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(ev.dividendPerShare)}
+                        {ev.announcementDate ? ` • Data-Com ${ev.announcementDate.slice(0, 5)}` : ''}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-extrabold text-emerald-400">
-                      {formatBRL(ev.totalValue)}
-                    </span>
+                    <div className="text-sm font-bold text-emerald-400">
+                      +{formatBRL(ev.totalValue)}
+                    </div>
+                    <span className="text-[9px] text-zinc-600">Toque p/ status</span>
                   </div>
                 </div>
-
-                {/* Badge e Data de Pagamento */}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    {isPaid && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Pago dia {ev.paymentDay}
-                      </span>
-                    )}
-
-                    {isConfirmed && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
-                        <Clock className="w-3 h-3" />
-                        Confirmado: Cai dia {ev.paymentDay}
-                      </span>
-                    )}
-
-                    {isEstimated && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-lg border border-sky-500/20">
-                        <HelpCircle className="w-3 h-3" />
-                        Previsto dia {ev.paymentDay}
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleStatus(ev.ticker, ev.status)}
-                    className="text-[10px] text-zinc-400 hover:text-white bg-zinc-800/80 px-2 py-1 rounded-lg transition-all active:scale-95"
-                    title="Alternar manualmente caso queira sobrescrever o status automático"
-                  >
-                    {statusOverrides[ev.ticker] ? 'Manual (Alterar)' : 'Status Auto'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {/* 3. GRÁFICO DE LINHAS COMPARATIVO (SUA CARTEIRA FII vs CDI vs POUPANÇA vs IPCA) */}
-      <PerformanceComparisonChart
-        positions={positions}
-        transactions={transactions}
-        monthlyContribution={monthlyContributionGoal}
-        bcbIndicators={bcbIndicators}
-        isPrivacyMode={isPrivacyMode}
-      />
+      ) : (
+        <div className="animate-in fade-in duration-150">
+          <PerformanceComparisonChart
+            positions={positions}
+            transactions={transactions}
+            monthlyContribution={monthlyContributionGoal}
+            bcbIndicators={bcbIndicators}
+            isPrivacyMode={isPrivacyMode}
+          />
+        </div>
+      )}
     </div>
   );
 }
-
-

@@ -19,17 +19,17 @@ import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
 import {
-  PieChart,
+  Wallet,
   Target,
-  History,
-  Plus,
-  FileSpreadsheet,
   Compass,
   Coins,
   GraduationCap,
+  Layers,
+  ReceiptText,
+  Sparkles,
 } from 'lucide-react';
 
-type TabType = 'portfolio' | 'proventos' | 'mentors' | 'radar' | 'goals' | 'history';
+type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
 
 export default function HomePage() {
   const {
@@ -58,7 +58,12 @@ export default function HomePage() {
     importTransactionsFromB3,
   } = usePortfolio();
 
-  const [activeTab, setActiveTab] = useState<TabType>('portfolio');
+  const [activeTab, setActiveTab] = useState<MainTabType>('portfolio');
+  // Sub-seções estilo Apple iOS Segmented Control para evitar poluição visual
+  const [homeSubView, setHomeSubView] = useState<'assets' | 'history'>('assets');
+  const [exploreSubView, setExploreSubView] = useState<'radar' | 'mentors'>('radar');
+  const [goalsSubView, setGoalsSubView] = useState<'targets' | 'simulator'>('targets');
+
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
@@ -97,32 +102,44 @@ export default function HomePage() {
     setIsAddModalOpen(true);
   };
 
-  // Garante que a página inicie sempre no topo absoluto ao carregar no iOS Safari / PWA
+  const navigateFromTabParam = (rawTab: string | null) => {
+    if (!rawTab) return;
+    if (rawTab === 'portfolio') {
+      setActiveTab('portfolio');
+      setHomeSubView('assets');
+    } else if (rawTab === 'history') {
+      setActiveTab('portfolio');
+      setHomeSubView('history');
+    } else if (rawTab === 'proventos') {
+      setActiveTab('proventos');
+    } else if (rawTab === 'radar') {
+      setActiveTab('radar');
+      setExploreSubView('radar');
+    } else if (rawTab === 'mentors') {
+      setActiveTab('radar');
+      setExploreSubView('mentors');
+    } else if (rawTab === 'goals') {
+      setActiveTab('goals');
+    }
+  };
+
+  // Garante que a página inicie no topo e respeite deep-links de Push
   useEffect(() => {
     if (isInitialized && typeof window !== 'undefined') {
       window.scrollTo(0, 0);
       const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab') as TabType | null;
-      if (
-        tabParam &&
-        ['portfolio', 'proventos', 'mentors', 'radar', 'goals', 'history'].includes(tabParam)
-      ) {
-        setActiveTab(tabParam);
-      }
+      navigateFromTabParam(params.get('tab'));
     }
   }, [isInitialized]);
 
-  // Escuta clique em notificações Web Push para abrir direto na aba correspondente (Radar, Mentores, Proventos)
+  // Escuta clique em notificações Web Push
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'NAVIGATE_FROM_PUSH' && typeof event.data.url === 'string') {
         try {
           const url = new URL(event.data.url, window.location.origin);
-          const tab = url.searchParams.get('tab') as TabType | null;
-          if (tab && ['portfolio', 'proventos', 'mentors', 'radar', 'goals', 'history'].includes(tab)) {
-            setActiveTab(tab);
-          }
+          navigateFromTabParam(url.searchParams.get('tab'));
         } catch {
           // ignore
         }
@@ -134,27 +151,26 @@ export default function HomePage() {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-[100dvh] bg-zinc-950 flex flex-col items-center justify-center p-4">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center animate-pulse mb-3">
-          <div className="w-6 h-6 rounded-full bg-emerald-500" />
+      <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center animate-pulse mb-3">
+          <div className="w-3.5 h-3.5 rounded-full bg-emerald-400" />
         </div>
-        <p className="text-sm font-semibold text-zinc-300">Carregando carteira de FIIs...</p>
+        <p className="text-xs font-medium text-zinc-400">Carregando FII Tracker...</p>
       </div>
     );
   }
 
-  const navItems: { id: TabType; label: string; icon: typeof PieChart }[] = [
-    { id: 'portfolio', label: 'Carteira', icon: PieChart },
+  // Apenas 4 Abas Principais na Dock Flutuante (Estilo Apple / Nubank)
+  const navItems: { id: MainTabType; label: string; icon: typeof Wallet }[] = [
+    { id: 'portfolio', label: 'Início', icon: Wallet },
     { id: 'proventos', label: 'Proventos', icon: Coins },
-    { id: 'mentors', label: 'Mentores', icon: GraduationCap },
-    { id: 'radar', label: 'Radar', icon: Compass },
+    { id: 'radar', label: 'Explorar', icon: Compass },
     { id: 'goals', label: 'Metas', icon: Target },
-    { id: 'history', label: 'Extrato', icon: History },
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-950 text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
-      {/* Header com Modo Privacidade, Atualizar e Configurações */}
+    <div className="min-h-[100dvh] bg-black text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
+      {/* Header Minimalista */}
       <Header
         lastSyncTime={lastSyncTime}
         isLoadingQuotes={isLoadingQuotes}
@@ -166,11 +182,11 @@ export default function HomePage() {
         onOpenSettings={() => setIsSettingsModalOpen(true)}
       />
 
-      {/* Conteúdo Principal (Mobile First) */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-32 space-y-4">
+      {/* Conteúdo Principal com Respiro Estilo iOS */}
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-28 space-y-4">
         <IosInstallBanner />
 
-        {/* Aba: Carteira */}
+        {/* 1. ABA: INÍCIO (CARTEIRA + EXTRATO INTEGRADO) */}
         {activeTab === 'portfolio' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <PortfolioSummary
@@ -187,25 +203,75 @@ export default function HomePage() {
               isPrivacyMode={isPrivacyMode}
               onNavigateToProventos={() => setActiveTab('proventos')}
               onNavigateToGoals={() => setActiveTab('goals')}
-            />
-
-            {/* Barra enxuta de Diversificação por Setor */}
-            <AllocationCard
-              positions={positions}
-              onNavigateToRadar={() => setActiveTab('radar')}
-            />
-
-            <PositionList
-              positions={positions}
-              isPrivacyMode={isPrivacyMode}
-              onOpenAddModalWithTicker={handleOpenAddModal}
-              onUpdateDividend={updateCustomDividend}
+              onOpenAddModal={() => handleOpenAddModal('')}
+              onOpenExtrato={() =>
+                setHomeSubView((prev) => (prev === 'history' ? 'assets' : 'history'))
+              }
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
+
+            {/* Seletor Segmentado iOS: Meus Ativos vs Extrato */}
+            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setHomeSubView('assets')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  homeSubView === 'assets'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                Meus Ativos ({positions.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHomeSubView('history')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  homeSubView === 'history'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <ReceiptText className="w-3.5 h-3.5 text-emerald-400" />
+                Extrato ({transactions.length})
+              </button>
+            </div>
+
+            {homeSubView === 'assets' ? (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                <AllocationCard
+                  positions={positions}
+                  onNavigateToRadar={() => {
+                    setActiveTab('radar');
+                    setExploreSubView('radar');
+                  }}
+                />
+
+                <PositionList
+                  positions={positions}
+                  isPrivacyMode={isPrivacyMode}
+                  onOpenAddModalWithTicker={handleOpenAddModal}
+                  onUpdateDividend={updateCustomDividend}
+                  onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                />
+              </div>
+            ) : (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                <TransactionHistory
+                  transactions={transactions}
+                  monthlyTarget={goals.monthlyTarget}
+                  isPrivacyMode={isPrivacyMode}
+                  onEditTransaction={handleOpenEditModal}
+                  onDeleteTransaction={deleteTransaction}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {/* Aba: Proventos & Calendário de Dividendos */}
+        {/* 2. ABA: PROVENTOS & DESEMPENHO DIÁRIO */}
         {activeTab === 'proventos' && (
           <div className="animate-in fade-in duration-200">
             <DividendFlow
@@ -218,109 +284,135 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Aba: Indicação de Mentores (Barsi, Buffett, Graham e Baroni) */}
-        {activeTab === 'mentors' && (
-          <div className="animate-in fade-in duration-200">
-            <MentorsTab
-              quotes={quotes}
-              positions={positions}
-              monthlyTarget={goals.monthlyTarget}
-              isPrivacyMode={isPrivacyMode}
-              onOpenAddModalWithTicker={handleOpenAddModal}
-            />
-          </div>
-        )}
-
-        {/* Aba: Radar de Oportunidades & Alocação */}
+        {/* 3. ABA: EXPLORAR (RADAR B3 + MENTORES UNIFICADOS) */}
         {activeTab === 'radar' && (
-          <div className="animate-in fade-in duration-200">
-            <OpportunityRadar
-              quotes={quotes}
-              positions={positions}
-              monthlyTarget={goals.monthlyTarget}
-              currentMonthInvested={summary.currentMonthInvested}
-              totalMonthlyDividends={summary.totalMonthlyDividends}
-              isPrivacyMode={isPrivacyMode}
-              onOpenAddModalWithTicker={handleOpenAddModal}
-              onImportTransactions={importTransactionsFromB3}
-            />
-          </div>
-        )}
-
-        {/* Aba: Metas & Bola de Neve */}
-        {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            <GoalsCard
-              monthlyTarget={goals.monthlyTarget}
-              currentMonthInvested={summary.currentMonthInvested}
-              monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
-              milestoneEquityTarget={goals.milestoneEquityTarget}
-              currentEquity={summary.currentEquity}
-              equityGoalProgressPercent={summary.equityGoalProgressPercent}
-              monthlyIncomeTarget={goals.monthlyIncomeTarget}
-              totalMonthlyDividends={summary.totalMonthlyDividends}
-              incomeGoalProgressPercent={summary.incomeGoalProgressPercent}
-              onOpenSettings={() => setIsSettingsModalOpen(true)}
-            />
-
-            <MagicNumberCard
-              positions={positions}
-              monthlyTarget={goals.monthlyTarget}
-              onOpenAddModalWithTicker={handleOpenAddModal}
-            />
-
-            {/* Simulador integrado na aba de metas conectado ao patrimônio real */}
-            <InvestmentSimulator
-              currentEquity={summary.currentEquity}
-              monthlyTarget={goals.monthlyTarget}
-              averageYieldPercent={summary.averageYieldOnCostPercent}
-              isPrivacyMode={isPrivacyMode}
-            />
-          </div>
-        )}
-
-        {/* Aba: Histórico de Aportes */}
-        {activeTab === 'history' && (
-          <div className="space-y-3 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-zinc-400">
-                Total de operações: {transactions.length}
-              </span>
+            {/* Seletor Segmentado iOS: Radar B3 vs Mentores */}
+            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
-                onClick={() => setIsB3ModalOpen(true)}
-                className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 bg-sky-500/10 px-2.5 py-1 rounded-xl border border-sky-500/20 active:scale-95 transition-all"
+                type="button"
+                onClick={() => setExploreSubView('radar')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  exploreSubView === 'radar'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                Importar Planilha B3
+                <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                Radar de Oportunidades
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExploreSubView('mentors')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  exploreSubView === 'mentors'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                Mentores (Barsi & Cia)
               </button>
             </div>
-            <TransactionHistory
-              transactions={transactions}
-              monthlyTarget={goals.monthlyTarget}
-              isPrivacyMode={isPrivacyMode}
-              onEditTransaction={handleOpenEditModal}
-              onDeleteTransaction={deleteTransaction}
-            />
+
+            {exploreSubView === 'radar' ? (
+              <div className="animate-in fade-in duration-150">
+                <OpportunityRadar
+                  quotes={quotes}
+                  positions={positions}
+                  monthlyTarget={goals.monthlyTarget}
+                  currentMonthInvested={summary.currentMonthInvested}
+                  totalMonthlyDividends={summary.totalMonthlyDividends}
+                  isPrivacyMode={isPrivacyMode}
+                  onOpenAddModalWithTicker={handleOpenAddModal}
+                  onImportTransactions={importTransactionsFromB3}
+                />
+              </div>
+            ) : (
+              <div className="animate-in fade-in duration-150">
+                <MentorsTab
+                  quotes={quotes}
+                  positions={positions}
+                  monthlyTarget={goals.monthlyTarget}
+                  isPrivacyMode={isPrivacyMode}
+                  onOpenAddModalWithTicker={handleOpenAddModal}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. ABA: METAS (BOLA DE NEVE + SIMULADOR) */}
+        {activeTab === 'goals' && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Seletor Segmentado iOS: Minhas Metas vs Simulador */}
+            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setGoalsSubView('targets')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  goalsSubView === 'targets'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Target className="w-3.5 h-3.5 text-emerald-400" />
+                Metas & Bola de Neve
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGoalsSubView('simulator')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  goalsSubView === 'simulator'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                Simulador de Futuro
+              </button>
+            </div>
+
+            {goalsSubView === 'targets' ? (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                <GoalsCard
+                  monthlyTarget={goals.monthlyTarget}
+                  currentMonthInvested={summary.currentMonthInvested}
+                  monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
+                  milestoneEquityTarget={goals.milestoneEquityTarget}
+                  currentEquity={summary.currentEquity}
+                  equityGoalProgressPercent={summary.equityGoalProgressPercent}
+                  monthlyIncomeTarget={goals.monthlyIncomeTarget}
+                  totalMonthlyDividends={summary.totalMonthlyDividends}
+                  incomeGoalProgressPercent={summary.incomeGoalProgressPercent}
+                  onOpenSettings={() => setIsSettingsModalOpen(true)}
+                />
+
+                <MagicNumberCard
+                  positions={positions}
+                  monthlyTarget={goals.monthlyTarget}
+                  onOpenAddModalWithTicker={handleOpenAddModal}
+                />
+              </div>
+            ) : (
+              <div className="animate-in fade-in duration-150">
+                <InvestmentSimulator
+                  currentEquity={summary.currentEquity}
+                  monthlyTarget={goals.monthlyTarget}
+                  averageYieldPercent={summary.averageYieldOnCostPercent}
+                  isPrivacyMode={isPrivacyMode}
+                />
+              </div>
+            )}
           </div>
         )}
       </main>
 
-      {/* Botão Flutuante (FAB) alinhado ao container max-w-md */}
-      <div className="fixed bottom-20 inset-x-0 z-40 pointer-events-none">
-        <div className="max-w-md mx-auto px-4 flex justify-end">
-          <button
-            onClick={() => handleOpenAddModal('')}
-            className="pointer-events-auto flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-zinc-950 font-extrabold text-xs shadow-xl shadow-emerald-500/25 hover:scale-105 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Novo Aporte</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Barra de Navegação Inferior estilo iOS com Pílula Ativa (6 Abas) */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/80 pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-6 px-1.5 py-1.5">
+      {/* DOCK FLUTUANTE ESTILO APPLE iOS / NUBANK (Apenas 4 Abas Limpas) */}
+      <nav className="fixed bottom-4 inset-x-0 z-30 px-6 pb-safe pointer-events-none">
+        <div className="max-w-xs mx-auto pointer-events-auto rounded-full bg-[#16161a]/90 backdrop-blur-2xl border border-white/[0.09] shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -328,18 +420,22 @@ export default function HomePage() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center py-1 rounded-2xl transition-all ${
-                  isActive ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'
+                className={`flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 ${
+                  isActive
+                    ? 'bg-white/[0.11] text-white'
+                    : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <div
-                  className={`px-2.5 py-0.5 rounded-full transition-all mb-0.5 ${
-                    isActive ? 'bg-emerald-500/15' : ''
+                <Icon
+                  className={`w-4 h-4 mb-0.5 transition-colors ${
+                    isActive ? 'text-emerald-400' : ''
+                  }`}
+                />
+                <span
+                  className={`text-[10px] leading-none tracking-tight ${
+                    isActive ? 'font-bold text-white' : 'font-medium'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                </div>
-                <span className={`text-[9.5px] leading-tight ${isActive ? 'font-bold' : 'font-medium'}`}>
                   {item.label}
                 </span>
               </button>
@@ -390,4 +486,3 @@ export default function HomePage() {
     </div>
   );
 }
-

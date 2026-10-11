@@ -138,9 +138,36 @@ export function buildWidgetPreviewData(
 }
 
 /**
+ * Sincroniza automaticamente a carteira ativa do app com a API /api/widget
+ * para que o Widget do iPhone sempre receba os novos aportes sem precisar
+ * copiar o código de novo!
+ */
+export async function syncPortfolioToWidgetServer(
+  positions: FiiPosition[],
+  goals: PortfolioGoals
+): Promise<void> {
+  if (typeof window === 'undefined' || positions.length === 0) return;
+  try {
+    const p = positions
+      .map((pos) => `${pos.ticker}:${pos.totalShares}:${pos.averagePrice.toFixed(2)}`)
+      .join(',');
+    await fetch('/api/widget', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        p,
+        goal: goals.monthlyIncomeTarget || 10,
+      }),
+    });
+  } catch {
+    // Silencioso
+  }
+}
+
+/**
  * Gera o script completo para o app gratuito "Scriptable" do iOS,
- * já configurado com a carteira do usuário e com trava inteligente de bateria
- * fora do pregão da B3 (18h às 10h e finais de semana = zero conexões).
+ * com anti-cache (_t=timestamp) para nunca travar no horário antigo
+ * e atualização contínua a cada 15 minutos!
  */
 export function generateScriptableWidgetCode(
   positions: FiiPosition[],
@@ -157,41 +184,35 @@ export function generateScriptableWidgetCode(
   )}&goal=${encodeURIComponent(String(preview.incomeGoal))}`;
 
   return `// ============================================================================
-// 📱 FII TRACKER — WIDGET INTELIGENTE PARA IPHONE (TELA INICIAL & BLOQUEIO)
-// Zero Consumo de Bateria: Congela automaticamente fora do pregão da B3!
-// Como usar: Cole este código no app gratuito "Scriptable" no seu iPhone.
+// 📱 FII TRACKER 2.0 — WIDGET AO VIVO PARA IPHONE (SEM CACHE TRAVADO)
+// Atualiza a cada 15 min com anti-cache e sincroniza com o seu FII Tracker!
 // ============================================================================
 
 const APP_URL = "${baseOrigin}";
 const WIDGET_API_URL = "${apiUrl}";
 const CACHE_FILE = "fii_tracker_widget_cache.json";
 
-// 🔋 Trava Inteligente de Bateria:
-// - Seg a Sex (10h às 18h): atualiza a cada 45 min
-// - Noite (18h às 10h) e Fim de Semana: dorme até as 10h do próximo pregão!
-function getNextB3RefreshDate() {
+// Agenda próxima atualização em 15 minutos (e dorme apenas de madrugada 01h-06h)
+function getNextRefreshDate() {
   const now = new Date();
-  const day = now.getDay(); // 0 = Dom, 6 = Sáb
   const hour = now.getHours();
 
-  // Durante o pregão da B3: próxima leitura em 45 minutos
-  if (day >= 1 && day <= 5 && hour >= 10 && hour < 18) {
-    return new Date(now.getTime() + 45 * 60 * 1000);
+  // De madrugada (01h às 06h), descansa até as 07:00
+  if (hour >= 1 && hour < 6) {
+    const wake = new Date(now);
+    wake.setHours(7, 0, 0, 0);
+    return wake;
   }
 
-  // Fora do pregão: agenda apenas para as 10:05 do próximo dia útil
-  const next = new Date(now);
-  next.setHours(10, 5, 0, 0);
+  // Durante todo o dia (inclusive fim de semana): atualiza a cada 15 minutos!
+  return new Date(now.getTime() + 15 * 60 * 1000);
+}
 
-  if (hour >= 18 || day === 6 || day === 0) {
-    let daysToAdd = 1;
-    if (day === 5 && hour >= 18) daysToAdd = 3; // Sexta após 18h -> Segunda
-    else if (day === 6) daysToAdd = 2;          // Sábado -> Segunda
-    else if (day === 0) daysToAdd = 1;          // Domingo -> Segunda
-    next.setDate(next.getDate() + daysToAdd);
-  }
-
-  return next;
+function getLocalHHMM() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return hh + ":" + mm;
 }
 
 async function fetchPortfolioData() {
@@ -199,15 +220,22 @@ async function fetchPortfolioData() {
   const cachePath = fm.joinPath(fm.documentsDirectory(), CACHE_FILE);
 
   try {
-    const req = new Request(WIDGET_API_URL);
-    req.timeoutInterval = 8;
+    // Timestamp &_t= evita que o iOS guarde cache antigo de ontem!
+    const freshUrl = WIDGET_API_URL + "&_t=" + Date.now();
+    const req = new Request(freshUrl);
+    req.timeoutInterval = 10;
+    req.headers = {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache"
+    };
     const data = await req.loadJSON();
     if (data && typeof data.equity === "number") {
+      data.updatedAt = getLocalHHMM();
       fm.writeString(cachePath, JSON.stringify(data));
       return data;
     }
   } catch (e) {
-    // Sem internet ou no elevador: usa o cache instantâneo sem gastar bateria
+    // Sem sinal no momento: usa o último cache salvo no aparelho
   }
 
   if (fm.fileExists(cachePath)) {
@@ -216,7 +244,6 @@ async function fetchPortfolioData() {
     } catch (e) {}
   }
 
-  // Fallback inicial com os dados da sua carteira no momento em que gerou o código
   return {
     equity: ${preview.equity},
     invested: ${preview.invested},
@@ -229,7 +256,7 @@ async function fetchPortfolioData() {
     nextEvent: "${preview.nextEvent}",
     topBargain: "${preview.topBargain}",
     marketOpen: false,
-    updatedAt: "Offline"
+    updatedAt: getLocalHHMM()
   };
 }
 
@@ -241,18 +268,18 @@ async function createWidget() {
   const d = await fetchPortfolioData();
   const w = new ListWidget();
   w.url = APP_URL;
-  w.refreshAfterDate = getNextB3RefreshDate();
+  w.refreshAfterDate = getNextRefreshDate();
 
-  // Visual Dark Mode idêntico ao FII Tracker (#09090b -> #18181b)
+  // Visual Preto OLED Minimalista (#000000 -> #121215)
   const bg = new LinearGradient();
   bg.locations = [0, 1];
-  bg.colors = [new Color("#09090b"), new Color("#141418")];
+  bg.colors = [new Color("#050507"), new Color("#121215")];
   w.backgroundGradient = bg;
   w.setPadding(12, 14, 12, 14);
 
   const family = config.widgetFamily || "medium";
 
-  // 1. WIDGET DE TELA DE BLOQUEIO DO IPHONE (Retangular)
+  // 1. WIDGET DE TELA DE BLOQUEIO DO IPHONE
   if (family === "accessoryRectangular") {
     const t1 = w.addText("📈 FII Tracker • " + brl(d.equity));
     t1.font = Font.boldSystemFont(12);
@@ -269,22 +296,22 @@ async function createWidget() {
   header.layoutHorizontally();
   header.centerAlignContent();
 
-  const title = header.addText("🏢 FII TRACKER");
+  const title = header.addText("● FII TRACKER");
   title.font = Font.boldSystemFont(10);
   title.textColor = new Color("#10b981");
 
   header.addSpacer();
 
-  const statusText = d.marketOpen ? "● B3 Aberta" : "🌙 Pregão Fechado";
+  const statusText = d.marketOpen ? "B3 Aberta" : "Sincronizado";
   const status = header.addText(statusText + " • " + d.updatedAt);
   status.font = Font.mediumSystemFont(9);
-  status.textColor = d.marketOpen ? new Color("#34d399") : new Color("#71717a");
+  status.textColor = d.marketOpen ? new Color("#34d399") : new Color("#a1a1aa");
 
   w.addSpacer(6);
 
   // 2. WIDGET PEQUENO (2x2)
   if (family === "small") {
-    const eqLabel = w.addText("Patrimônio B3");
+    const eqLabel = w.addText("Patrimônio em FIIs");
     eqLabel.font = Font.systemFont(10);
     eqLabel.textColor = new Color("#a1a1aa");
 
@@ -317,15 +344,14 @@ async function createWidget() {
     return w;
   }
 
-  // 3. WIDGET MÉDIO / GRANDE (4x2) — Completo com Proventos + Radar de Oportunidades
+  // 3. WIDGET MÉDIO / GRANDE (4x2)
   const body = w.addStack();
   body.layoutHorizontally();
 
-  // Coluna Esquerda: Patrimônio & Renda Passiva
   const left = body.addStack();
   left.layoutVertically();
 
-  const eqLabel = left.addText("PATRIMÔNIO ATUAL");
+  const eqLabel = left.addText("PATRIMÔNIO EM FIIS");
   eqLabel.font = Font.boldSystemFont(9);
   eqLabel.textColor = new Color("#71717a");
 
@@ -340,7 +366,7 @@ async function createWidget() {
 
   left.addSpacer(8);
 
-  const incLabel = left.addText("PROVENTOS DO MÊS (YoC " + d.yocPct + "%)");
+  const incLabel = left.addText("PROVENTOS / MÊS (YoC " + d.yocPct + "%)");
   incLabel.font = Font.boldSystemFont(9);
   incLabel.textColor = new Color("#71717a");
 
@@ -350,14 +376,13 @@ async function createWidget() {
 
   body.addSpacer(12);
 
-  // Coluna Direita: Próximo Pagamento + Oportunidade no Radar da B3
   const right = body.addStack();
   right.layoutVertically();
 
   const card1 = right.addStack();
   card1.layoutVertically();
   card1.backgroundColor = new Color("#18181b");
-  card1.cornerRadius = 8;
+  card1.cornerRadius = 10;
   card1.setPadding(6, 8, 6, 8);
 
   const c1Title = card1.addText("📅 PRÓXIMO PROVENTO");
@@ -374,10 +399,10 @@ async function createWidget() {
   const card2 = right.addStack();
   card2.layoutVertically();
   card2.backgroundColor = new Color("#062e22");
-  card2.cornerRadius = 8;
+  card2.cornerRadius = 10;
   card2.setPadding(6, 8, 6, 8);
 
-  const c2Title = card2.addText("🔥 OPORTUNIDADE NO RADAR B3");
+  const c2Title = card2.addText("🔥 OPORTUNIDADE RADAR B3");
   c2Title.font = Font.boldSystemFont(8);
   c2Title.textColor = new Color("#34d399");
 
@@ -398,4 +423,3 @@ if (config.runsInWidget) {
 Script.complete();
 `;
 }
-
