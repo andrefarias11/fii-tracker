@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { findFiiInfo, FII_DATABASE } from '../../../data/fiiDatabase';
 import { QuoteData } from '../../../types/portfolio';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 export interface WidgetSummaryResponse {
   equity: number;
   invested: number;

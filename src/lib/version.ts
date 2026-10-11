@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.0.2';
+export const APP_VERSION = '2.0.3';
 export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.0.3',
+    date: '11/10/2026',
+    highlights: [
+      'Remove exportações de segmento dynamic/revalidate incompatíveis com cacheComponents do Next.js 16 em /api/widget/route.ts',
+    ],
+  },
   {
     version: '2.0.2',
     date: '11/10/2026',
