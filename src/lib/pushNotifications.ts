@@ -461,18 +461,41 @@ export function buildPortfolioDailyAlert(
   };
 }
 
-// Verifica automaticamente novas oportunidades ou anúncios de Data-Com e envia Push se ainda não enviou
+const LAST_DAILY_PUSH_DATE_KEY = 'fii_tracker_last_daily_push_date_v3';
+let hasCheckedAutoPushInSession = false;
+
+// Verifica apenas 1 única vez por dia (com trava síncrona imediata para NUNCA disparar várias notificações ao abrir o app)
 export async function runAutoDailyPushCheck(
   positions: FiiPosition[],
   quotes: Record<string, QuoteData> = {}
 ): Promise<void> {
   if (typeof window === 'undefined') return;
+  if (hasCheckedAutoPushInSession) return;
 
   const prefs = getPushPreferences();
   if (!prefs.enabled) return;
 
+  const todayIso = new Date().toISOString().slice(0, 10);
+  try {
+    const lastDate = localStorage.getItem(LAST_DAILY_PUSH_DATE_KEY);
+    if (lastDate === todayIso) {
+      hasCheckedAutoPushInSession = true;
+      return;
+    }
+  } catch {
+    return;
+  }
+
   const alerts = scanSmartAlerts(positions, quotes);
   if (alerts.length === 0) return;
+
+  // Trava SÍNCRONA imediata ANTES do await para impedir disparos múltiplos em re-renderizações!
+  hasCheckedAutoPushInSession = true;
+  try {
+    localStorage.setItem(LAST_DAILY_PUSH_DATE_KEY, todayIso);
+  } catch {
+    return;
+  }
 
   let sentMap: Record<string, string> = {};
   try {
@@ -482,27 +505,27 @@ export async function runAutoDailyPushCheck(
     sentMap = {};
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
-  // Procura o alerta de maior prioridade que ainda não foi notificado hoje
-  const nextAlert = alerts.find((a) => sentMap[a.id] !== todayIso);
+  const nextAlert = alerts.find((a) => sentMap[a.id] !== todayIso) || alerts[0];
   if (!nextAlert) return;
 
-  const sent = await sendPushNotificationNow(
+  // Marca todos os alertas do lote atual como vistos hoje para não enfileirar vários
+  for (const a of alerts) {
+    sentMap[a.id] = todayIso;
+  }
+  try {
+    localStorage.setItem(SENT_ALERTS_STORAGE_KEY, JSON.stringify(sentMap));
+  } catch {
+    // ignore
+  }
+
+  await sendPushNotificationNow(
     {
       title: nextAlert.title,
       body: nextAlert.body,
-      tag: nextAlert.id,
+      tag: 'fii-daily-smart-alert',
       url: nextAlert.url,
     },
     0
   );
-
-  if (sent) {
-    sentMap[nextAlert.id] = todayIso;
-    try {
-      localStorage.setItem(SENT_ALERTS_STORAGE_KEY, JSON.stringify(sentMap));
-    } catch {
-      // ignore
-    }
-  }
 }
+
