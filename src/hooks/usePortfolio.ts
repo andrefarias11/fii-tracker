@@ -583,12 +583,12 @@ export function usePortfolio() {
     }
   };
 
-  // Verifica alertas automáticos de Web Push (Data-Com, Pagamento hoje, Abaixo do PM) 1x ao dia
+  // Verifica alertas automáticos de Web Push (Oportunidades B3, Data-Com confirmada, Pagamento hoje, Abaixo do PM)
   useEffect(() => {
-    if (isInitialized && positions.length > 0 && lastSyncTime) {
-      runAutoDailyPushCheck(positions);
+    if (isInitialized && lastSyncTime) {
+      runAutoDailyPushCheck(positions, quotes);
     }
-  }, [isInitialized, positions, lastSyncTime]);
+  }, [isInitialized, positions, quotes, lastSyncTime]);
 
   return {
     isInitialized,

@@ -101,8 +101,36 @@ export default function HomePage() {
   useEffect(() => {
     if (isInitialized && typeof window !== 'undefined') {
       window.scrollTo(0, 0);
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as TabType | null;
+      if (
+        tabParam &&
+        ['portfolio', 'proventos', 'mentors', 'radar', 'goals', 'history'].includes(tabParam)
+      ) {
+        setActiveTab(tabParam);
+      }
     }
   }, [isInitialized]);
+
+  // Escuta clique em notificações Web Push para abrir direto na aba correspondente (Radar, Mentores, Proventos)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'NAVIGATE_FROM_PUSH' && typeof event.data.url === 'string') {
+        try {
+          const url = new URL(event.data.url, window.location.origin);
+          const tab = url.searchParams.get('tab') as TabType | null;
+          if (tab && ['portfolio', 'proventos', 'mentors', 'radar', 'goals', 'history'].includes(tab)) {
+            setActiveTab(tab);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
 
   if (!isInitialized) {
     return (
@@ -348,6 +376,7 @@ export default function HomePage() {
         isOpen={isSettingsModalOpen}
         goals={goals}
         positions={positions}
+        quotes={quotes}
         isCloudConnected={isCloudConnected}
         isSyncingCloud={isSyncing}
         onClose={() => setIsSettingsModalOpen(false)}

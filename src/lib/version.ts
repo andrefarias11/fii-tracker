@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.7.2';
+export const APP_VERSION = '1.9.0';
 export const APP_UPDATED_AT = '10/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,27 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.9.0',
+    date: '10/10/2026',
+    highlights: [
+      'Gerador de Widget para Tela Inicial e Tela de Bloqueio do iPhone (/api/widget + Scriptable) com prévia ao vivo, cache offline e trava inteligente de bateria fora do pregão da B3 (18h às 10h e fins de semana)',
+    ],
+  },
+  {
+    version: '1.8.0',
+    date: '10/10/2026',
+    highlights: [
+      'Novas notificações inteligentes de Oportunidades na B3 (mesmo após bater a meta), Data-Com confirmada, Consenso dos Mentores e Radar de Alertas ao vivo nas Configurações',
+    ],
+  },
+  {
+    version: '1.7.3',
+    date: '10/10/2026',
+    highlights: [
+      'Gráfico de Linhas com Valor de Referência selecionável (Minha Carteira, R$ 1 mil, R$ 10 mil), marcadores de escala no eixo Y, etiquetas de % nas pontas e espaçamento ampliado entre as 4 linhas',
+    ],
+  },
   {
     version: '1.7.2',
     date: '10/10/2026',

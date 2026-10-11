@@ -16,8 +16,10 @@ import {
   Unlink,
   Bell,
   Smartphone,
+  Copy,
+  LayoutGrid,
 } from 'lucide-react';
-import { PortfolioGoals, FiiPosition } from '../types/portfolio';
+import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
 import {
   getSupabaseConfig,
   saveSupabaseConfig,
@@ -31,14 +33,21 @@ import {
   registerAndSubscribePush,
   sendPushNotificationNow,
   buildPortfolioDailyAlert,
+  scanSmartAlerts,
   PushPreferences,
+  SmartAlertItem,
 } from '../lib/pushNotifications';
+import {
+  buildWidgetPreviewData,
+  generateScriptableWidgetCode,
+} from '../lib/iphoneWidget';
 import { APP_VERSION, APP_UPDATED_AT, APP_CHANGELOG } from '../lib/version';
 
 interface SettingsModalProps {
   isOpen: boolean;
   goals: PortfolioGoals;
   positions?: FiiPosition[];
+  quotes?: Record<string, QuoteData>;
   isCloudConnected: boolean;
   isSyncingCloud: boolean;
   onClose: () => void;
@@ -54,6 +63,7 @@ export function SettingsModal({
   isOpen,
   goals,
   positions = [],
+  quotes = {},
   isCloudConnected,
   isSyncingCloud,
   onClose,
@@ -84,11 +94,30 @@ export function SettingsModal({
   const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
   const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
 
+  // Estados do Widget iOS (Scriptable)
+  const [widgetCopied, setWidgetCopied] = useState<boolean>(false);
+  const [showWidgetSteps, setShowWidgetSteps] = useState<boolean>(false);
+
   if (!isOpen) return null;
+
+  const detectedAlerts = scanSmartAlerts(positions, quotes);
+  const widgetPreview = buildWidgetPreviewData(positions, goals, quotes);
 
   const showBanner = (type: 'success' | 'error', text: string) => {
     setBanner({ type, text });
     setTimeout(() => setBanner(null), 3500);
+  };
+
+  const handleCopyWidgetCode = async () => {
+    try {
+      const code = generateScriptableWidgetCode(positions, goals);
+      await navigator.clipboard.writeText(code);
+      setWidgetCopied(true);
+      showBanner('success', 'Código do Widget para iPhone copiado com sua carteira!');
+      setTimeout(() => setWidgetCopied(false), 3500);
+    } catch {
+      showBanner('error', 'Não foi possível copiar automaticamente. Tente novamente.');
+    }
   };
 
   const handleEnablePush = async () => {
@@ -111,24 +140,32 @@ export function SettingsModal({
     savePushPreferences(next);
   };
 
-  const handleTestLockScreenPush = async () => {
+  const handleTestLockScreenPush = async (customAlert?: SmartAlertItem) => {
     setIsSendingTestPush(true);
     setPushStatusMsg(
       '📲 Bloqueie a tela do seu iPhone agora! O alerta chegará em 5 segundos...'
     );
 
-    const sampleAlert = buildPortfolioDailyAlert(positions) || {
-      title: '🔔 FII Tracker • Alerta Ativo',
-      body: 'As notificações na Tela de Bloqueio estão funcionando perfeitamente!',
-      tag: 'fii-test-lockscreen',
-    };
+    const sampleAlert = customAlert
+      ? {
+          title: customAlert.title,
+          body: customAlert.body,
+          tag: customAlert.id,
+          url: customAlert.url,
+        }
+      : buildPortfolioDailyAlert(positions, quotes) || {
+          title: '🔔 FII Tracker • Alerta Ativo',
+          body: 'As notificações na Tela de Bloqueio estão funcionando perfeitamente!',
+          tag: 'fii-test-lockscreen',
+          url: '/?tab=radar',
+        };
 
     const ok = await sendPushNotificationNow(
       {
         title: sampleAlert.title,
         body: sampleAlert.body,
         tag: sampleAlert.tag,
-        url: '/',
+        url: sampleAlert.url || '/?tab=radar',
       },
       5
     );
@@ -232,7 +269,7 @@ export function SettingsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-white">Configurações & Nuvem</h2>
+          <h2 className="text-base font-bold text-white">Configurações & Alertas</h2>
           <button
             onClick={onClose}
             aria-label="Fechar"
@@ -259,13 +296,13 @@ export function SettingsModal({
           </div>
         )}
 
-        {/* 0. SEÇÃO WEB PUSH API (NOTIFICAÇÕES NO IPHONE / TELA BLOQUEADA) */}
+        {/* 0. SEÇÃO WEB PUSH API (NOTIFICAÇÕES DE OPORTUNIDADES E DATA-COM NO IPHONE) */}
         <div className="mb-6 p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Bell className={`w-4 h-4 ${pushPrefs.enabled ? 'text-emerald-400' : 'text-amber-400'}`} />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Alertas Web Push (iPhone / PWA)
+                Alertas B3 & Oportunidades (Web Push)
               </h3>
             </div>
             <span
@@ -280,8 +317,9 @@ export function SettingsModal({
           </div>
 
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
-            Receba avisos de <strong>Data-Com</strong>, <strong>Pagamento de Dividendos</strong> e{' '}
-            <strong>Descontos na B3</strong> mesmo com o app fechado e tela bloqueada (consumo zero de bateria via Apple APNs).
+            Fique sempre antenado mesmo após bater a meta do mês: receba alertas de{' '}
+            <strong>Data-Com confirmada</strong>, <strong>Barganhas na B3</strong> e{' '}
+            <strong>Consenso dos Mentores</strong> direto na tela bloqueada do iPhone.
           </p>
 
           {pushSupport.isIosNeedInstall && (
@@ -290,23 +328,44 @@ export function SettingsModal({
             </div>
           )}
 
-          {/* Opções de Alerta */}
+          {/* 6 Categorias de Alerta (Oportunidades + Proventos) */}
           <div className="space-y-1.5 mb-3">
             {[
-              { key: 'notifyPaymentDay' as const, label: '💰 Dia de pagamento de dividendos na conta' },
-              { key: 'notifyExDate' as const, label: '⚡ Véspera e dia de Data-Com dos meus FIIs' },
-              { key: 'notifyPriceOpportunity' as const, label: '📉 Quando um FII cair abaixo do meu Preço Médio' },
+              {
+                key: 'notifyConfirmedDividend' as const,
+                label: '📢 Quando um FII confirmar valor de dividendo e Data-Com na B3',
+              },
+              {
+                key: 'notifyMarketBargain' as const,
+                label: '🔥 Super Oportunidade na B3 (FII muito descontado mesmo após bater meta)',
+              },
+              {
+                key: 'notifyMentorConsensus' as const,
+                label: '🏆 Quando um FII entrar no Consenso dos Mentores (Barsi + Buffett)',
+              },
+              {
+                key: 'notifyExDate' as const,
+                label: '⚡ Véspera e dia de Data-Com (para dar tempo de comprar e receber)',
+              },
+              {
+                key: 'notifyPriceOpportunity' as const,
+                label: '📉 Quando um FII da minha carteira cair abaixo do meu Preço Médio',
+              },
+              {
+                key: 'notifyPaymentDay' as const,
+                label: '💰 Dia em que o dividendo cair na conta da corretora',
+              },
             ].map((opt) => (
               <label
                 key={opt.key}
-                className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/70 border border-zinc-800/70 cursor-pointer text-[11px] text-zinc-300"
+                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-zinc-900/70 border border-zinc-800/70 cursor-pointer text-[11px] text-zinc-300"
               >
-                <span>{opt.label}</span>
+                <span className="leading-snug">{opt.label}</span>
                 <input
                   type="checkbox"
                   checked={pushPrefs[opt.key]}
                   onChange={() => handleTogglePushPref(opt.key)}
-                  className="accent-emerald-500 w-3.5 h-3.5 rounded"
+                  className="accent-emerald-500 w-3.5 h-3.5 rounded shrink-0"
                 />
               </label>
             ))}
@@ -318,7 +377,7 @@ export function SettingsModal({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             <button
               type="button"
               onClick={handleEnablePush}
@@ -335,15 +394,167 @@ export function SettingsModal({
 
             <button
               type="button"
-              onClick={handleTestLockScreenPush}
+              onClick={() => handleTestLockScreenPush()}
               disabled={isSendingTestPush}
               className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
-              title="Dispara uma notificação real em 5 segundos para você bloquear a tela do iPhone e testar"
+              title="Dispara a principal oportunidade/alerta de hoje em 5 segundos para sua Tela de Bloqueio"
             >
               <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
               {isSendingTestPush ? 'Aguarde 5s...' : 'Testar Tela Bloq. (5s)'}
             </button>
           </div>
+
+          {/* Prévia Ao Vivo dos Alertas Detectados Hoje na B3 */}
+          {detectedAlerts.length > 0 && (
+            <div className="pt-2.5 border-t border-zinc-800/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                  📡 Radar de Alertas Detectados Hoje ({detectedAlerts.length})
+                </span>
+                <span className="text-[9px] text-zinc-500">Toque para enviar p/ tela bloq.</span>
+              </div>
+
+              <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+                {detectedAlerts.slice(0, 4).map((alert) => (
+                  <div
+                    key={alert.id}
+                    onClick={() => handleTestLockScreenPush(alert)}
+                    className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800/90 hover:border-emerald-500/40 cursor-pointer transition-all"
+                  >
+                    <div className="text-[11px] font-bold text-white mb-0.5">
+                      {alert.title}
+                    </div>
+                    <p className="text-[10px] text-zinc-400 leading-snug">
+                      {alert.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 0.5. SEÇÃO WIDGET PARA TELA INICIAL E BLOQUEIO DO IPHONE */}
+        <div className="mb-6 p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Widget para iPhone (Tela Inicial & Bloq.)
+              </h3>
+            </div>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+              🔋 Trava B3 (Zero Bateria)
+            </span>
+          </div>
+
+          <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
+            Acompanhe seu patrimônio, dividendos do mês e a melhor oportunidade do dia direto na tela inicial do iPhone. <strong>Congela sozinho das 18h às 10h e nos fins de semana</strong> para não gastar bateria.
+          </p>
+
+          {/* Prévia Visual Idêntica ao Widget Médio do iPhone */}
+          <div className="mb-3 p-3.5 rounded-3xl bg-gradient-to-br from-zinc-950 to-zinc-900 border border-zinc-800 shadow-inner">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-extrabold text-emerald-400 tracking-wider">
+                🏢 FII TRACKER
+              </span>
+              <span className="text-[9px] text-zinc-400 font-medium">
+                ● Prévia Ao Vivo • iOS Widget
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 items-center">
+              <div>
+                <div className="text-[8px] font-bold text-zinc-500 uppercase">
+                  Patrimônio Atual
+                </div>
+                <div className="text-base font-extrabold text-white leading-tight">
+                  R$ {widgetPreview.equity.toFixed(2).replace('.', ',')}
+                </div>
+                <div
+                  className={`text-[10px] font-semibold ${
+                    widgetPreview.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {widgetPreview.profit >= 0 ? '+' : ''}
+                  R$ {widgetPreview.profit.toFixed(2).replace('.', ',')} (
+                  {widgetPreview.profit >= 0 ? '+' : ''}
+                  {widgetPreview.profitPct}%)
+                </div>
+
+                <div className="mt-2 text-[8px] font-bold text-zinc-500 uppercase">
+                  Proventos Mês (YoC {widgetPreview.yocPct}%)
+                </div>
+                <div className="text-xs font-extrabold text-emerald-400">
+                  R$ {widgetPreview.monthlyIncome.toFixed(2).replace('.', ',')} / R${' '}
+                  {widgetPreview.incomeGoal.toFixed(0)}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800/80">
+                  <div className="text-[8px] font-bold text-zinc-400 uppercase">
+                    📅 Próximo Provento
+                  </div>
+                  <div className="text-[10px] font-semibold text-white truncate">
+                    {widgetPreview.nextEvent}
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-xl bg-emerald-950/50 border border-emerald-500/20">
+                  <div className="text-[8px] font-bold text-emerald-400 uppercase">
+                    🔥 Oportunidade Radar B3
+                  </div>
+                  <div className="text-[9px] font-semibold text-emerald-100 truncate">
+                    {widgetPreview.topBargain}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyWidgetCode}
+              className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
+            >
+              {widgetCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Código Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar Código do Widget
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowWidgetSteps((prev) => !prev)}
+              className="py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs transition-all"
+            >
+              {showWidgetSteps ? 'Ocultar Guia' : 'Como Instalar'}
+            </button>
+          </div>
+
+          {showWidgetSteps && (
+            <div className="mt-3 p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-300 space-y-1.5 leading-relaxed">
+              <div className="font-bold text-white">Passo a passo no iPhone (leva 1 minuto):</div>
+              <div>
+                1. Baixe o app gratuito <strong>Scriptable</strong> na App Store do iPhone.
+              </div>
+              <div>
+                2. Clique em <strong>Copiar Código do Widget</strong> acima, abra o Scriptable, toque no <strong>+</strong> (canto superior direito) e cole o código.
+              </div>
+              <div>
+                3. Na tela inicial do iPhone, segure o dedo num espaço vazio → toque em <strong>+</strong> → escolha <strong>Scriptable</strong> (tamanho Médio) → edite o widget e selecione o script que você salvou!
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 1. SEÇÃO SUPABASE NA NUVEM */}
