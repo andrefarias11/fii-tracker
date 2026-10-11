@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '1.9.0';
-export const APP_UPDATED_AT = '10/10/2026';
+export const APP_VERSION = '1.9.1';
+export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '1.9.1',
+    date: '11/10/2026',
+    highlights: [
+      'Gráfico de Linhas ajustado para partir exatamente do 1º dia em que começou a investir, avançando dia após dia em sequência na horizontal até Hoje (atualizado diariamente) e com auto-escala dinâmica no eixo Y',
+    ],
+  },
   {
     version: '1.9.0',
     date: '10/10/2026',
