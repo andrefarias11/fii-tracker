@@ -250,6 +250,28 @@ async function fetchTickerQuote(ticker: string) {
   }
 }
 
+type ResolvedQuote = NonNullable<Awaited<ReturnType<typeof fetchTickerQuote>>>;
+
+const QUOTE_CACHE_TTL_MS = 30_000; // 30 segundos de cache em memória para evitar rate-limit e acelerar respostas
+const quoteMemoryCache = new Map<string, { data: ResolvedQuote; expiresAt: number }>();
+
+async function fetchTickerQuoteWithCache(ticker: string): Promise<ResolvedQuote | null> {
+  const clean = ticker.trim().toUpperCase();
+  const cached = quoteMemoryCache.get(clean);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const fresh = await fetchTickerQuote(clean);
+  if (fresh) {
+    quoteMemoryCache.set(clean, {
+      data: fresh,
+      expiresAt: Date.now() + QUOTE_CACHE_TTL_MS,
+    });
+  }
+  return fresh;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get('tickers');
@@ -261,15 +283,20 @@ export async function GET(request: Request) {
     );
   }
 
-  const tickerList = tickersParam
-    .split(',')
-    .map((t) => t.trim().toUpperCase())
-    .filter((t) => t.length > 0)
-    .slice(0, 30);
+  const tickerList = Array.from(
+    new Set(
+      tickersParam
+        .split(',')
+        .map((t) => t.trim().toUpperCase())
+        .filter((t) => t.length > 0)
+    )
+  ).slice(0, 35);
 
-  const quotesResults = await Promise.all(tickerList.map((t) => fetchTickerQuote(t)));
+  const quotesResults = await Promise.all(
+    tickerList.map((t) => fetchTickerQuoteWithCache(t))
+  );
 
-  const quotesMap: Record<string, NonNullable<Awaited<ReturnType<typeof fetchTickerQuote>>>> = {};
+  const quotesMap: Record<string, ResolvedQuote> = {};
 
   for (const quote of quotesResults) {
     if (quote) {

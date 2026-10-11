@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.1.2';
+export const APP_VERSION = '2.2.0';
 export const APP_UPDATED_AT = '11/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.2.0',
+    date: '11/10/2026',
+    highlights: [
+      'Expansão massiva da base de FIIs e Fiagros da B3: 75+ fundos catalogados no IFIX (fiiDatabase.ts com busca O(1) via Map) e 38+ fundos com tese fundamentalista completa no Radar e Mentores (fiiFundamentals.ts)',
+      'Refatoração Arquitetural (Clean Domain): extrai o motor contábil puro para src/domain/portfolioEngine.ts (com normalização automática de Desdobramentos/Splits históricos Base 100 -> Base 10), compartilhado entre Frontend e Backend',
+      'Otimização de Banco de Dados (Supabase Batch SQL): substitui loops N+1 por upsertRemoteTransactionsBatch e deleteRemoteTransactionsBatch em transação única',
+      'Widget Serverless conectado direto ao Supabase em /api/widget + cache em memória de 30s por ativo em /api/quote',
+    ],
+  },
   {
     version: '2.1.2',
     date: '11/10/2026',

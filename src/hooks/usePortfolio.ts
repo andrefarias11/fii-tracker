@@ -1,16 +1,28 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Transaction, FiiPosition, PortfolioGoals, QuoteData, BcbIndicators } from '../types/portfolio';
-import { findFiiInfo } from '../data/fiiDatabase';
+import {
+  Transaction,
+  FiiPosition,
+  PortfolioGoals,
+  QuoteData,
+  BcbIndicators,
+} from '../types/portfolio';
 import { deduplicateB3Transactions, normalizeB3Ticker } from '../lib/b3Parser';
+import {
+  calculatePortfolioPositions,
+  calculatePortfolioSummary,
+} from '../domain/portfolioEngine';
+import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
 import { runAutoDailyPushCheck } from '../lib/pushNotifications';
 import { syncPortfolioToWidgetServer } from '../lib/iphoneWidget';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
   upsertRemoteTransaction,
+  upsertRemoteTransactionsBatch,
   deleteRemoteTransaction,
+  deleteRemoteTransactionsBatch,
   fetchRemoteGoals,
   upsertRemoteGoals,
   fetchRemoteDividends,
@@ -37,18 +49,18 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
     price: 9.42,
     total: 103.62,
     broker: 'XP Investimentos',
-    notes: 'Primeiro aporte do mês'
+    notes: 'Primeiro aporte do mês',
   },
   {
     id: 'demo-2',
     ticker: 'VGIR11',
     date: '2026-10-01',
     shares: 10,
-    price: 9.60,
-    total: 96.00,
+    price: 9.6,
+    total: 96.0,
     broker: 'XP Investimentos',
-    notes: 'Diversificação em Papel/CDI'
-  }
+    notes: 'Diversificação em Papel/CDI',
+  },
 ];
 
 export function usePortfolio() {
@@ -66,7 +78,7 @@ export function usePortfolio() {
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Sincronizar com o Supabase
+  // Sincronizar com o Supabase (Batch SQL)
   const syncWithCloud = useCallback(async () => {
     const config = getSupabaseConfig();
     if (!config.url || !config.key) {
@@ -80,32 +92,31 @@ export function usePortfolio() {
       setIsCloudConnected(isConnected);
 
       if (isConnected) {
-        // 1. Sincronizar Metas
-        const remoteGoals = await fetchRemoteGoals();
+        const [remoteGoals, remoteDivs, remoteTxs] = await Promise.all([
+          fetchRemoteGoals(),
+          fetchRemoteDividends(),
+          fetchRemoteTransactions(),
+        ]);
+
         if (remoteGoals) {
           setGoals(remoteGoals);
           localStorage.setItem(STORAGE_KEY_GOALS, JSON.stringify(remoteGoals));
         }
 
-        // 2. Sincronizar Dividendos
-        const remoteDivs = await fetchRemoteDividends();
         if (remoteDivs) {
           setCustomDividends(remoteDivs);
           localStorage.setItem(STORAGE_KEY_DIVIDENDS, JSON.stringify(remoteDivs));
         }
 
-        // 3. Sincronizar Transações
-        const remoteTxs = await fetchRemoteTransactions();
         if (remoteTxs && remoteTxs.length > 0) {
           setTransactions(remoteTxs);
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(remoteTxs));
         } else if (remoteTxs && remoteTxs.length === 0) {
-          // Se o banco estiver vazio, enviar os dados locais existentes para o Supabase
           const localTxsStr = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
           if (localTxsStr) {
             const localTxs: Transaction[] = JSON.parse(localTxsStr);
-            for (const tx of localTxs) {
-              await upsertRemoteTransaction(tx);
+            if (localTxs.length > 0) {
+              await upsertRemoteTransactionsBatch(localTxs);
             }
           }
         }
@@ -167,9 +178,18 @@ export function usePortfolio() {
   // Salvar metas
   const updateGoals = async (newGoals: Partial<PortfolioGoals>) => {
     const updated: PortfolioGoals = {
-      monthlyTarget: newGoals.monthlyTarget !== undefined ? Number(newGoals.monthlyTarget) : (goals.monthlyTarget || 200),
-      milestoneEquityTarget: newGoals.milestoneEquityTarget !== undefined ? Number(newGoals.milestoneEquityTarget) : (goals.milestoneEquityTarget || 1000),
-      monthlyIncomeTarget: newGoals.monthlyIncomeTarget !== undefined ? Number(newGoals.monthlyIncomeTarget) : (goals.monthlyIncomeTarget || 10),
+      monthlyTarget:
+        newGoals.monthlyTarget !== undefined
+          ? Number(newGoals.monthlyTarget)
+          : goals.monthlyTarget || 200,
+      milestoneEquityTarget:
+        newGoals.milestoneEquityTarget !== undefined
+          ? Number(newGoals.milestoneEquityTarget)
+          : goals.milestoneEquityTarget || 1000,
+      monthlyIncomeTarget:
+        newGoals.monthlyIncomeTarget !== undefined
+          ? Number(newGoals.monthlyIncomeTarget)
+          : goals.monthlyIncomeTarget || 10,
     };
 
     setGoals(updated);
@@ -190,7 +210,7 @@ export function usePortfolio() {
 
   // Salvar dividendo customizado por cota
   const updateCustomDividend = async (ticker: string, div: number) => {
-    const cleanTicker = ticker.toUpperCase();
+    const cleanTicker = normalizeB3Ticker(ticker);
     const updated = { ...customDividends, [cleanTicker]: div };
     setCustomDividends(updated);
     try {
@@ -219,7 +239,7 @@ export function usePortfolio() {
     const total = Number((absShares * absPrice).toFixed(2));
     const newTx: Transaction = {
       id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      ticker: data.ticker.toUpperCase().trim(),
+      ticker: normalizeB3Ticker(data.ticker),
       type: data.type === 'SELL' ? 'SELL' : 'BUY',
       date: data.date,
       shares: absShares,
@@ -257,7 +277,7 @@ export function usePortfolio() {
     const total = Number((absShares * absPrice).toFixed(2));
     const updatedTx: Transaction = {
       id,
-      ticker: data.ticker.toUpperCase().trim(),
+      ticker: normalizeB3Ticker(data.ticker),
       type: data.type === 'SELL' ? 'SELL' : 'BUY',
       date: data.date,
       shares: absShares,
@@ -287,47 +307,40 @@ export function usePortfolio() {
     }
   };
 
-  // Limpar tudo
+  // Limpar tudo em 1 único Batch Delete no Supabase
   const clearAllTransactions = async () => {
-    if (isCloudConnected) {
-      for (const tx of transactions) {
-        await deleteRemoteTransaction(tx.id);
-      }
-    }
+    const existingIds = transactions.map((t) => t.id);
     persistTransactions([]);
+    if (isCloudConnected && existingIds.length > 0) {
+      await deleteRemoteTransactionsBatch(existingIds);
+    }
   };
 
-  // Recarregar dados de exemplo
+  // Recarregar dados de exemplo em 1 único Batch Upsert
   const resetDemo = async () => {
     persistTransactions(DEMO_TRANSACTIONS);
     if (isCloudConnected) {
-      for (const tx of DEMO_TRANSACTIONS) {
-        await upsertRemoteTransaction(tx);
-      }
+      await upsertRemoteTransactionsBatch(DEMO_TRANSACTIONS);
     }
   };
 
-  // Importar transações vindas da planilha da B3 (com proteção anti-duplicidade e remoção de demo)
+  // Importar transações vindas da planilha da B3 (Batch Upsert & Batch Delete no Supabase)
   const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
     let finalTransactions: Transaction[] = [];
     let txsToUpsert: Transaction[] = newTxs;
 
-    // Sempre remove transações demo quando o usuário importa sua planilha oficial da B3
-    const demoTxs = transactions.filter((t) => t.id.startsWith('demo-'));
+    const demoIds = transactions.filter((t) => t.id.startsWith('demo-')).map((t) => t.id);
     const realExistingTxs = transactions.filter((t) => !t.id.startsWith('demo-'));
 
     if (replaceAll) {
-      if (isCloudConnected) {
-        for (const tx of transactions) {
-          await deleteRemoteTransaction(tx.id);
-        }
+      const allExistingIds = transactions.map((t) => t.id);
+      if (isCloudConnected && allExistingIds.length > 0) {
+        await deleteRemoteTransactionsBatch(allExistingIds);
       }
       finalTransactions = newTxs;
     } else {
-      if (isCloudConnected && demoTxs.length > 0) {
-        for (const dTx of demoTxs) {
-          await deleteRemoteTransaction(dTx.id);
-        }
+      if (isCloudConnected && demoIds.length > 0) {
+        await deleteRemoteTransactionsBatch(demoIds);
       }
       const { uniqueTransactions } = deduplicateB3Transactions(newTxs, realExistingTxs);
       txsToUpsert = uniqueTransactions;
@@ -337,53 +350,54 @@ export function usePortfolio() {
     persistTransactions(finalTransactions);
 
     if (isCloudConnected && txsToUpsert.length > 0) {
-      for (const tx of txsToUpsert) {
-        await upsertRemoteTransaction(tx);
-      }
+      await upsertRemoteTransactionsBatch(txsToUpsert);
     }
   };
 
   // Buscar cotações em tempo real (carteira + radar de oportunidades)
   const fetchLiveQuotes = useCallback(async () => {
-    const radarTickers = [
-      'MXRF11',
-      'VGIR11',
-      'CPTS11',
-      'KISU11',
-      'GALG11',
-      'SNAG11',
-      'VGIA11',
-      'XPML11',
-      'HGLG11',
-      'BTLG11',
-      'KNCR11',
-      'TRXF11',
-    ];
-    const uniqueTickers = Array.from(
-      new Set([
-        ...transactions.map((t) => normalizeB3Ticker(t.ticker)).filter(Boolean),
-        ...radarTickers,
-      ])
-    );
+    const portfolioTickers = transactions
+      .map((t) => normalizeB3Ticker(t.ticker))
+      .filter(Boolean);
+    const radarTickers = FII_FUNDAMENTALS.map((f) => f.ticker);
+
+    const uniqueTickers = Array.from(new Set([...portfolioTickers, ...radarTickers]));
     if (uniqueTickers.length === 0) return;
 
     setIsLoadingQuotes(true);
     try {
-      const [quoteRes, bcbRes] = await Promise.allSettled([
-        fetch(`/api/quote?tickers=${encodeURIComponent(uniqueTickers.join(','))}`),
-        fetch('/api/bcb'),
+      // Divide em lotes de até 25 tickers para resposta rápida e segura na API
+      const chunks: string[][] = [];
+      for (let i = 0; i < uniqueTickers.length; i += 25) {
+        chunks.push(uniqueTickers.slice(i, i + 25));
+      }
+
+      const [quoteResponses, bcbRes] = await Promise.all([
+        Promise.allSettled(
+          chunks.map((chunk) =>
+            fetch(`/api/quote?tickers=${encodeURIComponent(chunk.join(','))}`)
+          )
+        ),
+        fetch('/api/bcb').catch(() => null),
       ]);
 
-      if (quoteRes.status === 'fulfilled' && quoteRes.value.ok) {
-        const data = await quoteRes.value.json();
-        if (data.quotes) {
-          setQuotes((prev) => ({ ...prev, ...data.quotes }));
-          setLastSyncTime(new Date());
+      const mergedQuotes: Record<string, QuoteData> = {};
+      for (const res of quoteResponses) {
+        if (res.status === 'fulfilled' && res.value.ok) {
+          const data = await res.value.json();
+          if (data.quotes) {
+            Object.assign(mergedQuotes, data.quotes);
+          }
         }
       }
 
-      if (bcbRes.status === 'fulfilled' && bcbRes.value.ok) {
-        const bcbData: BcbIndicators = await bcbRes.value.json();
+      if (Object.keys(mergedQuotes).length > 0) {
+        setQuotes((prev) => ({ ...prev, ...mergedQuotes }));
+        setLastSyncTime(new Date());
+      }
+
+      if (bcbRes && bcbRes.ok) {
+        const bcbData: BcbIndicators = await bcbRes.json();
         setBcbIndicators(bcbData);
       }
     } catch (err) {
@@ -401,191 +415,37 @@ export function usePortfolio() {
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);
 
-  // Agrupar posições por FII (respeitando ordem cronológica e normalizando ticker para nunca duplicar fundos)
-  const positions: FiiPosition[] = useMemo(() => {
-    const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
+  // Motor de Domínio Puro: Agrupar posições e calcular resumo
+  const positions: FiiPosition[] = useMemo(
+    () => calculatePortfolioPositions(transactions, quotes, customDividends),
+    [transactions, quotes, customDividends]
+  );
 
-    // Ordenar cronologicamente (do mais antigo para o mais recente) para apurar o Preço Médio corretamente
-    const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
-
-    for (const tx of chronologicalTxs) {
-      const cleanTicker = normalizeB3Ticker(tx.ticker);
-      if (!cleanTicker) continue;
-
-      const current = map.get(cleanTicker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
-      const isSell = tx.type === 'SELL';
-
-      if (isSell) {
-        const soldShares = Math.min(current.totalShares, Math.abs(tx.shares));
-        current.totalShares = Math.max(0, current.totalShares - soldShares);
-        // Na venda, o Preço Médio de compra não muda; o custo investido reduz proporcionalmente
-        current.totalInvested = Number((current.totalShares * current.avgPrice).toFixed(2));
-      } else {
-        current.totalShares += Math.abs(tx.shares);
-        current.totalInvested += Math.abs(tx.total);
-        current.avgPrice =
-          current.totalShares > 0 ? current.totalInvested / current.totalShares : 0;
-      }
-
-      map.set(cleanTicker, current);
-    }
-
-    const result: FiiPosition[] = [];
-
-    for (const [ticker, data] of map.entries()) {
-      if (data.totalShares <= 0) continue;
-
-      const info = findFiiInfo(ticker);
-      const averagePrice = Number(data.avgPrice.toFixed(2));
-      const liveQuote = quotes[ticker];
-      const currentPrice = liveQuote?.price ? liveQuote.price : averagePrice;
-      const currentTotal = Number((data.totalShares * currentPrice).toFixed(2));
-      const profitLoss = Number((currentTotal - data.totalInvested).toFixed(2));
-      const profitLossPercent = data.totalInvested > 0
-        ? Number(((profitLoss / data.totalInvested) * 100).toFixed(2))
-        : 0;
-
-      // Prioridade: 1) Dividendo customizado pelo usuário, 2) Último dividendo real da B3 via API, 3) Catálogo
-      const hasCustomDiv = customDividends[ticker] !== undefined;
-      const hasLiveDiv = Boolean(liveQuote?.lastDividend && liveQuote.lastDividend > 0);
-
-      const monthlyDividendPerShare = hasCustomDiv
-        ? customDividends[ticker]
-        : hasLiveDiv
-        ? Number((liveQuote!.lastDividend || 0).toFixed(3))
-        : info.estimatedMonthlyDividend;
-
-      const dividendSource: FiiPosition['dividendSource'] = hasCustomDiv
-        ? 'MANUAL'
-        : hasLiveDiv
-        ? liveQuote?.dividendSource || 'MERCADO'
-        : 'CATALOGO';
-
-      const totalMonthlyDividend = Number((data.totalShares * monthlyDividendPerShare).toFixed(2));
-
-      const vp = liveQuote?.vp || info.vp || currentPrice;
-      const pvp = vp > 0 ? Number((currentPrice / vp).toFixed(2)) : 1.0;
-
-      const currentYieldPercent =
-        currentPrice > 0 ? Number(((monthlyDividendPerShare / currentPrice) * 100).toFixed(2)) : 0;
-      const yieldOnCostPercent =
-        averagePrice > 0 ? Number(((monthlyDividendPerShare / averagePrice) * 100).toFixed(2)) : 0;
-      // Preço teto considerando meta mínima de 0,90% a.m. isento de IR
-      const ceilingPrice = Number((monthlyDividendPerShare / 0.009).toFixed(2));
-
-      // Número Mágico
-      const magicNumber = monthlyDividendPerShare > 0
-        ? Math.ceil(currentPrice / monthlyDividendPerShare)
-        : 100;
-      const magicProgressPercent = Math.min(100, Math.round((data.totalShares / magicNumber) * 100));
-
-      result.push({
-        ticker,
-        name: info.name,
-        segment: info.segment,
-        base: info.base,
-        vp,
-        pvp,
-        totalShares: data.totalShares,
-        averagePrice,
-        totalInvested: Number(data.totalInvested.toFixed(2)),
-        currentPrice,
-        currentTotal,
-        profitLoss,
-        profitLossPercent,
-        monthlyDividendPerShare,
-        totalMonthlyDividend,
-        currentYieldPercent,
-        yieldOnCostPercent,
-        ceilingPrice,
-        magicNumber,
-        magicProgressPercent,
-        dailyChangePercent: liveQuote?.changePercent,
-        lastUpdated: liveQuote?.updatedAt,
-        dividendExDate: liveQuote?.dividendExDate,
-        dividendPaymentDate: liveQuote?.dividendPaymentDate,
-        dividendPaymentDay: liveQuote?.dividendPaymentDay,
-        isCurrentMonthAnnounced: liveQuote?.isCurrentMonthAnnounced,
-        dividendSource,
-      });
-    }
-
-    return result.sort((a, b) => b.currentTotal - a.currentTotal);
-  }, [transactions, quotes, customDividends]);
-
-  // Resumo Geral da Carteira
-  const summary = useMemo(() => {
-    const totalInvested = positions.reduce((acc, p) => acc + p.totalInvested, 0);
-    const currentEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
-    const totalProfitLoss = Number((currentEquity - totalInvested).toFixed(2));
-    const totalProfitLossPercent = totalInvested > 0
-      ? Number(((totalProfitLoss / totalInvested) * 100).toFixed(2))
-      : 0;
-    const totalMonthlyDividends = Number(
-      positions.reduce((acc, p) => acc + p.totalMonthlyDividend, 0).toFixed(2)
-    );
-    const averageYieldOnCostPercent = totalInvested > 0
-      ? Number(((totalMonthlyDividends / totalInvested) * 100).toFixed(2))
-      : 0;
-
-    // Aportes de compra do mês atual
-    const currentMonthInvested = currentYearMonth
-      ? transactions
-          .filter((t) => t.date.startsWith(currentYearMonth) && t.type !== 'SELL')
-          .reduce((acc, t) => acc + t.total, 0)
-      : 0;
-
-    const monthlyGoalProgressPercent = Math.min(
-      100,
-      Math.round((currentMonthInvested / (goals.monthlyTarget || 200)) * 100)
-    );
-
-    const equityGoalProgressPercent = Math.min(
-      100,
-      Math.round((currentEquity / (goals.milestoneEquityTarget || 1000)) * 100)
-    );
-
-    const incomeGoalProgressPercent = Math.min(
-      100,
-      Math.round((totalMonthlyDividends / (goals.monthlyIncomeTarget || 10)) * 100)
-    );
-
-    return {
-      totalInvested: Number(totalInvested.toFixed(2)),
-      currentEquity: Number(currentEquity.toFixed(2)),
-      totalProfitLoss,
-      totalProfitLossPercent,
-      totalMonthlyDividends,
-      averageYieldOnCostPercent,
-      currentMonthInvested: Number(currentMonthInvested.toFixed(2)),
-      monthlyGoalProgressPercent,
-      equityGoalProgressPercent,
-      incomeGoalProgressPercent
-    };
-  }, [positions, transactions, goals, currentYearMonth]);
+  const summary = useMemo(
+    () => calculatePortfolioSummary(positions, transactions, goals, currentYearMonth),
+    [positions, transactions, goals, currentYearMonth]
+  );
 
   // Exportar Backup JSON
   const exportBackup = () => {
     const data = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
       transactions,
       goals,
-      customDividends
+      customDividends,
     };
     return JSON.stringify(data, null, 2);
   };
 
-  // Importar Backup JSON
+  // Importar Backup JSON (com Batch Upsert no Supabase)
   const importBackup = async (jsonStr: string) => {
     try {
       const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed.transactions)) {
         persistTransactions(parsed.transactions);
-        if (isCloudConnected) {
-          for (const tx of parsed.transactions) {
-            await upsertRemoteTransaction(tx);
-          }
+        if (isCloudConnected && parsed.transactions.length > 0) {
+          await upsertRemoteTransactionsBatch(parsed.transactions);
         }
       }
       if (parsed.goals) {
@@ -635,7 +495,6 @@ export function usePortfolio() {
     fetchLiveQuotes,
     exportBackup,
     importBackup,
-    importTransactionsFromB3
+    importTransactionsFromB3,
   };
 }
-

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { findFiiInfo, FII_DATABASE } from '../../../data/fiiDatabase';
 import { QuoteData } from '../../../types/portfolio';
+import { calculatePortfolioPositions } from '../../../domain/portfolioEngine';
+import {
+  fetchRemoteTransactions,
+  fetchRemoteGoals,
+  fetchRemoteDividends,
+} from '../../../lib/supabase';
 
 export interface WidgetSummaryResponse {
   equity: number;
@@ -24,7 +30,7 @@ interface ParsedHolding {
   avgPrice: number;
 }
 
-// Estado sincronizado automaticamente quando o usuário abre ou edita o FII Tracker
+// Cache em memória complementar para quando o Supabase não estiver ativo
 let latestAppSyncedState: {
   portfolioParam: string;
   incomeGoal: number;
@@ -107,8 +113,32 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
-  const holdings = parsePortfolioParam(searchParams.get('p'));
+
+  // 1. Tenta ler diretamente do banco de dados Supabase (fonte primária da verdade no Serverless)
+  const [remoteTxs, remoteGoals, remoteDivs] = await Promise.all([
+    fetchRemoteTransactions().catch(() => null),
+    fetchRemoteGoals().catch(() => null),
+    fetchRemoteDividends().catch(() => null),
+  ]);
+
+  let holdings: ParsedHolding[] = [];
+  if (remoteTxs && remoteTxs.length > 0) {
+    const dbPositions = calculatePortfolioPositions(
+      remoteTxs,
+      {},
+      remoteDivs || {}
+    );
+    holdings = dbPositions.map((p) => ({
+      ticker: p.ticker,
+      shares: p.totalShares,
+      avgPrice: p.averagePrice,
+    }));
+  } else {
+    holdings = parsePortfolioParam(searchParams.get('p'));
+  }
+
   const incomeGoal =
+    remoteGoals?.monthlyIncomeTarget ||
     latestAppSyncedState?.incomeGoal ||
     Math.max(1, parseFloat(searchParams.get('goal') || '10'));
 
@@ -152,9 +182,12 @@ export async function GET(request: Request) {
   for (const h of holdings) {
     const info = findFiiInfo(h.ticker);
     const live = quotesMap[h.ticker];
+    const customDiv = remoteDivs?.[h.ticker];
     const currentPrice = live?.price || h.avgPrice || info.vp;
     const divPerShare =
-      live?.lastDividend && live.lastDividend > 0
+      customDiv !== undefined
+        ? customDiv
+        : live?.lastDividend && live.lastDividend > 0
         ? live.lastDividend
         : info.estimatedMonthlyDividend;
 

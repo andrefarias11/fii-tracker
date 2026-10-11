@@ -80,7 +80,24 @@ export async function checkSupabaseConnection(): Promise<boolean> {
   }
 }
 
-// ----------------- Operações de Transações -----------------
+// ----------------- Operações de Transações (Single & Batch SQL) -----------------
+
+function mapTransactionToDbRow(tx: Transaction) {
+  const isSell = tx.type === 'SELL';
+  const signedShares = isSell ? -Math.abs(tx.shares) : Math.abs(tx.shares);
+  const signedTotal = isSell ? -Math.abs(tx.total) : Math.abs(tx.total);
+
+  return {
+    id: tx.id,
+    ticker: tx.ticker.toUpperCase().trim(),
+    date: tx.date,
+    shares: signedShares,
+    price: Math.abs(tx.price),
+    total: signedTotal,
+    broker: tx.broker,
+    notes: tx.notes || null,
+  };
+}
 
 export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
   const client = getSupabaseClient();
@@ -104,7 +121,7 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
 
       return {
         id: item.id,
-        ticker: item.ticker,
+        ticker: String(item.ticker || '').toUpperCase().trim(),
         type: isSell ? 'SELL' : 'BUY',
         date: item.date,
         shares: absShares,
@@ -121,42 +138,40 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
 }
 
 export async function upsertRemoteTransaction(tx: Transaction): Promise<boolean> {
+  return upsertRemoteTransactionsBatch([tx]);
+}
+
+export async function upsertRemoteTransactionsBatch(txs: Transaction[]): Promise<boolean> {
+  if (txs.length === 0) return true;
   const client = getSupabaseClient();
   if (!client) return false;
 
-  const isSell = tx.type === 'SELL';
-  const signedShares = isSell ? -Math.abs(tx.shares) : Math.abs(tx.shares);
-  const signedTotal = isSell ? -Math.abs(tx.total) : Math.abs(tx.total);
-
   try {
-    const { error } = await client.from('transactions').upsert({
-      id: tx.id,
-      ticker: tx.ticker,
-      date: tx.date,
-      shares: signedShares,
-      price: Math.abs(tx.price),
-      total: signedTotal,
-      broker: tx.broker,
-      notes: tx.notes || null,
-    });
+    const rows = txs.map(mapTransactionToDbRow);
+    const { error } = await client.from('transactions').upsert(rows);
     if (error) throw error;
     return true;
   } catch (err) {
-    console.error('Erro ao salvar transação no Supabase:', err);
+    console.error('Erro no batch upsert de transações no Supabase:', err);
     return false;
   }
 }
 
 export async function deleteRemoteTransaction(id: string): Promise<boolean> {
+  return deleteRemoteTransactionsBatch([id]);
+}
+
+export async function deleteRemoteTransactionsBatch(ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
   const client = getSupabaseClient();
   if (!client) return false;
 
   try {
-    const { error } = await client.from('transactions').delete().eq('id', id);
+    const { error } = await client.from('transactions').delete().in('id', ids);
     if (error) throw error;
     return true;
   } catch (err) {
-    console.error('Erro ao deletar transação no Supabase:', err);
+    console.error('Erro no batch delete de transações no Supabase:', err);
     return false;
   }
 }
