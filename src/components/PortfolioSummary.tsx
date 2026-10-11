@@ -39,7 +39,6 @@ export function PortfolioSummary({
   totalMonthlyDividends,
   averageYieldOnCostPercent = 0,
   currentMonthInvested = 0,
-  monthlyTarget = 0,
   monthlyGoalProgressPercent = 0,
   bcbIndicators = null,
   isPrivacyMode = false,

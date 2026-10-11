@@ -308,62 +308,56 @@ export function PerformanceComparisonChart({
   ];
 
   // Etiquetas de % à direita com prevenção de sobreposição (mínimo 14px de distância)
-  const rightEndLabels = useMemo(() => {
-    const fmtSign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
-    const raw = [
-      {
-        id: 'fii',
-        text: fmtSign(lastPoint.fiiGainPercent),
-        y: getY(lastPoint.fiiValue),
-        color: '#34d399',
-      },
-      {
-        id: 'cdi',
-        text: fmtSign(lastPoint.cdiGainPercent),
-        y: getY(lastPoint.cdiValue),
-        color: '#38bdf8',
-      },
-      {
-        id: 'poup',
-        text: fmtSign(lastPoint.poupancaGainPercent),
-        y: getY(lastPoint.poupancaValue),
-        color: '#fbbf24',
-      },
-      {
-        id: 'ipca',
-        text: fmtSign(lastPoint.ipcaGainPercent),
-        y: getY(lastPoint.ipcaValue),
-        color: '#c084fc',
-      },
-    ].sort((a, b) => a.y - b.y);
+  const fmtSign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
+  const rightEndLabels = [
+    {
+      id: 'fii',
+      text: fmtSign(lastPoint.fiiGainPercent),
+      y: getY(lastPoint.fiiValue),
+      color: '#34d399',
+    },
+    {
+      id: 'cdi',
+      text: fmtSign(lastPoint.cdiGainPercent),
+      y: getY(lastPoint.cdiValue),
+      color: '#38bdf8',
+    },
+    {
+      id: 'poup',
+      text: fmtSign(lastPoint.poupancaGainPercent),
+      y: getY(lastPoint.poupancaValue),
+      color: '#fbbf24',
+    },
+    {
+      id: 'ipca',
+      text: fmtSign(lastPoint.ipcaGainPercent),
+      y: getY(lastPoint.ipcaValue),
+      color: '#c084fc',
+    },
+  ].sort((a, b) => a.y - b.y);
 
-    const minGap = 14;
-    for (let i = 1; i < raw.length; i++) {
-      if (raw[i].y - raw[i - 1].y < minGap) {
-        raw[i].y = raw[i - 1].y + minGap;
-      }
+  const minGap = 14;
+  for (let i = 1; i < rightEndLabels.length; i++) {
+    if (rightEndLabels[i].y - rightEndLabels[i - 1].y < minGap) {
+      rightEndLabels[i].y = rightEndLabels[i - 1].y + minGap;
     }
-    return raw;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastPoint, referenceAmount, rawMin, rawMax]);
+  }
 
   // Rótulos dos dias em sequência na barra horizontal (Eixo X)
-  const xTickIndices = useMemo(() => {
-    const count = series.length;
-    if (count <= 6) {
-      return series.map((_, i) => i);
-    }
-    const last = count - 1;
-    return Array.from(
-      new Set([
-        0,
-        Math.round(last * 0.25),
-        Math.round(last * 0.5),
-        Math.round(last * 0.75),
-        last,
-      ])
-    );
-  }, [series]);
+  const count = series.length;
+  const lastIdx = count - 1;
+  const xTickIndices =
+    count <= 6
+      ? series.map((_, i) => i)
+      : Array.from(
+          new Set([
+            0,
+            Math.round(lastIdx * 0.25),
+            Math.round(lastIdx * 0.5),
+            Math.round(lastIdx * 0.75),
+            lastIdx,
+          ])
+        );
 
   return (
     <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">

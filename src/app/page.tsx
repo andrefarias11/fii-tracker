@@ -58,10 +58,27 @@ export default function HomePage() {
     importTransactionsFromB3,
   } = usePortfolio();
 
-  const [activeTab, setActiveTab] = useState<MainTabType>('portfolio');
+  const [activeTab, setActiveTab] = useState<MainTabType>(() => {
+    if (typeof window === 'undefined') return 'portfolio';
+    const raw = new URLSearchParams(window.location.search).get('tab');
+    if (raw === 'proventos') return 'proventos';
+    if (raw === 'radar' || raw === 'mentors') return 'radar';
+    if (raw === 'goals') return 'goals';
+    return 'portfolio';
+  });
   // Sub-seções estilo Apple iOS Segmented Control para evitar poluição visual
-  const [homeSubView, setHomeSubView] = useState<'assets' | 'history'>('assets');
-  const [exploreSubView, setExploreSubView] = useState<'radar' | 'mentors'>('radar');
+  const [homeSubView, setHomeSubView] = useState<'assets' | 'history'>(() => {
+    if (typeof window === 'undefined') return 'assets';
+    return new URLSearchParams(window.location.search).get('tab') === 'history'
+      ? 'history'
+      : 'assets';
+  });
+  const [exploreSubView, setExploreSubView] = useState<'radar' | 'mentors'>(() => {
+    if (typeof window === 'undefined') return 'radar';
+    return new URLSearchParams(window.location.search).get('tab') === 'mentors'
+      ? 'mentors'
+      : 'radar';
+  });
   const [goalsSubView, setGoalsSubView] = useState<'targets' | 'simulator'>('targets');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -123,12 +140,10 @@ export default function HomePage() {
     }
   };
 
-  // Garante que a página inicie no topo e respeite deep-links de Push
+  // Garante que a página inicie no topo ao carregar
   useEffect(() => {
     if (isInitialized && typeof window !== 'undefined') {
       window.scrollTo(0, 0);
-      const params = new URLSearchParams(window.location.search);
-      navigateFromTabParam(params.get('tab'));
     }
   }, [isInitialized]);
 

@@ -195,7 +195,7 @@ async function fetchTickerQuote(ticker: string) {
     // 1. Verificar se temos comunicado oficial detalhado (Data-Com, Data Pagamento e Valor)
     let lastDividend = officialDiv?.lastDividend;
     let dividendExDate = officialDiv?.dividendExDate;
-    let dividendPaymentDate = officialDiv?.dividendPaymentDate;
+    const dividendPaymentDate = officialDiv?.dividendPaymentDate;
     let dividendPaymentDay = officialDiv?.dividendPaymentDay;
     let isCurrentMonthAnnounced = officialDiv?.isCurrentMonthAnnounced ?? false;
     let dividendSource: 'B3_OFICIAL' | 'MERCADO' | undefined = officialDiv?.dividendSource;

@@ -120,6 +120,7 @@ export function usePortfolio() {
   // Carregar dados salvos no localStorage no início
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentYearMonth(new Date().toISOString().slice(0, 7));
       const savedTx = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
       const savedGoals = localStorage.getItem(STORAGE_KEY_GOALS);
@@ -148,6 +149,7 @@ export function usePortfolio() {
   // Sincronização em nuvem única após carregar dados locais
   useEffect(() => {
     if (isInitialized) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       syncWithCloud();
     }
   }, [isInitialized, syncWithCloud]);
@@ -382,6 +384,7 @@ export function usePortfolio() {
   // Atualizar cotações automaticamente ao iniciar e quando as transações mudarem
   useEffect(() => {
     if (isInitialized) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchLiveQuotes();
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);

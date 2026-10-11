@@ -1,23 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Share, PlusSquare, X } from 'lucide-react';
 
 export function IosInstallBanner() {
-  const [isDismissed, setIsDismissed] = useState<boolean>(true);
-
-  useEffect(() => {
-    // Verificar se já está rodando standalone (PWA instalado)
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      ('standalone' in window.navigator && (window.navigator as unknown as { standalone: boolean }).standalone);
-
-    const dismissedInStorage = localStorage.getItem('fii_pwa_banner_dismissed');
-
-    if (!isStandalone && !dismissedInStorage) {
-      setIsDismissed(false);
+  const [isDismissed, setIsDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        ('standalone' in window.navigator &&
+          (window.navigator as unknown as { standalone: boolean }).standalone);
+      const dismissedInStorage = localStorage.getItem('fii_pwa_banner_dismissed');
+      return Boolean(isStandalone || dismissedInStorage);
+    } catch {
+      return true;
     }
-  }, []);
+  });
 
   const handleDismiss = () => {
     setIsDismissed(true);
