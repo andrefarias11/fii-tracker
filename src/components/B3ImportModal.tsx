@@ -12,7 +12,12 @@ import {
   Sparkles,
   ShieldCheck,
 } from 'lucide-react';
-import { parseB3FileBuffer, B3ParseResult, deduplicateB3Transactions } from '../lib/b3Parser';
+import {
+  parseB3FileBuffer,
+  B3ParseResult,
+  deduplicateB3Transactions,
+  classifyB3Ticker,
+} from '../lib/b3Parser';
 import { Transaction } from '../types/portfolio';
 import confetti from 'canvas-confetti';
 
@@ -32,7 +37,7 @@ export function B3ImportModal({
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [parseResult, setParseResult] = useState<B3ParseResult | null>(null);
-  const [filterOnlyFIIs, setFilterOnlyFIIs] = useState<boolean>(true);
+  const [filterOnlyFIIs, setFilterOnlyFIIs] = useState<boolean>(false);
   const [replaceAll, setReplaceAll] = useState<boolean>(false);
   const [showTutorial, setShowTutorial] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -168,13 +173,13 @@ export function B3ImportModal({
               </p>
               <p>2. Faça login com seu CPF ou conta <strong>gov.br</strong>.</p>
               <p>
-                3. No menu, clique em <strong>Extratos</strong> → <strong>Negociação</strong>.
+                3. No menu <strong>Extratos</strong>, você pode exportar tanto a planilha de <strong>Negociação</strong> (compras e vendas) quanto a de <strong>Movimentação</strong> (Rendimentos, Dividendos e JCP pagos).
               </p>
               <p>
-                4. Escolha o período desejado e clique no botão <strong>Exportar para Excel (.xlsx)</strong>.
+                4. Escolha o período desejado e clique em <strong>Exportar para Excel (.xlsx)</strong>.
               </p>
               <p className="text-[11px] text-zinc-400 pt-1">
-                💡 Você pode subir a planilha do ano inteiro sem medo: o sistema ignora sozinho os lançamentos que você já importou antes.
+                💡 Você pode subir a planilha do ano inteiro sem medo: o sistema ignora sozinho os lançamentos e proventos que você já importou antes.
               </p>
             </div>
           )}
@@ -191,7 +196,7 @@ export function B3ImportModal({
                 {file ? file.name : 'Selecione a planilha da B3'}
               </span>
               <span className="text-xs text-zinc-500">
-                Arquivos suportados: .xlsx, .xls ou .csv
+                Negociação ou Movimentação (.xlsx, .xls ou .csv)
               </span>
               <input
                 type="file"
@@ -223,7 +228,7 @@ export function B3ImportModal({
           <div className="space-y-4 mb-4">
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-2">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="space-y-0.5">
                   <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
                     <CheckCircle2 className="w-4 h-4" />
                     Arquivo lido com sucesso!
@@ -234,16 +239,31 @@ export function B3ImportModal({
                       ? 'novo lançamento para importar'
                       : 'novos lançamentos para importar'}
                   </div>
-                  <div className="text-xs text-zinc-400">
-                    Volume das novas compras:{' '}
-                    <strong className="text-emerald-300">
-                      {formatBRL(
-                        transactionsToImport
-                          .filter((t) => t.type !== 'SELL')
-                          .reduce((acc, t) => acc + t.total, 0)
-                      )}
-                    </strong>
-                  </div>
+                  {transactionsToImport.some((t) => t.type === 'BUY' || !t.type) && (
+                    <div className="text-xs text-zinc-400">
+                      Volume das novas compras:{' '}
+                      <strong className="text-emerald-300">
+                        {formatBRL(
+                          transactionsToImport
+                            .filter((t) => t.type === 'BUY' || !t.type)
+                            .reduce((acc, t) => acc + t.total, 0)
+                        )}
+                      </strong>
+                    </div>
+                  )}
+                  {transactionsToImport.some((t) => t.type === 'DIVIDEND') && (
+                    <div className="text-xs text-zinc-400">
+                      Proventos reais B3 (Movimentação):{' '}
+                      <strong className="text-amber-300">
+                        +{formatBRL(
+                          transactionsToImport
+                            .filter((t) => t.type === 'DIVIDEND')
+                            .reduce((acc, t) => acc + t.total, 0)
+                        )}
+                      </strong>{' '}
+                      ({transactionsToImport.filter((t) => t.type === 'DIVIDEND').length} pagamentos)
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -261,17 +281,24 @@ export function B3ImportModal({
               {parseResult.summary.uniqueTickersFound && parseResult.summary.uniqueTickersFound.length > 0 && (
                 <div className="pt-2 border-t border-emerald-500/20">
                   <span className="text-[10px] uppercase tracking-wider font-semibold text-zinc-400 block mb-1.5">
-                    Fundos Consolidados ({parseResult.summary.uniqueTickersFound.length} FIIs únicos):
+                    Ativos Consolidados ({parseResult.summary.uniqueTickersFound.length} tickers únicos):
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {parseResult.summary.uniqueTickersFound.map((ticker) => (
-                      <span
-                        key={ticker}
-                        className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
-                      >
-                        {ticker}
-                      </span>
-                    ))}
+                    {parseResult.summary.uniqueTickersFound.map((ticker) => {
+                      const isStock = classifyB3Ticker(ticker) === 'ACAO';
+                      return (
+                        <span
+                          key={ticker}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
+                            isStock
+                              ? 'bg-sky-500/15 border-sky-500/30 text-sky-300'
+                              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                          }`}
+                        >
+                          {ticker}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -321,7 +348,7 @@ export function B3ImportModal({
                   }}
                   className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
                 />
-                <span>Importar apenas FIIs (código terminando em 11)</span>
+                <span>Ignorar Ações (importar apenas FIIs)</span>
               </label>
 
               <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
@@ -335,16 +362,18 @@ export function B3ImportModal({
               </label>
             </div>
 
-            {/* Lista Resumo dos Fundos Encontrados */}
+            {/* Lista Resumo dos Ativos Encontrados */}
             {transactionsToImport.length > 0 ? (
               <div className="space-y-3">
                 <div>
                   <span className="text-xs font-bold text-zinc-400 block mb-2 uppercase tracking-wider">
-                    Novos Aportes a Importar ({transactionsToImport.length}):
+                    Novos Lançamentos a Importar ({transactionsToImport.length}):
                   </span>
                   <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                     {transactionsToImport.slice(0, 15).map((t, idx) => {
                       const alreadyInPortfolio = existingRealTickers.has(t.ticker);
+                      const isStock = classifyB3Ticker(t.ticker) === 'ACAO';
+                      const isDividend = t.type === 'DIVIDEND';
                       return (
                         <div
                           key={`${t.ticker}-${idx}`}
@@ -354,22 +383,45 @@ export function B3ImportModal({
                             <span className="font-bold text-white">{t.ticker}</span>
                             <span
                               className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                t.type === 'SELL'
+                                isDividend
+                                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                  : t.type === 'SELL'
                                   ? 'bg-rose-500/15 text-rose-400'
                                   : 'bg-emerald-500/15 text-emerald-400'
                               }`}
                             >
-                              {t.type === 'SELL' ? 'Venda' : 'Compra'}
+                              {isDividend
+                                ? 'Provento B3'
+                                : t.type === 'SELL'
+                                ? 'Venda'
+                                : 'Compra'}
                             </span>
-                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
-                              {alreadyInPortfolio ? '+ Somar cotas' : 'Novo FII'}
-                            </span>
+                            {!isDividend && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
+                                {alreadyInPortfolio
+                                  ? isStock
+                                    ? '+ Somar ações'
+                                    : '+ Somar cotas'
+                                  : isStock
+                                  ? 'Nova Ação'
+                                  : 'Novo FII'}
+                              </span>
+                            )}
                             <span className="text-zinc-400">
-                              {t.shares} cotas a {formatBRL(t.price)}
+                              {isDividend
+                                ? t.notes?.replace(/^\[PROVENTO B3\]\s*/i, '') || 'Rendimento'
+                                : `${t.shares} ${isStock ? 'ações' : 'cotas'} a ${formatBRL(t.price)}`}
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="font-semibold text-zinc-200 block">{formatBRL(t.total)}</span>
+                            <span
+                              className={`font-semibold block ${
+                                isDividend ? 'text-emerald-400' : 'text-zinc-200'
+                              }`}
+                            >
+                              {isDividend ? '+' : ''}
+                              {formatBRL(t.total)}
+                            </span>
                             <span className="text-[10px] text-zinc-500">{t.date}</span>
                           </div>
                         </div>

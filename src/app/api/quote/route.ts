@@ -41,7 +41,8 @@ interface StatusInvestProventsResponse {
 }
 
 interface OfficialDividendData {
-  lastDividend: number;
+  lastDividend: number; // Mensal (FII) ou Média Mensal 12m/12 (Ação)
+  annualDividend12m?: number;
   dividendExDate?: string;
   dividendPaymentDate?: string;
   dividendPaymentDay?: number;
@@ -54,6 +55,17 @@ const BROWSER_HEADERS = {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   Accept: 'application/json, text/plain, */*',
 };
+
+function parseDateBrToTimestamp(dateBr?: string): number | null {
+  if (!dateBr || !dateBr.includes('/')) return null;
+  const parts = dateBr.split('/');
+  if (parts.length !== 3) return null;
+  const d = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const y = parseInt(parts[2], 10);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+  return new Date(y, m, d).getTime();
+}
 
 function isDateInCurrentCycle(dateBr?: string): boolean {
   if (!dateBr || !dateBr.includes('/')) return false;
@@ -77,8 +89,16 @@ function isDateInCurrentCycle(dateBr?: string): boolean {
   return false;
 }
 
-async function fetchStatusInvestDividend(ticker: string, isFiagro: boolean): Promise<OfficialDividendData | null> {
-  const endpoints = isFiagro
+async function fetchStatusInvestDividend(
+  ticker: string,
+  isFiagro: boolean,
+  isStock: boolean
+): Promise<OfficialDividendData | null> {
+  const endpoints = isStock
+    ? [
+        `https://statusinvest.com.br/acoes/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
+      ]
+    : isFiagro
     ? [
         `https://statusinvest.com.br/fiagro/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
         `https://statusinvest.com.br/fii/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
@@ -105,14 +125,33 @@ async function fetchStatusInvestDividend(ticker: string, isFiagro: boolean): Pro
       const list = data?.assetEarningsModels;
       if (!Array.isArray(list) || list.length === 0) continue;
 
-      // Ordenar para pegar o comunicado mais recente com valor válido
+      // Ordenar para pegar os comunicados com valor válido
       const valid = list.filter((item) => typeof item.v === 'number' && item.v > 0);
       if (valid.length === 0) continue;
 
       const latest = valid[0];
-      const amount = Number((latest.v || 0).toFixed(4));
       const exDate = latest.ed && latest.ed !== '-' ? latest.ed : undefined;
       const payDate = latest.pd && latest.pd !== '-' ? latest.pd : undefined;
+
+      // Para Ações (dividendos trimestrais/semestrais/JCP), calcula o acumulado de 12 meses dividido por 12 (média mensal equivalente)
+      let amount = Number((latest.v || 0).toFixed(4));
+      let annualDividend12m = Number((amount * 12).toFixed(4));
+
+      if (isStock) {
+        const oneYearAgoMs = Date.now() - 370 * 24 * 60 * 60 * 1000;
+        const sum12m = valid.reduce((acc, item) => {
+          const ts = parseDateBrToTimestamp(item.ed) || parseDateBrToTimestamp(item.pd);
+          if (ts && ts >= oneYearAgoMs) {
+            return acc + (item.v || 0);
+          }
+          return acc;
+        }, 0);
+
+        if (sum12m > 0) {
+          annualDividend12m = Number(sum12m.toFixed(4));
+          amount = Number((sum12m / 12).toFixed(4));
+        }
+      }
 
       let paymentDay: number | undefined = undefined;
       if (payDate && payDate.includes('/')) {
@@ -127,6 +166,7 @@ async function fetchStatusInvestDividend(ticker: string, isFiagro: boolean): Pro
 
       return {
         lastDividend: amount,
+        annualDividend12m,
         dividendExDate: exDate,
         dividendPaymentDate: payDate,
         dividendPaymentDay: paymentDay,
@@ -146,6 +186,7 @@ async function fetchTickerQuote(ticker: string) {
   const yahooSymbol = clean.endsWith('.SA') ? clean : `${clean}.SA`;
   const catalogInfo = findFiiInfo(clean);
   const isFiagro = catalogInfo.segment === 'Fiagro';
+  const isStock = catalogInfo.assetClass === 'ACAO';
 
   try {
     const controller = new AbortController();
@@ -154,14 +195,14 @@ async function fetchTickerQuote(ticker: string) {
     // Busca em paralelo: Cotação em tempo real (Yahoo) + Comunicados oficiais de dividendos (StatusInvest/B3)
     const [yahooRes, officialDiv] = await Promise.all([
       fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=6mo&events=div`,
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1y&events=div`,
         {
           headers: BROWSER_HEADERS,
           signal: controller.signal,
           next: { revalidate: 60 },
         }
       ).catch(() => null),
-      fetchStatusInvestDividend(clean, isFiagro),
+      fetchStatusInvestDividend(clean, isFiagro, isStock),
     ]);
 
     clearTimeout(timeoutId);
@@ -180,7 +221,7 @@ async function fetchTickerQuote(ticker: string) {
 
     const currentPrice = Number(meta.regularMarketPrice.toFixed(2));
 
-    // Obter o fechamento anterior real (evitando chartPreviousClose de 6 meses atrás)
+    // Obter o fechamento anterior real (evitando chartPreviousClose de 1 ano atrás)
     const closes = (resultItem?.indicators?.quote?.[0]?.close || []).filter(
       (c): c is number => typeof c === 'number' && c > 0
     );
@@ -194,6 +235,7 @@ async function fetchTickerQuote(ticker: string) {
 
     // 1. Verificar se temos comunicado oficial detalhado (Data-Com, Data Pagamento e Valor)
     let lastDividend = officialDiv?.lastDividend;
+    let annualDividend12m = officialDiv?.annualDividend12m;
     let dividendExDate = officialDiv?.dividendExDate;
     const dividendPaymentDate = officialDiv?.dividendPaymentDate;
     let dividendPaymentDay = officialDiv?.dividendPaymentDay;
@@ -210,7 +252,15 @@ async function fetchTickerQuote(ticker: string) {
 
         if (sortedDivs.length > 0) {
           const latestYahooDiv = sortedDivs[0];
-          lastDividend = Number(latestYahooDiv.amount.toFixed(4));
+          if (isStock) {
+            const sum12m = sortedDivs.reduce((acc, d) => acc + d.amount, 0);
+            annualDividend12m = Number(sum12m.toFixed(4));
+            lastDividend = Number((sum12m / 12).toFixed(4));
+          } else {
+            lastDividend = Number(latestYahooDiv.amount.toFixed(4));
+            annualDividend12m = Number((lastDividend * 12).toFixed(4));
+          }
+
           const exDateObj = new Date(latestYahooDiv.date * 1000);
           const dd = String(exDateObj.getDate()).padStart(2, '0');
           const mm = String(exDateObj.getMonth() + 1).padStart(2, '0');
@@ -231,10 +281,12 @@ async function fetchTickerQuote(ticker: string) {
 
     return {
       ticker: clean,
+      assetClass: catalogInfo.assetClass || 'FII',
       price: currentPrice,
       prevClose,
       changePercent,
       lastDividend,
+      annualDividend12m,
       dividendExDate,
       dividendPaymentDate,
       dividendPaymentDay,

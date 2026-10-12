@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.2.0';
-export const APP_UPDATED_AT = '11/10/2026';
+export const APP_VERSION = '2.4.0';
+export const APP_UPDATED_AT = '12/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,25 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.4.0',
+    date: '12/10/2026',
+    highlights: [
+      'Gráfico Interativo da "Escadinha de Dividendos" (Evolução Mês a Mês): mostra o crescimento mensal dos proventos desde o 1º aporte, total acumulado vitalício e detalhamento por ativo em cada barra',
+      'Barra de "Payback em Proventos" por Ativo e Global: exibe dentro de cada card (e no topo da Escadinha) quanto do valor investido já retornou ao bolso em dividendos (R$ e % do custo)',
+      'Leitura Real de Dividendos via Planilha de "Movimentação" da B3: reconhece automaticamente créditos de Rendimento, Dividendo e JCP (.xlsx/.csv), deduplica contra importações anteriores e sincroniza na nuvem (Supabase)',
+    ],
+  },
+  {
+    version: '2.3.0',
+    date: '12/10/2026',
+    highlights: [
+      'Expansão Oficial para Ações de Dividendos da B3 (FIIs + Ações): importa automaticamente Ações ON (3), PN (4/5/6) e Units (11) na mesma planilha da B3, normalizando compras do mercado fracionário (ex: BBAS3F -> BBAS3, ITSA4F -> ITSA4)',
+      'Catálogo e Scanner BESST (Luiz Barsi): adiciona 30+ ações pagadoras de dividendos (Bancos, Energia, Saneamento, Seguros, Telecom e Commodities) com cálculo de Preço-Teto de Barsi (mín. 6% a.a.) e VPA',
+      'Motor de Proventos 12 Meses para Ações (/api/quote): soma todos os dividendos e JCP pagos nos últimos 12 meses e calcula a Média Mensal Equivalente (Dividendo 12m ÷ 12) para integrar à renda mensal da carteira',
+      'Filtro Minimalista na Carteira e no Radar: pílulas seletoras (Todos | FIIs | Ações) sem poluir a interface',
+    ],
+  },
   {
     version: '2.2.0',
     date: '11/10/2026',

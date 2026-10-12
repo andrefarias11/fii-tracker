@@ -1,22 +1,40 @@
 export interface Transaction {
   id: string;
   ticker: string;
-  type?: 'BUY' | 'SELL'; // Padrão: 'BUY'
+  type?: 'BUY' | 'SELL' | 'DIVIDEND'; // Padrão: 'BUY' ('DIVIDEND' = provento real da aba Movimentação B3)
   date: string; // YYYY-MM-DD
   shares: number;
-  price: number; // Preço pago/recebido por cota
+  price: number; // Preço pago/recebido por cota (ou valor unitário do provento)
   total: number;
   broker: string; // Ex: "XP Investimentos"
   notes?: string;
 }
 
+export type AssetClass = 'FII' | 'ACAO';
+
 export interface FiiCatalogItem {
   ticker: string;
   name: string;
-  segment: 'Papel' | 'Tijolo - Logística' | 'Tijolo - Shopping' | 'Tijolo - Renda Urbana' | 'Tijolo - Lajes' | 'FOF' | 'Fiagro' | 'Outros';
+  assetClass?: AssetClass; // Padrão: 'FII'
+  segment:
+    | 'Papel'
+    | 'Tijolo - Logística'
+    | 'Tijolo - Shopping'
+    | 'Tijolo - Renda Urbana'
+    | 'Tijolo - Lajes'
+    | 'FOF'
+    | 'Fiagro'
+    | 'Ações - Bancos'
+    | 'Ações - Energia'
+    | 'Ações - Saneamento'
+    | 'Ações - Seguros'
+    | 'Ações - Commodities'
+    | 'Ações - Telecom & Indústria'
+    | 'Ações - Outros'
+    | 'Outros';
   base: 10 | 100;
-  vp: number; // Valor Patrimonial de referência por cota
-  estimatedMonthlyDividend: number; // Ex: 0.09
+  vp: number; // Valor Patrimonial de referência por cota/ação (VP ou VPA)
+  estimatedMonthlyDividend: number; // Dividendo mensal (FII) ou média mensal equivalente 12m/12 (Ação)
   announcementDay?: number;
   paymentDay?: number;
 }
@@ -25,6 +43,7 @@ export interface FiiCatalogItem {
 export interface FiiPosition {
   ticker: string;
   name: string;
+  assetClass: AssetClass;
   segment: string;
   base: 10 | 100;
   vp: number;
@@ -40,9 +59,11 @@ export interface FiiPosition {
   totalMonthlyDividend: number;
   currentYieldPercent: number; // Yield mensal sobre preço atual
   yieldOnCostPercent: number; // Yield mensal sobre preço médio pago (YoC)
-  ceilingPrice: number; // Preço teto para 0.90% a.m.
-  magicNumber: number; // Quantas cotas precisa para comprar 1 cota por mês
+  ceilingPrice: number; // Preço teto (0.90% a.m. para FIIs ou 6% a.a. Barsi para Ações)
+  magicNumber: number; // Quantas cotas/ações precisa para comprar 1 por mês
   magicProgressPercent: number;
+  paybackReceived?: number; // Total acumulado de dividendos já recebidos deste ativo desde o 1º aporte
+  paybackPercent?: number; // % do valor investido que já retornou em dividendos
   dailyChangePercent?: number;
   lastUpdated?: string;
   dividendExDate?: string; // Data-Com oficial (DD/MM/YYYY)
@@ -60,10 +81,12 @@ export interface PortfolioGoals {
 
 export interface QuoteData {
   ticker: string;
+  assetClass?: AssetClass;
   price: number;
   changePercent: number;
   prevClose: number;
-  lastDividend?: number;
+  lastDividend?: number; // Dividendo mensal (FII) ou média mensal 12m/12 (Ação)
+  annualDividend12m?: number; // Soma acumulada 12 meses por cota/ação
   dividendExDate?: string; // Ex: "30/09/2026"
   dividendPaymentDate?: string; // Ex: "15/10/2026"
   dividendPaymentDay?: number;

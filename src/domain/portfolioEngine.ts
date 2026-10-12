@@ -49,8 +49,13 @@ export function normalizeTransactionForSplit(tx: Transaction): {
   const absPrice = Math.abs(Number(tx.price));
   const absTotal = Math.abs(Number(tx.total)) || Number((absShares * absPrice).toFixed(2));
 
-  // Se o fundo hoje é Base 10 (VP <= 25) mas a compra na planilha da B3 foi feita no preço antigo pré-split (ex: R$ 95,00)
-  if (info.base === 10 && info.vp <= 25 && absPrice >= info.vp * 4.5) {
+  // Se o FII hoje é Base 10 (VP <= 25) mas a compra na planilha da B3 foi feita no preço antigo pré-split (ex: R$ 95,00)
+  if (
+    info.assetClass !== 'ACAO' &&
+    info.base === 10 &&
+    info.vp <= 25 &&
+    absPrice >= info.vp * 4.5
+  ) {
     const factor = HISTORICAL_SPLIT_FACTORS[cleanTicker] || 10;
     const adjustedShares = Math.round(absShares * factor);
     const adjustedPrice = Number((absPrice / factor).toFixed(2));
@@ -68,8 +73,94 @@ export function normalizeTransactionForSplit(tx: Transaction): {
   };
 }
 
+const PT_SHORT_MONTHS = [
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
+];
+
+const PT_FULL_MONTHS = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+export interface DividendStaircaseMonth {
+  yearMonth: string; // Ex: "2026-10"
+  shortLabel: string; // Ex: "Out/26"
+  fullLabel: string; // Ex: "Outubro de 2026"
+  totalDividends: number;
+  realB3Dividends: number;
+  estimatedDividends: number;
+  isOfficialB3: boolean;
+  activeAssetsCount: number;
+  totalSharesHeld: number;
+  breakdown: {
+    ticker: string;
+    shares: number;
+    amount: number;
+    isRealB3: boolean;
+  }[];
+}
+
+export interface DividendStaircaseSummary {
+  months: DividendStaircaseMonth[];
+  totalLifetimeDividends: number;
+  totalRealB3Dividends: number;
+  totalInvestedCapital: number;
+  portfolioPaybackPercent: number;
+  firstMonthDividends: number;
+  latestMonthDividends: number;
+  growthPercent: number;
+}
+
 /**
- * Motor Contábil Puro: Agrupa posições por FII respeitando a ordem cronológica (regra fiscal B3/IRPF)
+ * Gera a sequência de meses YYYY-MM entre startYm e endYm (inclusive)
+ */
+function buildMonthSequence(startYm: string, endYm: string): string[] {
+  if (!/^\d{4}-\d{2}$/.test(startYm) || !/^\d{4}-\d{2}$/.test(endYm)) {
+    return [endYm];
+  }
+  const [startY, startM] = startYm.split('-').map(Number);
+  const [endY, endM] = endYm.split('-').map(Number);
+
+  const months: string[] = [];
+  let y = startY;
+  let m = startM;
+
+  while (y < endY || (y === endY && m <= endM)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+    if (months.length > 60) break; // Limite de segurança de 5 anos
+  }
+
+  return months.length > 0 ? months : [endYm];
+}
+
+/**
+ * Motor Contábil Puro: Agrupa posições por FII e Ação respeitando a ordem cronológica (regra fiscal B3/IRPF)
  * Pode ser executado tanto no cliente (React) quanto no servidor (/api/widget)
  */
 export function calculatePortfolioPositions(
@@ -78,12 +169,25 @@ export function calculatePortfolioPositions(
   customDividends: Record<string, number> = {}
 ): FiiPosition[] {
   const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
+  const realDividendsByTickerMonth = new Map<string, Map<string, number>>();
+  const firstBuyMonthByTicker = new Map<string, string>();
 
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+  const nowYm = new Date().toISOString().slice(0, 7);
 
   for (const tx of chronologicalTxs) {
     const cleanTicker = normalizeB3Ticker(tx.ticker);
     if (!cleanTicker) continue;
+
+    const ym = tx.date && tx.date.length >= 7 ? tx.date.slice(0, 7) : nowYm;
+
+    // Se for provento real importado da aba Movimentação da B3, acumula no histórico de dividendos pagos
+    if (tx.type === 'DIVIDEND') {
+      const tickerDivMap = realDividendsByTickerMonth.get(cleanTicker) || new Map<string, number>();
+      tickerDivMap.set(ym, (tickerDivMap.get(ym) || 0) + Math.abs(Number(tx.total)));
+      realDividendsByTickerMonth.set(cleanTicker, tickerDivMap);
+      continue;
+    }
 
     const normalized = normalizeTransactionForSplit(tx);
     const current = map.get(cleanTicker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
@@ -95,6 +199,9 @@ export function calculatePortfolioPositions(
       // Na venda, o Preço Médio fiscal não se altera; reduz-se o custo proporcionalmente
       current.totalInvested = Number((current.totalShares * current.avgPrice).toFixed(2));
     } else {
+      if (!firstBuyMonthByTicker.has(cleanTicker)) {
+        firstBuyMonthByTicker.set(cleanTicker, ym);
+      }
       current.totalShares += normalized.shares;
       current.totalInvested += normalized.total;
       current.avgPrice =
@@ -110,6 +217,8 @@ export function calculatePortfolioPositions(
     if (data.totalShares <= 0) continue;
 
     const info = findFiiInfo(ticker);
+    const assetClass = info.assetClass || 'FII';
+    const isStock = assetClass === 'ACAO';
     const averagePrice = Number(data.avgPrice.toFixed(2));
     const liveQuote = quotes[ticker];
     const currentPrice = liveQuote?.price ? liveQuote.price : averagePrice;
@@ -145,7 +254,11 @@ export function calculatePortfolioPositions(
       currentPrice > 0 ? Number(((monthlyDividendPerShare / currentPrice) * 100).toFixed(2)) : 0;
     const yieldOnCostPercent =
       averagePrice > 0 ? Number(((monthlyDividendPerShare / averagePrice) * 100).toFixed(2)) : 0;
-    const ceilingPrice = Number((monthlyDividendPerShare / 0.009).toFixed(2));
+
+    // Preço-Teto: 6% a.a. (0,50% a.m.) para Ações (Regra Barsi) ou 10,8% a.a. (0,90% a.m.) para FIIs
+    const ceilingPrice = isStock
+      ? Number(((monthlyDividendPerShare * 12) / 0.06).toFixed(2))
+      : Number((monthlyDividendPerShare / 0.009).toFixed(2));
 
     const magicNumber =
       monthlyDividendPerShare > 0 ? Math.ceil(currentPrice / monthlyDividendPerShare) : 100;
@@ -154,9 +267,47 @@ export function calculatePortfolioPositions(
       Math.round((data.totalShares / magicNumber) * 100)
     );
 
+    // Cálculo de Payback do Ativo (Quanto já retornou em dividendos desde o 1º aporte na B3)
+    const firstBuyYm = firstBuyMonthByTicker.get(ticker) || nowYm;
+    const tickerMonthSeq = buildMonthSequence(firstBuyYm, nowYm);
+    const tickerRealDivMap = realDividendsByTickerMonth.get(ticker);
+    let accumulatedPayback = 0;
+
+    for (const ym of tickerMonthSeq) {
+      const realPaidInMonth = tickerRealDivMap?.get(ym) || 0;
+      if (realPaidInMonth > 0) {
+        accumulatedPayback += realPaidInMonth;
+      } else {
+        // Reconstrói quantas cotas o investidor possuía até o final daquele mês
+        let sharesInMonth = 0;
+        for (const tx of chronologicalTxs) {
+          if (tx.type === 'DIVIDEND') continue;
+          if (normalizeB3Ticker(tx.ticker) !== ticker) continue;
+          if (tx.date.slice(0, 7) <= ym) {
+            const norm = normalizeTransactionForSplit(tx);
+            if (tx.type === 'SELL') {
+              sharesInMonth = Math.max(0, sharesInMonth - norm.shares);
+            } else {
+              sharesInMonth += norm.shares;
+            }
+          }
+        }
+        if (sharesInMonth > 0) {
+          accumulatedPayback += sharesInMonth * monthlyDividendPerShare;
+        }
+      }
+    }
+
+    const paybackReceived = Number(accumulatedPayback.toFixed(2));
+    const paybackPercent =
+      data.totalInvested > 0
+        ? Number(Math.min(100, (paybackReceived / data.totalInvested) * 100).toFixed(1))
+        : 0;
+
     result.push({
       ticker,
       name: info.name,
+      assetClass,
       segment: info.segment,
       base: info.base,
       vp,
@@ -175,6 +326,8 @@ export function calculatePortfolioPositions(
       ceilingPrice,
       magicNumber,
       magicProgressPercent,
+      paybackReceived,
+      paybackPercent,
       dailyChangePercent: liveQuote?.changePercent,
       lastUpdated: liveQuote?.updatedAt,
       dividendExDate: liveQuote?.dividendExDate,
@@ -186,6 +339,151 @@ export function calculatePortfolioPositions(
   }
 
   return result.sort((a, b) => b.currentTotal - a.currentTotal);
+}
+
+/**
+ * Calcula a "Escadinha de Dividendos" mês a mês desde o 1º aporte do usuário até o mês atual,
+ * unindo proventos reais importados da aba Movimentação da B3 com a reconstrução histórica de cotas.
+ */
+export function calculateDividendStaircase(
+  positions: FiiPosition[],
+  transactions: Transaction[]
+): DividendStaircaseSummary {
+  const nowYm = new Date().toISOString().slice(0, 7);
+  const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+
+  const validYms = chronologicalTxs
+    .map((t) => (t.date && t.date.length >= 7 ? t.date.slice(0, 7) : ''))
+    .filter((ym) => /^\d{4}-\d{2}$/.test(ym) && ym <= nowYm);
+
+  const firstYm = validYms.length > 0 ? validYms[0] : nowYm;
+  const monthSeq = buildMonthSequence(firstYm, nowYm);
+
+  const positionDivMap = new Map<string, number>();
+  for (const pos of positions) {
+    positionDivMap.set(pos.ticker, pos.monthlyDividendPerShare);
+  }
+
+  const allTickers = Array.from(
+    new Set([
+      ...positions.map((p) => p.ticker),
+      ...chronologicalTxs.map((t) => normalizeB3Ticker(t.ticker)).filter(Boolean),
+    ])
+  );
+
+  const months: DividendStaircaseMonth[] = monthSeq.map((ym) => {
+    const [yStr, mStr] = ym.split('-');
+    const mIdx = Math.max(0, Math.min(11, parseInt(mStr, 10) - 1));
+    const shortLabel = `${PT_SHORT_MONTHS[mIdx]}/${yStr.slice(2)}`;
+    const fullLabel = `${PT_FULL_MONTHS[mIdx]} de ${yStr}`;
+
+    let totalDividends = 0;
+    let realB3Dividends = 0;
+    let estimatedDividends = 0;
+    let totalSharesHeld = 0;
+    const breakdown: DividendStaircaseMonth['breakdown'] = [];
+
+    for (const ticker of allTickers) {
+      // 1. Verifica quantas cotas o usuário detinha até o fim deste mês (YYYY-MM)
+      let sharesAtMonthEnd = 0;
+      let realDivInMonth = 0;
+
+      for (const tx of chronologicalTxs) {
+        if (normalizeB3Ticker(tx.ticker) !== ticker) continue;
+        const txYm = tx.date ? tx.date.slice(0, 7) : '';
+
+        if (tx.type === 'DIVIDEND') {
+          if (txYm === ym) {
+            realDivInMonth += Math.abs(Number(tx.total));
+          }
+        } else if (txYm <= ym) {
+          const norm = normalizeTransactionForSplit(tx);
+          if (tx.type === 'SELL') {
+            sharesAtMonthEnd = Math.max(0, sharesAtMonthEnd - norm.shares);
+          } else {
+            sharesAtMonthEnd += norm.shares;
+          }
+        }
+      }
+
+      totalSharesHeld += sharesAtMonthEnd;
+
+      if (realDivInMonth > 0) {
+        const amt = Number(realDivInMonth.toFixed(2));
+        totalDividends += amt;
+        realB3Dividends += amt;
+        breakdown.push({
+          ticker,
+          shares: sharesAtMonthEnd,
+          amount: amt,
+          isRealB3: true,
+        });
+      } else if (sharesAtMonthEnd > 0) {
+        const divPerShare =
+          positionDivMap.get(ticker) ?? findFiiInfo(ticker).estimatedMonthlyDividend;
+        const amt = Number((sharesAtMonthEnd * divPerShare).toFixed(2));
+        if (amt > 0) {
+          totalDividends += amt;
+          estimatedDividends += amt;
+          breakdown.push({
+            ticker,
+            shares: sharesAtMonthEnd,
+            amount: amt,
+            isRealB3: false,
+          });
+        }
+      }
+    }
+
+    breakdown.sort((a, b) => b.amount - a.amount);
+
+    return {
+      yearMonth: ym,
+      shortLabel,
+      fullLabel,
+      totalDividends: Number(totalDividends.toFixed(2)),
+      realB3Dividends: Number(realB3Dividends.toFixed(2)),
+      estimatedDividends: Number(estimatedDividends.toFixed(2)),
+      isOfficialB3: realB3Dividends > 0,
+      activeAssetsCount: breakdown.length,
+      totalSharesHeld,
+      breakdown,
+    };
+  });
+
+  const totalLifetimeDividends = Number(
+    months.reduce((acc, m) => acc + m.totalDividends, 0).toFixed(2)
+  );
+  const totalRealB3Dividends = Number(
+    months.reduce((acc, m) => acc + m.realB3Dividends, 0).toFixed(2)
+  );
+  const totalInvestedCapital = Number(
+    positions.reduce((acc, p) => acc + p.totalInvested, 0).toFixed(2)
+  );
+  const portfolioPaybackPercent =
+    totalInvestedCapital > 0
+      ? Number(Math.min(100, (totalLifetimeDividends / totalInvestedCapital) * 100).toFixed(1))
+      : 0;
+
+  const nonZeroMonths = months.filter((m) => m.totalDividends > 0);
+  const firstMonthDividends = nonZeroMonths.length > 0 ? nonZeroMonths[0].totalDividends : 0;
+  const latestMonthDividends =
+    months.length > 0 ? months[months.length - 1].totalDividends : 0;
+  const growthPercent =
+    firstMonthDividends > 0 && nonZeroMonths.length > 1
+      ? Number((((latestMonthDividends - firstMonthDividends) / firstMonthDividends) * 100).toFixed(1))
+      : 0;
+
+  return {
+    months,
+    totalLifetimeDividends,
+    totalRealB3Dividends,
+    totalInvestedCapital,
+    portfolioPaybackPercent,
+    firstMonthDividends,
+    latestMonthDividends,
+    growthPercent,
+  };
 }
 
 /**
@@ -210,7 +508,11 @@ export function calculatePortfolioSummary(
 
   const currentMonthInvested = currentYearMonth
     ? transactions
-        .filter((t) => t.date.startsWith(currentYearMonth) && t.type !== 'SELL')
+        .filter(
+          (t) =>
+            t.date.startsWith(currentYearMonth) &&
+            (t.type === 'BUY' || !t.type)
+        )
         .reduce((acc, t) => acc + t.total, 0)
     : 0;
 

@@ -84,8 +84,14 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 function mapTransactionToDbRow(tx: Transaction) {
   const isSell = tx.type === 'SELL';
+  const isDividend = tx.type === 'DIVIDEND';
   const signedShares = isSell ? -Math.abs(tx.shares) : Math.abs(tx.shares);
   const signedTotal = isSell ? -Math.abs(tx.total) : Math.abs(tx.total);
+
+  let notesValue = tx.notes || null;
+  if (isDividend && (!notesValue || !notesValue.startsWith('[PROVENTO B3]'))) {
+    notesValue = `[PROVENTO B3] ${notesValue || 'Rendimento Oficial B3'}`;
+  }
 
   return {
     id: tx.id,
@@ -95,7 +101,7 @@ function mapTransactionToDbRow(tx: Transaction) {
     price: Math.abs(tx.price),
     total: signedTotal,
     broker: tx.broker,
-    notes: tx.notes || null,
+    notes: notesValue,
   };
 }
 
@@ -114,7 +120,11 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
 
     return data.map((item) => {
       const rawShares = Number(item.shares);
-      const isSell = rawShares < 0;
+      const notesStr = String(item.notes || '');
+      const idStr = String(item.id || '');
+      const isDividend =
+        idStr.startsWith('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
+      const isSell = !isDividend && rawShares < 0;
       const absShares = Math.abs(rawShares);
       const absPrice = Math.abs(Number(item.price));
       const absTotal = Math.abs(Number(item.total));
@@ -122,7 +132,7 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
       return {
         id: item.id,
         ticker: String(item.ticker || '').toUpperCase().trim(),
-        type: isSell ? 'SELL' : 'BUY',
+        type: isDividend ? 'DIVIDEND' : isSell ? 'SELL' : 'BUY',
         date: item.date,
         shares: absShares,
         price: absPrice,

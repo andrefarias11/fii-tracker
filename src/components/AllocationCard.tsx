@@ -18,6 +18,9 @@ interface SectorSlice {
 
 function normalizeSector(segment: string): { label: string; colorClass: string; dotClass: string } {
   const s = segment.toLowerCase();
+  if (s.includes('ações') || s.includes('acoes')) {
+    return { label: 'Ações', colorClass: 'bg-cyan-400', dotClass: 'bg-cyan-400' };
+  }
   if (s.includes('papel')) {
     return { label: 'Papel', colorClass: 'bg-emerald-400', dotClass: 'bg-emerald-400' };
   }

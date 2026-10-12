@@ -115,7 +115,7 @@ export function PerformanceComparisonChart({
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
     const validDates = transactions
-      .filter((t) => t.type !== 'SELL' && t.date)
+      .filter((t) => (t.type === 'BUY' || !t.type) && t.date)
       .map((t) => parseLocalDate(t.date))
       .filter((d): d is Date => d !== null && d.getTime() <= today.getTime())
       .sort((a, b) => a.getTime() - b.getTime());

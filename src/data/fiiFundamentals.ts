@@ -1,6 +1,7 @@
 export interface FiiFundamentalData {
   ticker: string;
   name: string;
+  assetClass?: 'FII' | 'ACAO';
   segment:
     | 'Papel (CRI)'
     | 'Tijolo (Logística)'
@@ -8,13 +9,18 @@ export interface FiiFundamentalData {
     | 'Tijolo (Renda Urbana)'
     | 'Tijolo (Lajes)'
     | 'FOF'
-    | 'Fiagro';
+    | 'Fiagro'
+    | 'Ações (Bancos)'
+    | 'Ações (Energia)'
+    | 'Ações (Seguros)'
+    | 'Ações (Saneamento)'
+    | 'Ações (Telecom & Commodities)';
   base: 10 | 100;
-  vp: number; // Valor Patrimonial por cota oficial
-  typicalMonthlyDividend: number; // Média recente de proventos por cota
-  diversification: string; // Ex: "Mais de 80 CRIs pulverizados"
+  vp: number; // Valor Patrimonial por cota/ação oficial (VP ou VPA)
+  typicalMonthlyDividend: number; // Média recente de proventos por cota (ou 12m/12 nas Ações)
+  diversification: string; // Ex: "Mais de 80 CRIs pulverizados" ou "Líder em crédito agrícola e folha de pagamento"
   vacancyPhysical?: number; // Vacância física (%)
-  management: string; // Ex: "XP Asset", "Kinea", "BTG"
+  management: string; // Ex: "XP Asset", "Kinea", "Banco do Brasil"
   thesis: string; // Tese resumida de investimento
 }
 
@@ -512,5 +518,175 @@ export const FII_FUNDAMENTALS: FiiFundamentalData[] = [
     diversification: 'Foco no setor sucroenergético e grãos no interior de SP e Centro-Oeste',
     management: 'FG/A Gestora',
     thesis: 'Gestora especialista no setor de açúcar, etanol e bioenergia, entregando ótimo carrego em CDI+ com cota Base 10.',
+  },
+
+  // ======================== AÇÕES DE DIVIDENDOS (MÉTODO BARSI / BESST) ========================
+  {
+    ticker: 'BBAS3',
+    name: 'Banco do Brasil ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Bancos)',
+    base: 10,
+    vp: 31.40,
+    typicalMonthlyDividend: 0.22,
+    diversification: 'Líder absoluto em crédito ao agronegócio e consignado público no Brasil',
+    management: 'Banco do Brasil (Novo Mercado)',
+    thesis: 'Clássica vaca leiteira da carteira previdenciária de Luiz Barsi: realiza 8 pagamentos de dividendos/JCP por ano com ROE elevado e múltiplo descontado.',
+  },
+  {
+    ticker: 'ITSA4',
+    name: 'Itaúsa PN',
+    assetClass: 'ACAO',
+    segment: 'Ações (Bancos)',
+    base: 10,
+    vp: 8.65,
+    typicalMonthlyDividend: 0.065,
+    diversification: 'Holding controladora do Itaú Unibanco + Alpargatas, Dexco, Aegea e Copa Energia',
+    management: 'Holding Itaúsa',
+    thesis: 'Permite investir no Itaú Unibanco com desconto histórico de holding, ação acessível na casa de R$ 10 e bonificações recorrentes.',
+  },
+  {
+    ticker: 'SANB11',
+    name: 'Santander Brasil Unit',
+    assetClass: 'ACAO',
+    segment: 'Ações (Bancos)',
+    base: 10,
+    vp: 24.50,
+    typicalMonthlyDividend: 0.18,
+    diversification: 'Um dos maiores bancos privados de varejo e atacado do país',
+    management: 'Grupo Santander',
+    thesis: 'Histórico forte de distribuição trimestral de proventos e JCP, frequentemente negociado próximo ou abaixo do Valor Patrimonial por Ação (VPA).',
+  },
+  {
+    ticker: 'TAEE11',
+    name: 'Taesa Unit',
+    assetClass: 'ACAO',
+    segment: 'Ações (Energia)',
+    base: 10,
+    vp: 19.80,
+    typicalMonthlyDividend: 0.26,
+    diversification: 'Mais de 40 concessões de transmissão elétrica de longo prazo reajustadas por IPCA/IGP-M',
+    management: 'Cemig / ISA',
+    thesis: 'O padrão ouro das transmissoras de energia: receita garantida por disponibilidade da rede (RAP) sem risco de volume de chuvas.',
+  },
+  {
+    ticker: 'ISAE4',
+    name: 'ISA Energia Brasil PN (ex-TRPL4)',
+    assetClass: 'ACAO',
+    segment: 'Ações (Energia)',
+    base: 10,
+    vp: 28.40,
+    typicalMonthlyDividend: 0.19,
+    diversification: 'Responsável por ~30% de toda a energia transmitida no Sistema Interligado Nacional',
+    management: 'Grupo ISA',
+    thesis: 'Maior transmissora privada do país, frequentemente negociada abaixo do VPA e uma das maiores posições históricas da família Barsi.',
+  },
+  {
+    ticker: 'EGIE3',
+    name: 'Engie Brasil Energia ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Energia)',
+    base: 10,
+    vp: 14.20,
+    typicalMonthlyDividend: 0.28,
+    diversification: 'Maior geradora privada de energia limpa do Brasil + linhas de transmissão e TAG',
+    management: 'Grupo Engie (Novo Mercado)',
+    thesis: 'Referência de governança e alocação de capital na B3, entregando ROE altíssimo e dividendos crescentes no longo prazo.',
+  },
+  {
+    ticker: 'CMIG4',
+    name: 'Cemig PN',
+    assetClass: 'ACAO',
+    segment: 'Ações (Energia)',
+    base: 10,
+    vp: 9.20,
+    typicalMonthlyDividend: 0.095,
+    diversification: 'Holding integrada de geração, transmissão e distribuição em Minas Gerais',
+    management: 'Cemig',
+    thesis: 'Ação de energia acessível na casa de R$ 10 com excelente Dividend Yield e histórico frequente de bonificações de ações aos acionistas.',
+  },
+  {
+    ticker: 'CPFE3',
+    name: 'CPFL Energia ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Energia)',
+    base: 10,
+    vp: 16.90,
+    typicalMonthlyDividend: 0.25,
+    diversification: 'Gigante de distribuição e geração de energia em SP e RS',
+    management: 'State Grid',
+    thesis: 'Forte geração de caixa operacional e elevado payout de dividendos no setor elétrico.',
+  },
+  {
+    ticker: 'BBSE3',
+    name: 'BB Seguridade ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Seguros)',
+    base: 10,
+    vp: 5.60,
+    typicalMonthlyDividend: 0.29,
+    diversification: 'Brasilseg, Brasilprev, Brasilcap e BB Corretora nas agências do Banco do Brasil',
+    management: 'BB Seguridade (Novo Mercado)',
+    thesis: 'Negócio leve em ativos (asset-light) que se beneficia diretamente da Selic alta no resultado financeiro e distribui quase todo o lucro em dividendos semestrais.',
+  },
+  {
+    ticker: 'CXSE3',
+    name: 'Caixa Seguridade ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Seguros)',
+    base: 10,
+    vp: 4.30,
+    typicalMonthlyDividend: 0.10,
+    diversification: 'Monopólio de seguros habitacionais, prestamistas e previdência no balcão da Caixa',
+    management: 'Caixa Econômica Federal',
+    thesis: 'Forte crescimento em seguros habitacionais de longo prazo, preço por ação acessível (~R$ 14) e pagamentos trimestrais de dividendos.',
+  },
+  {
+    ticker: 'SAPR11',
+    name: 'Sanepar Unit',
+    assetClass: 'ACAO',
+    segment: 'Ações (Saneamento)',
+    base: 10,
+    vp: 33.80,
+    typicalMonthlyDividend: 0.19,
+    diversification: 'Concessão de água e esgoto em quase todo o estado do Paraná',
+    management: 'Sanepar',
+    thesis: 'Setor perene à prova de crises: negociada com forte desconto sobre o Valor Patrimonial (P/VP < 0,90), unindo Graham e Barsi.',
+  },
+  {
+    ticker: 'VIVT3',
+    name: 'Telefônica Brasil (Vivo) ON',
+    assetClass: 'ACAO',
+    segment: 'Ações (Telecom & Commodities)',
+    base: 10,
+    vp: 42.10,
+    typicalMonthlyDividend: 0.28,
+    diversification: 'Líder absoluta em telefonia móvel pós-paga e fibra óptica no Brasil',
+    management: 'Grupo Telefónica (Novo Mercado)',
+    thesis: 'Clássica pagadora de dividendos e reduções de capital do setor de Telecom (o "T" do método BESST), com fluxo de caixa altamente previsível.',
+  },
+  {
+    ticker: 'KLBN11',
+    name: 'Klabin Unit',
+    assetClass: 'ACAO',
+    segment: 'Ações (Telecom & Commodities)',
+    base: 10,
+    vp: 10.40,
+    typicalMonthlyDividend: 0.11,
+    diversification: 'Maior produtora e exportadora de papéis para embalagens e celulose do Brasil',
+    management: 'Klabin S.A.',
+    thesis: 'Mais de 125 anos de história, receita dolarizada que protege o portfólio e política trimestral consistente de dividendos.',
+  },
+  {
+    ticker: 'PETR4',
+    name: 'Petrobras PN',
+    assetClass: 'ACAO',
+    segment: 'Ações (Telecom & Commodities)',
+    base: 10,
+    vp: 31.20,
+    typicalMonthlyDividend: 0.38,
+    diversification: 'Líder mundial em exploração de petróleo em águas profundas (Pré-Sal)',
+    management: 'Petrobras',
+    thesis: 'Baixíssimo custo de extração no Pré-Sal e geração colossal de caixa livre em dólar, resultando em dividendos trimestrais expressivos.',
   },
 ];

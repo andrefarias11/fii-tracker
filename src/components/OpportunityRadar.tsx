@@ -64,8 +64,10 @@ export function OpportunityRadar({
   // Filtragem da lista
   const filteredFiis = evaluatedFiis.filter((fii) => {
     if (filterSegment === 'OPORTUNIDADES') return fii.status === 'OPPORTUNITY';
+    if (filterSegment === 'ACOES') return fii.assetClass === 'ACAO';
+    if (filterSegment === 'SO_FIIS') return fii.assetClass !== 'ACAO';
     if (filterSegment === 'DATA_COM') return fii.daysUntilExDate <= 5;
-    if (filterSegment === 'BASE_10') return fii.base === 10;
+    if (filterSegment === 'BASE_10') return fii.assetClass !== 'ACAO' && fii.base === 10;
     if (filterSegment === 'PAPEL') return fii.segment.includes('Papel');
     if (filterSegment === 'TIJOLO') return fii.segment.includes('Tijolo');
     if (filterSegment === 'FIAGRO') return fii.segment.includes('Fiagro');
@@ -175,33 +177,43 @@ export function OpportunityRadar({
               </span>
             </div>
 
-            {recommendation.items.map((item) => (
-              <div
-                key={item.ticker}
-                className="p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 flex items-center justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-extrabold text-sm text-white">{item.ticker}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
-                      Base {item.base}
-                    </span>
-                    <span className="text-xs font-semibold text-emerald-400">
-                      {item.shares} {item.shares === 1 ? 'cota' : 'cotas'}
-                    </span>
+            {recommendation.items.map((item) => {
+              const isStockItem = item.segment.includes('Ações');
+              return (
+                <div
+                  key={item.ticker}
+                  className="p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 flex items-center justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-extrabold text-sm text-white">{item.ticker}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                        {isStockItem ? 'Ação' : `Base ${item.base}`}
+                      </span>
+                      <span className="text-xs font-semibold text-emerald-400">
+                        {item.shares}{' '}
+                        {isStockItem
+                          ? item.shares === 1
+                            ? 'ação'
+                            : 'ações'
+                          : item.shares === 1
+                          ? 'cota'
+                          : 'cotas'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">{item.reason}</p>
                   </div>
-                  <p className="text-[11px] text-zinc-400">{item.reason}</p>
-                </div>
 
-                <div className="text-right shrink-0">
-                  <div className="text-xs font-bold text-white">{formatBRL(item.totalCost)}</div>
-                  <div className="text-[10px] text-emerald-400 flex items-center justify-end gap-1">
-                    <Coins className="w-3 h-3" />
-                    +{formatBRL(item.estimatedMonthlyIncome)}/mês
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-bold text-white">{formatBRL(item.totalCost)}</div>
+                    <div className="text-[10px] text-emerald-400 flex items-center justify-end gap-1">
+                      <Coins className="w-3 h-3" />
+                      +{formatBRL(item.estimatedMonthlyIncome)}/mês
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {recommendation.unallocatedCash > 0 && (
               <div className="text-[11px] text-zinc-400 text-right pr-1">
@@ -226,12 +238,12 @@ export function OpportunityRadar({
         )}
       </div>
 
-      {/* 2. RADAR DE TODOS OS FIIS MONITORADOS */}
+      {/* 2. RADAR DE TODOS OS FIIS & AÇÕES MONITORADOS */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5">
             <Compass className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white">Scanner de FIIs da Bolsa</h3>
+            <h3 className="text-sm font-bold text-white">Scanner de FIIs & Ações da B3</h3>
           </div>
           <span className="text-[11px] text-zinc-400">P/VP e Preço Teto</span>
         </div>
@@ -241,6 +253,8 @@ export function OpportunityRadar({
           {[
             { id: 'TODOS', label: 'Todos' },
             { id: 'OPORTUNIDADES', label: '🔥 Descontados' },
+            { id: 'ACOES', label: '📈 Ações (Dividendos)' },
+            { id: 'SO_FIIS', label: '🏢 Só FIIs' },
             { id: 'DATA_COM', label: '⚡ Data-Com Próxima' },
             { id: 'BASE_10', label: 'Base 10 (R$ ~10)' },
             { id: 'PAPEL', label: 'Papel (CRI)' },
@@ -261,9 +275,10 @@ export function OpportunityRadar({
           ))}
         </div>
 
-        {/* Lista de FIIs com Análise Enxuta e Intuitiva */}
+        {/* Lista de Ativos com Análise Enxuta e Intuitiva */}
         <div className="space-y-3">
           {filteredFiis.map((fii) => {
+            const isStock = fii.assetClass === 'ACAO';
             const isOpportunity = fii.status === 'OPPORTUNITY';
             const isExpensive = fii.status === 'EXPENSIVE';
             const isExDateSoon = fii.daysUntilExDate <= 5;
@@ -277,7 +292,13 @@ export function OpportunityRadar({
                   <div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-base font-extrabold text-white">{fii.ticker}</span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          isStock
+                            ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                            : 'bg-zinc-800 text-zinc-300'
+                        }`}
+                      >
                         {fii.segment}
                       </span>
                       {fii.isBelowAveragePrice && (
@@ -320,10 +341,12 @@ export function OpportunityRadar({
                   </div>
                 </div>
 
-                {/* Métricas Chave (VP, Yield e Preço Teto) */}
+                {/* Métricas Chave (VP/VPA, Yield e Preço Teto) */}
                 <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 mb-2.5 text-center text-xs">
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">VP / Cota</span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      {isStock ? 'VPA / Ação' : 'VP / Cota'}
+                    </span>
                     <span className="font-semibold text-zinc-300">{formatBRL(fii.vp)}</span>
                   </div>
                   <div>
@@ -331,7 +354,9 @@ export function OpportunityRadar({
                     <span className="font-bold text-emerald-400">{fii.annualYieldPercent}% a.a.</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">Preço Teto (0,9%)</span>
+                    <span className="text-[10px] text-zinc-500 block">
+                      {isStock ? 'Teto Barsi (6%)' : 'Preço Teto (0,9%)'}
+                    </span>
                     <span className="font-semibold text-zinc-200">{formatBRL(fii.ceilingPrice)}</span>
                   </div>
                 </div>
@@ -343,7 +368,7 @@ export function OpportunityRadar({
 
                 <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
                   <span className="text-[11px] text-zinc-500 truncate max-w-[230px]">
-                    🛡️ {fii.management} • {formatBRL(fii.monthlyDividend)}/cota
+                    🛡️ {fii.management} • {formatBRL(fii.monthlyDividend)}/{isStock ? 'mês eq.' : 'cota'}
                   </span>
 
                   <span className="text-[10px] font-semibold text-zinc-400">

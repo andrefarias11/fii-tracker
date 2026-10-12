@@ -8,11 +8,13 @@ import {
   HelpCircle,
   Calendar,
   TrendingUp,
+  BarChart3,
 } from 'lucide-react';
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
 import { DividendStatus } from '../types/dividend';
 import { PerformanceComparisonChart } from './PerformanceComparisonChart';
+import { DividendStaircaseChart } from './DividendStaircaseChart';
 
 interface DividendFlowProps {
   positions: FiiPosition[];
@@ -29,7 +31,7 @@ export function DividendFlow({
   monthlyContributionGoal = 200,
   isPrivacyMode = false,
 }: DividendFlowProps) {
-  const [subView, setSubView] = useState<'calendar' | 'chart'>('calendar');
+  const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
 
   const currentDate = new Date();
@@ -82,7 +84,7 @@ export function DividendFlow({
         <Coins className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" />
         <h3 className="text-sm font-bold text-white mb-1">Nenhum dividendo previsto ainda</h3>
         <p className="text-xs text-zinc-500">
-          Quando você registrar seus primeiros FIIs, o fluxo de proventos aparecerá aqui automaticamente.
+          Quando você registrar seus primeiros FIIs ou Ações, o fluxo de proventos aparecerá aqui automaticamente.
         </p>
       </div>
     );
@@ -90,8 +92,8 @@ export function DividendFlow({
 
   return (
     <div className="space-y-4">
-      {/* Seletor Segmentado Estilo Apple iOS */}
-      <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+      {/* Seletor Segmentado 3-em-1 Estilo Apple iOS */}
+      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
         <button
           type="button"
           onClick={() => setSubView('calendar')}
@@ -102,7 +104,20 @@ export function DividendFlow({
           }`}
         >
           <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-          Calendário do Mês
+          Calendário
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubView('staircase')}
+          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+            subView === 'staircase'
+              ? 'bg-white/[0.1] text-white shadow-sm'
+              : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+          Escadinha
         </button>
 
         <button
@@ -115,7 +130,7 @@ export function DividendFlow({
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-          Desempenho vs CDI
+          vs CDI
         </button>
       </div>
 
@@ -258,6 +273,14 @@ export function DividendFlow({
               );
             })}
           </div>
+        </div>
+      ) : subView === 'staircase' ? (
+        <div className="animate-in fade-in duration-150">
+          <DividendStaircaseChart
+            positions={positions}
+            transactions={transactions}
+            isPrivacyMode={isPrivacyMode}
+          />
         </div>
       ) : (
         <div className="animate-in fade-in duration-150">

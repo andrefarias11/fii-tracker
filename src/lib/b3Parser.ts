@@ -18,35 +18,37 @@ export interface B3ParseResult {
   summary: {
     totalRows: number;
     fiiRowsFound: number;
+    dividendRowsFound?: number;
     nonFiiRowsSkipped: number;
     intraFileDuplicatesRemoved: number;
     uniqueTickersFound: string[];
     totalAmountInvested: number;
+    totalDividendsReceived?: number;
   };
   error?: string;
 }
 
 /**
- * Extrai e normaliza o código de negociação (Ticker) de qualquer formato da B3:
+ * Extrai e normaliza o código de negociação (Ticker) de qualquer formato da B3 (FIIs e Ações):
  * - "MXRF11" -> "MXRF11"
- * - "MXRF11F" (fracionário) -> "MXRF11"
- * - "MXRF11 - MAXI RENDA FII" (aba Movimentação) -> "MXRF11"
+ * - "MXRF11F" / "BBAS3F" / "ITSA4F" / "TAEE11F" (fracionário) -> "MXRF11" / "BBAS3" / "ITSA4" / "TAEE11"
+ * - "MXRF11 - MAXI RENDA FII" / "BBAS3 - BANCO DO BRASIL" (aba Movimentação) -> "MXRF11" / "BBAS3"
  * - "VGIR11.SA" -> "VGIR11"
  */
 export function normalizeB3Ticker(raw: unknown): string {
   if (!raw) return '';
   const upper = String(raw).toUpperCase().trim();
 
-  // Pega o primeiro token antes de espaço, hífen ou ponto (ex: "MXRF11 - MAXI RENDA" -> "MXRF11")
+  // Pega o primeiro token antes de espaço, hífen ou ponto (ex: "BBAS3 - BANCO DO BRASIL" -> "BBAS3")
   const firstToken = upper.split(/[\s\-./]+/)[0] || '';
 
-  // Remove sufixo 'F' de lote fracionário caso termine em 11F (ex: MXRF11F -> MXRF11)
-  if (/^[A-Z]{4}11F$/.test(firstToken)) {
+  // Remove sufixo 'F' de lote fracionário para FIIs e Ações (ex: MXRF11F -> MXRF11, BBAS3F -> BBAS3, ITSA4F -> ITSA4)
+  if (/^[A-Z]{4}(?:3|4|5|6|11)F$/.test(firstToken)) {
     return firstToken.slice(0, -1);
   }
 
-  // Busca padrão oficial de ticker na string inteira caso o formato seja "FII MXRF11"
-  const match = upper.match(/\b([A-Z]{4}11)F?\b/);
+  // Busca padrão oficial de ticker na string inteira caso o formato seja "FII MXRF11" ou "ACAO BBAS3F"
+  const match = upper.match(/\b([A-Z]{4}(?:3|4|5|6|11)[B]?)F?\b/);
   if (match && match[1]) {
     return match[1];
   }
@@ -186,8 +188,8 @@ function extractRowsFromSheet(worksheet: XLSX.WorkSheet): Record<string, unknown
   });
 }
 
-// ETFs e BDRs conhecidos que terminam em 11 mas NÃO são FIIs
-const NON_FII_11_TICKERS = new Set([
+// ETFs conhecidos que terminam em 11 mas NÃO são FIIs nem Units de Ações
+const ETF_11_TICKERS = new Set([
   'BOVA11',
   'IVVB11',
   'SMAL11',
@@ -207,6 +209,12 @@ const NON_FII_11_TICKERS = new Set([
   'PIBB11',
   'BRAX11',
   'ECOO11',
+  'BOVV11',
+  'NDIV11',
+]);
+
+// Units de Ações que terminam em 11 (ex: Taesa, Santander, Klabin, Sanepar, Alupar, Energisa, BTG)
+export const STOCK_UNIT_11_TICKERS = new Set([
   'TAEE11',
   'SANB11',
   'KLBN11',
@@ -215,9 +223,35 @@ const NON_FII_11_TICKERS = new Set([
   'ALUP11',
   'SAPR11',
   'IGTI11',
+  'STBP11',
+  'AESB11',
+  'MODL11',
+  'RNEW11',
 ]);
 
-export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B3ParseResult {
+/**
+ * Classifica qualquer ticker da B3 em 'FII', 'ACAO' ou 'OUTRO' (ETF/BDR/Opções)
+ */
+export function classifyB3Ticker(rawTicker: string): 'FII' | 'ACAO' | 'OUTRO' {
+  const clean = normalizeB3Ticker(rawTicker);
+  if (!clean) return 'OUTRO';
+
+  if (STOCK_UNIT_11_TICKERS.has(clean)) {
+    return 'ACAO';
+  }
+
+  if (/^[A-Z]{4}[3456]$/.test(clean)) {
+    return 'ACAO';
+  }
+
+  if (/^[A-Z]{4}11[B]?$/.test(clean) && !ETF_11_TICKERS.has(clean)) {
+    return 'FII';
+  }
+
+  return 'OUTRO';
+}
+
+export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = false): B3ParseResult {
   try {
     const workbook = XLSX.read(buffer, { type: 'array' });
     if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
@@ -365,42 +399,53 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
 
       if (!cleanTicker || cleanTicker.length < 5) continue;
 
-      const isFII =
-        /^[A-Z]{4}11[B]?$/.test(cleanTicker) && !NON_FII_11_TICKERS.has(cleanTicker);
+      const assetKind = classifyB3Ticker(cleanTicker);
 
-      if (filterOnlyFIIs && !isFII) {
+      if (assetKind === 'OUTRO') {
         nonFiiCount++;
         continue;
       }
 
-      // Analisar se a linha é realmente uma Compra ou Venda de cotas (ignorando linhas de Rendimento/Dividendo/JCP da aba Movimentação!)
+      if (filterOnlyFIIs && assetKind !== 'FII') {
+        nonFiiCount++;
+        continue;
+      }
+
+      // Analisar se a linha é Compra, Venda ou Provento Real (Rendimento/Dividendo/JCP da aba Movimentação)
       const movDesc = movementDescKey ? stripAccents(String(row[movementDescKey] || '')) : '';
       const entryExit = entryExitKey ? stripAccents(String(row[entryExitKey] || '')) : '';
 
-      // Ignora proventos, dividendos, rendimentos, frações ou atualizações cadastrais na planilha de Movimentação
+      // Ignora frações em leilão, atualizações cadastrais, cessão de direitos ou aluguel
       if (
-        movDesc.includes('rendimento') ||
-        movDesc.includes('dividendo') ||
-        movDesc.includes('juros') ||
-        movDesc.includes('jcp') ||
         movDesc.includes('fracao') ||
         movDesc.includes('fracoes') ||
+        movDesc.includes('leilao') ||
         movDesc.includes('atualizacao') ||
         movDesc.includes('cessao') ||
         movDesc.includes('direito') ||
-        movDesc.includes('aluguel')
+        movDesc.includes('aluguel') ||
+        movDesc.includes('subscricao')
       ) {
         continue;
       }
 
+      const isDividend =
+        !movDesc.includes('transferencia') &&
+        (movDesc.includes('rendimento') ||
+          movDesc.includes('dividendo') ||
+          movDesc.includes('juros') ||
+          movDesc.includes('jcp'));
+
       const isSell =
-        movDesc.includes('venda') ||
-        movDesc === 'v' ||
-        movDesc.includes('debito') ||
-        entryExit.includes('debito') ||
-        entryExit.includes('saida');
+        !isDividend &&
+        (movDesc.includes('venda') ||
+          movDesc === 'v' ||
+          movDesc.includes('debito') ||
+          entryExit.includes('debito') ||
+          entryExit.includes('saida'));
 
       const isBuy =
+        !isDividend &&
         !isSell &&
         (movDesc.includes('compra') ||
           movDesc === 'c' ||
@@ -411,7 +456,53 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
           entryExit.includes('entrada') ||
           movDesc === '');
 
-      if (!isBuy && !isSell) {
+      if (!isBuy && !isSell && !isDividend) {
+        continue;
+      }
+
+      const date = dateKey ? parseB3Date(row[dateKey]) : new Date().toISOString().slice(0, 10);
+      const broker =
+        brokerKey && row[brokerKey] ? String(row[brokerKey]).trim() : 'XP Investimentos';
+
+      if (isDividend) {
+        const rawShares = sharesKey ? Math.abs(parseBRLNumber(row[sharesKey])) : 0;
+        const rawPrice = priceKey ? Math.abs(parseBRLNumber(row[priceKey])) : 0;
+        const rawTotal = totalKey ? Math.abs(parseBRLNumber(row[totalKey])) : 0;
+
+        const shares = rawShares > 0 ? rawShares : 1;
+        const total =
+          rawTotal > 0
+            ? Number(rawTotal.toFixed(2))
+            : rawPrice > 0
+            ? Number((shares * rawPrice).toFixed(2))
+            : 0;
+        const price =
+          rawPrice > 0
+            ? Number(rawPrice.toFixed(4))
+            : total > 0
+            ? Number((total / shares).toFixed(4))
+            : 0;
+
+        if (total <= 0) continue;
+
+        const proventoLabel =
+          movDesc.includes('juros') || movDesc.includes('jcp')
+            ? '[PROVENTO B3] JCP Oficial'
+            : movDesc.includes('dividendo')
+            ? '[PROVENTO B3] Dividendo Oficial'
+            : '[PROVENTO B3] Rendimento Oficial';
+
+        rawTransactions.push({
+          id: `b3-div-${date}-${cleanTicker}-${total.toFixed(2)}-${i}`,
+          ticker: cleanTicker,
+          type: 'DIVIDEND',
+          date,
+          shares,
+          price,
+          total,
+          broker,
+          notes: proventoLabel,
+        });
         continue;
       }
 
@@ -433,10 +524,6 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
 
       if (price <= 0 || total <= 0) continue;
 
-      const date = dateKey ? parseB3Date(row[dateKey]) : new Date().toISOString().slice(0, 10);
-      const broker =
-        brokerKey && row[brokerKey] ? String(row[brokerKey]).trim() : 'XP Investimentos';
-
       rawTransactions.push({
         id: `b3-${date}-${cleanTicker}-${isSell ? 'S' : 'B'}-${shares}-${price.toFixed(2)}-${i}`,
         ticker: cleanTicker,
@@ -456,8 +543,10 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
 
     const uniqueTickersFound = Array.from(new Set(validTransactions.map((t) => t.ticker))).sort();
     const totalInvested = validTransactions
-      .filter((t) => t.type !== 'SELL')
+      .filter((t) => t.type === 'BUY' || !t.type)
       .reduce((acc, t) => acc + t.total, 0);
+    const dividendRows = validTransactions.filter((t) => t.type === 'DIVIDEND');
+    const totalDividendsReceived = dividendRows.reduce((acc, t) => acc + t.total, 0);
 
     return {
       success: true,
@@ -465,10 +554,12 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
       summary: {
         totalRows: rawData.length,
         fiiRowsFound: validTransactions.length,
+        dividendRowsFound: dividendRows.length,
         nonFiiRowsSkipped: nonFiiCount,
         intraFileDuplicatesRemoved: 0,
         uniqueTickersFound,
         totalAmountInvested: Number(totalInvested.toFixed(2)),
+        totalDividendsReceived: Number(totalDividendsReceived.toFixed(2)),
       },
     };
   } catch (err) {
@@ -491,10 +582,14 @@ export function parseB3FileBuffer(buffer: ArrayBuffer, filterOnlyFIIs = true): B
 }
 
 export function buildTransactionSignature(
-  tx: Pick<Transaction, 'ticker' | 'date' | 'shares' | 'price' | 'type'>
+  tx: Pick<Transaction, 'ticker' | 'date' | 'shares' | 'price' | 'type'> & { total?: number }
 ): string {
   const cleanTicker = normalizeB3Ticker(tx.ticker);
   const cleanDate = parseB3Date(tx.date);
+  if (tx.type === 'DIVIDEND') {
+    const absTotal = Math.abs(Number(tx.total || tx.shares * tx.price)).toFixed(2);
+    return `${cleanTicker}|${cleanDate}|${absTotal}|DIVIDEND`;
+  }
   const txType = tx.type === 'SELL' ? 'SELL' : 'BUY';
   const absShares = Math.abs(Number(tx.shares));
   const absPrice = Math.abs(Number(tx.price)).toFixed(2);

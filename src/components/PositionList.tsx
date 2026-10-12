@@ -26,6 +26,13 @@ const formatShortSegment = (segment: string): string => {
     'Tijolo - Lajes': 'Lajes',
     'Papel (CRI)': 'Papel',
     'Fundo de Fundos': 'FOF',
+    'Ações - Bancos': 'Bancos',
+    'Ações - Energia': 'Energia',
+    'Ações - Saneamento': 'Saneamento',
+    'Ações - Seguros': 'Seguros',
+    'Ações - Commodities': 'Commodities',
+    'Ações - Telecom & Indústria': 'Telecom/Ind.',
+    'Ações - Outros': 'Ação B3',
   };
   return map[segment] || segment;
 };
@@ -39,6 +46,7 @@ export function PositionList({
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
   const [dividendInput, setDividendInput] = useState<string>('');
+  const [assetFilter, setAssetFilter] = useState<'ALL' | 'FII' | 'ACAO'>('ALL');
 
   const formatBRL = (val: number, allowInPrivacy = false) => {
     if (isPrivacyMode && !allowInPrivacy) return 'R$ •••••';
@@ -78,7 +86,7 @@ export function PositionList({
             Sua carteira B3 está vazia
           </p>
           <p className="text-xs text-zinc-500">
-            Importe seu extrato oficial da B3 (.xlsx) para consolidar seus FIIs e desbloquear as conquistas da Platina.
+            Importe seu extrato oficial da B3 (.xlsx) para consolidar seus FIIs e Ações e desbloquear as conquistas da Platina.
           </p>
         </div>
         {onOpenB3Modal && (
@@ -96,14 +104,56 @@ export function PositionList({
     );
   }
 
+  const fiisCount = positions.filter((p) => p.assetClass !== 'ACAO').length;
+  const stocksCount = positions.filter((p) => p.assetClass === 'ACAO').length;
+  const hasBothClasses = fiisCount > 0 && stocksCount > 0;
+
+  const visiblePositions = positions.filter((p) => {
+    if (assetFilter === 'FII') return p.assetClass !== 'ACAO';
+    if (assetFilter === 'ACAO') return p.assetClass === 'ACAO';
+    return true;
+  });
+
   return (
-    <div className="space-y-2">
-      {positions.map((pos) => {
+    <div className="space-y-2.5">
+      {/* Pílula Seletora Minimalista (Exibida quando há FIIs e Ações na carteira) */}
+      {hasBothClasses && (
+        <div className="flex items-center gap-1.5">
+          {[
+            { id: 'ALL', label: `Todos (${positions.length})` },
+            { id: 'FII', label: `FIIs (${fiisCount})` },
+            { id: 'ACAO', label: `Ações (${stocksCount})` },
+          ].map((pill) => (
+            <button
+              key={pill.id}
+              type="button"
+              onClick={() => setAssetFilter(pill.id as 'ALL' | 'FII' | 'ACAO')}
+              className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+                assetFilter === pill.id
+                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {pill.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visiblePositions.map((pos) => {
+        const isStock = pos.assetClass === 'ACAO';
         const isProfitable = pos.profitLoss >= 0;
         const isDailyUp = (pos.dailyChangePercent || 0) >= 0;
         const isExpanded = expandedTicker === pos.ticker;
         const isEditingThis = editingTicker === pos.ticker;
         const isBelowAverage = pos.currentPrice < pos.averagePrice;
+        const unitLabel = isStock
+          ? pos.totalShares === 1
+            ? 'ação'
+            : 'ações'
+          : pos.totalShares === 1
+          ? 'cota'
+          : 'cotas';
 
         return (
           <div
@@ -125,7 +175,11 @@ export function PositionList({
                   <span className="text-[11px] font-extrabold text-white tracking-tight leading-none">
                     {pos.ticker.slice(0, 4)}
                   </span>
-                  <span className="text-[9px] font-bold text-emerald-400 mt-0.5 leading-none">
+                  <span
+                    className={`text-[9px] font-bold mt-0.5 leading-none ${
+                      isStock ? 'text-cyan-400' : 'text-emerald-400'
+                    }`}
+                  >
                     {pos.ticker.slice(4)}
                   </span>
                 </div>
@@ -135,7 +189,13 @@ export function PositionList({
                     <span className="text-[15px] font-bold text-white tracking-tight">
                       {pos.ticker}
                     </span>
-                    <span className="text-[10px] font-medium text-zinc-500 truncate">
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                        isStock
+                          ? 'bg-cyan-500/10 text-cyan-400'
+                          : 'bg-white/[0.05] text-zinc-400'
+                      }`}
+                    >
                       {formatShortSegment(pos.segment)}
                     </span>
                     {pos.pvp < 1 && (
@@ -148,8 +208,8 @@ export function PositionList({
                   <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5">
                     <span>
                       {isPrivacyMode
-                        ? '•• cotas'
-                        : `${pos.totalShares} ${pos.totalShares === 1 ? 'cota' : 'cotas'}`}
+                        ? `•• ${isStock ? 'ações' : 'cotas'}`
+                        : `${pos.totalShares} ${unitLabel}`}
                     </span>
                     <span className="text-zinc-600">•</span>
                     <span className="text-emerald-400/90 font-medium">
@@ -191,6 +251,11 @@ export function PositionList({
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-zinc-300">
                       P/VP {pos.pvp}
                     </span>
+                    {isStock && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300">
+                        Teto Barsi {formatBRL(pos.ceilingPrice, true)}
+                      </span>
+                    )}
                     {isBelowAverage && (
                       <span className="text-[10px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full">
                         Abaixo do PM
@@ -246,9 +311,33 @@ export function PositionList({
                   </div>
                 </div>
 
+                {/* Payback do Ativo (Quanto já voltou em dividendos) */}
+                {(pos.paybackReceived !== undefined && pos.paybackReceived > 0) && (
+                  <div className="px-3.5 py-2.5 rounded-2xl bg-emerald-500/[0.05] border border-emerald-500/15 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400 font-medium">
+                        Payback acumulado em proventos
+                      </span>
+                      <span className="font-bold text-emerald-400">
+                        +{formatBRL(pos.paybackReceived)} ({pos.paybackPercent || 0}% do custo)
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-zinc-800/90 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                        style={{
+                          width: `${Math.min(100, Math.max(2, pos.paybackPercent || 0))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-0.5 gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-zinc-500">Div/cota:</span>
+                    <span className="text-[11px] text-zinc-500">
+                      {isStock ? 'Média/mês:' : 'Div/cota:'}
+                    </span>
                     {isEditingThis ? (
                       <div
                         className="flex items-center gap-1"

@@ -61,6 +61,7 @@ function findHistoricalUnlockDate(
   let txCount = 0;
 
   for (const tx of chronologicalRealTxs) {
+    if (tx.type === 'DIVIDEND') continue;
     const ticker = normalizeB3Ticker(tx.ticker);
     if (!ticker) continue;
 
@@ -118,8 +119,8 @@ export function evaluateAchievements(
     totalMonthlyDividends: number;
   }
 ): AchievementsOverview {
-  // Filtra apenas transações reais (ignora demo-* para garantir integridade do modo B3-Only)
-  const realTxs = transactions.filter((t) => !t.id.startsWith('demo-'));
+  // Filtra apenas transações reais de compra/venda (ignora demo-* e linhas de proventos para contagem de cotas)
+  const realTxs = transactions.filter((t) => !t.id.startsWith('demo-') && t.type !== 'DIVIDEND');
   const chronologicalTxs = [...realTxs].sort((a, b) => a.date.localeCompare(b.date));
 
   const hasOnlyDemo = transactions.length > 0 && realTxs.length === 0;
@@ -131,7 +132,9 @@ export function evaluateAchievements(
   const uniqueFiisCount = effectivePositions.length;
 
   const uniqueBuyMonths = new Set(
-    chronologicalTxs.filter((t) => t.type !== 'SELL' && t.date.length >= 7).map((t) => t.date.slice(0, 7))
+    chronologicalTxs
+      .filter((t) => (t.type === 'BUY' || !t.type) && t.date.length >= 7)
+      .map((t) => t.date.slice(0, 7))
   ).size;
 
   // Verifica se possui Papel + Tijolo/Híbrido

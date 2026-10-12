@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
-import { Trash2, Edit2, Calendar, Building2, X, CheckCircle2, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Trash2, Edit2, Calendar, Building2, X, CheckCircle2, ArrowDownRight, ArrowUpRight, Coins } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -55,6 +55,7 @@ export function TransactionHistory({
         label: string;
         totalBought: number;
         totalSold: number;
+        totalDividends: number;
         items: Transaction[];
       }
     >();
@@ -73,10 +74,13 @@ export function TransactionHistory({
         label,
         totalBought: 0,
         totalSold: 0,
+        totalDividends: 0,
         items: [],
       };
 
-      if (tx.type === 'SELL') {
+      if (tx.type === 'DIVIDEND') {
+        existing.totalDividends += tx.total;
+      } else if (tx.type === 'SELL') {
         existing.totalSold += tx.total;
       } else {
         existing.totalBought += tx.total;
@@ -171,6 +175,11 @@ export function TransactionHistory({
                 </div>
 
                 <div className="flex items-center gap-2 text-[11px]">
+                  {group.totalDividends > 0 && (
+                    <span className="font-semibold text-amber-300">
+                      Proventos: +{formatBRL(group.totalDividends)}
+                    </span>
+                  )}
                   {group.totalBought > 0 && (
                     <span className="font-semibold text-emerald-400">
                       +{formatBRL(group.totalBought)}
@@ -189,6 +198,7 @@ export function TransactionHistory({
                 {group.items.map((tx) => {
                   const isConfirming = confirmingDeleteId === tx.id;
                   const isSell = tx.type === 'SELL';
+                  const isDividend = tx.type === 'DIVIDEND';
 
                   return (
                     <div
@@ -200,20 +210,29 @@ export function TransactionHistory({
                           <span className="text-sm font-bold text-white">{tx.ticker}</span>
                           <span
                             className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                              isSell
+                              isDividend
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25'
+                                : isSell
                                 ? 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
                                 : 'bg-emerald-500/10 text-emerald-400'
                             }`}
                           >
-                            {isSell ? (
+                            {isDividend ? (
+                              <Coins className="w-2.5 h-2.5" />
+                            ) : isSell ? (
                               <ArrowUpRight className="w-2.5 h-2.5" />
                             ) : (
                               <ArrowDownRight className="w-2.5 h-2.5" />
                             )}
-                            {isSell ? 'Venda' : 'Compra'} • {tx.shares}{' '}
-                            {tx.shares === 1 ? 'cota' : 'cotas'}
+                            {isDividend
+                              ? 'Provento B3'
+                              : `${isSell ? 'Venda' : 'Compra'} • ${tx.shares} ${
+                                  tx.shares === 1 ? 'cota' : 'cotas'
+                                }`}
                           </span>
-                          <span className="text-[11px] text-zinc-400">a {formatBRL(tx.price)}</span>
+                          {!isDividend && (
+                            <span className="text-[11px] text-zinc-400">a {formatBRL(tx.price)}</span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2.5 text-[11px] text-zinc-400">
@@ -226,8 +245,8 @@ export function TransactionHistory({
                             {tx.broker}
                           </span>
                           {tx.notes && (
-                            <span className="text-zinc-500 truncate max-w-[110px]">
-                              • {tx.notes}
+                            <span className="text-zinc-500 truncate max-w-[140px]">
+                              • {tx.notes.replace(/^\[PROVENTO B3\]\s*/i, '')}
                             </span>
                           )}
                         </div>
@@ -237,10 +256,14 @@ export function TransactionHistory({
                         {!isConfirming && (
                           <span
                             className={`text-sm font-bold mr-1 ${
-                              isSell ? 'text-rose-400' : 'text-white'
+                              isDividend
+                                ? 'text-emerald-400'
+                                : isSell
+                                ? 'text-rose-400'
+                                : 'text-white'
                             }`}
                           >
-                            {isSell ? '-' : ''}
+                            {isDividend ? '+' : isSell ? '-' : ''}
                             {formatBRL(tx.total)}
                           </span>
                         )}

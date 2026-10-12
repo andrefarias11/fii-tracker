@@ -7,6 +7,7 @@ export type RecommendationStrategy = 'balanced' | 'snowball';
 export interface EvaluatedFii {
   ticker: string;
   name: string;
+  assetClass: 'FII' | 'ACAO';
   segment: string;
   base: 10 | 100;
   vp: number;
@@ -16,8 +17,8 @@ export interface EvaluatedFii {
   monthlyDividend: number;
   monthlyYieldPercent: number;
   annualYieldPercent: number;
-  ceilingPrice: number; // Preço teto para 0.90% a.m.
-  barsiCeilingPrice: number; // Preço teto método Barsi (mín. 0.80% a.m. / 9.6% a.a. líquido isento)
+  ceilingPrice: number; // Preço teto (0.90% a.m. para FIIs ou 6% a.a. Barsi para Ações)
+  barsiCeilingPrice: number; // Preço teto método Barsi
   status: 'OPPORTUNITY' | 'FAIR' | 'EXPENSIVE';
   score: number; // 0 a 100
   rationale: string;
@@ -56,6 +57,7 @@ export interface DayRecommendation {
 
 function getMacroCategory(segment: string): string {
   const s = segment.toLowerCase();
+  if (s.includes('ações') || s.includes('acoes')) return 'Ações';
   if (s.includes('papel')) return 'Papel';
   if (s.includes('logística') || s.includes('logistica')) return 'Logística';
   if (s.includes('shopping')) return 'Shopping';
@@ -84,6 +86,8 @@ export function evaluateAllFiis(
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
   return FII_FUNDAMENTALS.map((fii) => {
+    const assetClass = fii.assetClass || 'FII';
+    const isStock = assetClass === 'ACAO';
     const quote = quotes[fii.ticker];
     const catalogInfo = findFiiInfo(fii.ticker);
     const announcementDay = catalogInfo.announcementDay ?? 30;
@@ -94,7 +98,13 @@ export function evaluateAllFiis(
         : daysInMonth - todayDay + announcementDay;
 
     const currentPrice =
-      quote?.price && quote.price > 0 ? quote.price : fii.base === 10 ? 9.5 : 100.0;
+      quote?.price && quote.price > 0
+        ? quote.price
+        : isStock
+        ? fii.vp
+        : fii.base === 10
+        ? 9.5
+        : 100.0;
     const pvp =
       quote?.pvp && quote.pvp > 0
         ? Number(quote.pvp.toFixed(2))
@@ -112,8 +122,14 @@ export function evaluateAllFiis(
 
     const monthlyYieldPercent = Number(((monthlyDividend / currentPrice) * 100).toFixed(2));
     const annualYieldPercent = Number((monthlyYieldPercent * 12).toFixed(2));
-    const ceilingPrice = Number((monthlyDividend / 0.009).toFixed(2));
-    const barsiCeilingPrice = Number((monthlyDividend / 0.008).toFixed(2));
+
+    // Para Ações: Preço-Teto de Barsi (mín. 6% a.a.). Para FIIs: 0.90% a.m. (10.8% a.a.)
+    const ceilingPrice = isStock
+      ? Number(((monthlyDividend * 12) / 0.06).toFixed(2))
+      : Number((monthlyDividend / 0.009).toFixed(2));
+    const barsiCeilingPrice = isStock
+      ? Number(((monthlyDividend * 12) / 0.06).toFixed(2))
+      : Number((monthlyDividend / 0.008).toFixed(2));
 
     const userPos = positions.find((p) => p.ticker === fii.ticker);
     const userAveragePrice = userPos?.averagePrice;
@@ -127,22 +143,44 @@ export function evaluateAllFiis(
     let score = 50;
     let rationale = '';
 
-    // Avaliação do P/VP
-    if (pvp <= 0.99) {
-      status = 'OPPORTUNITY';
-      score += 32;
-      rationale = `Negociando com ${discountPercent}% de desconto sobre o VP (P/VP ${pvp}) e entregando ${monthlyYieldPercent}% a.m. (${annualYieldPercent}% a.a.).`;
-    } else if (pvp <= 1.02) {
-      status = 'FAIR';
-      score += 15;
-      rationale = `Cotado em linha com seu valor justo (P/VP ${pvp}), oferecendo renda passiva consistente de ${monthlyYieldPercent}% a.m.`;
+    if (isStock) {
+      // Avaliação específica para Ações de Dividendos (Preço-Teto Barsi 6% a.a. + P/VP)
+      const belowBarsiCeiling = currentPrice <= ceilingPrice;
+      if (pvp <= 1.0 && belowBarsiCeiling) {
+        status = 'OPPORTUNITY';
+        score += 36;
+        rationale = `Ação descontada abaixo do VPA (P/VP ${pvp}) e abaixo do Preço-Teto de Barsi (R$ ${ceilingPrice.toFixed(2)}), entregando ${annualYieldPercent}% a.a. de dividendos.`;
+      } else if (belowBarsiCeiling) {
+        status = 'OPPORTUNITY';
+        score += 28;
+        rationale = `Negociando abaixo do Preço-Teto de Barsi (R$ ${ceilingPrice.toFixed(2)}) com Dividend Yield de ${annualYieldPercent}% a.a. (média eq. ${monthlyYieldPercent}% a.m.).`;
+      } else if (annualYieldPercent >= 5.0 || pvp <= 1.15) {
+        status = 'FAIR';
+        score += 12;
+        rationale = `Empresa perene com retorno em dividendos de ${annualYieldPercent}% a.a. e P/VP ${pvp}.`;
+      } else {
+        status = 'EXPENSIVE';
+        score -= 18;
+        rationale = `Cotação acima do Preço-Teto previdenciário de 6% a.a. (Teto R$ ${ceilingPrice.toFixed(2)}).`;
+      }
     } else {
-      status = 'EXPENSIVE';
-      score -= 20;
-      rationale = `Negociando com ${Math.abs(discountPercent)}% de ágio acima do patrimônio (P/VP ${pvp}).`;
+      // Avaliação clássica de FIIs (P/VP + Yield Mensal)
+      if (pvp <= 0.99) {
+        status = 'OPPORTUNITY';
+        score += 32;
+        rationale = `Negociando com ${discountPercent}% de desconto sobre o VP (P/VP ${pvp}) e entregando ${monthlyYieldPercent}% a.m. (${annualYieldPercent}% a.a.).`;
+      } else if (pvp <= 1.02) {
+        status = 'FAIR';
+        score += 15;
+        rationale = `Cotado em linha com seu valor justo (P/VP ${pvp}), oferecendo renda passiva consistente de ${monthlyYieldPercent}% a.m.`;
+      } else {
+        status = 'EXPENSIVE';
+        score -= 20;
+        rationale = `Negociando com ${Math.abs(discountPercent)}% de ágio acima do patrimônio (P/VP ${pvp}).`;
+      }
     }
 
-    if (monthlyYieldPercent >= 0.85) {
+    if ((isStock && annualYieldPercent >= 7.5) || (!isStock && monthlyYieldPercent >= 0.85)) {
       score += 12;
     }
 
@@ -161,6 +199,7 @@ export function evaluateAllFiis(
     return {
       ticker: fii.ticker,
       name: fii.name,
+      assetClass,
       segment: fii.segment,
       base: fii.base,
       vp,

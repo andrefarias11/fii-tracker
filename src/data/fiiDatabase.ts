@@ -106,6 +106,49 @@ export const FII_DATABASE: FiiCatalogItem[] = [
   { ticker: 'OIAG11', name: 'Ourinvest Innovation Fiagro', segment: 'Fiagro', base: 10, vp: 9.80, estimatedMonthlyDividend: 0.10, announcementDay: 5, paymentDay: 14 },
   { ticker: 'KNCA11', name: 'Kinea Crédito Agro Fiagro', segment: 'Fiagro', base: 100, vp: 102.50, estimatedMonthlyDividend: 1.05, announcementDay: 1, paymentDay: 14 },
   { ticker: 'BBGO11', name: 'BB Crédito Fiagro', segment: 'Fiagro', base: 100, vp: 96.40, estimatedMonthlyDividend: 0.92, announcementDay: 5, paymentDay: 15 },
+
+  // ======================== AÇÕES DE DIVIDENDOS (MÉTODO BESST + BLUE CHIPS B3) ========================
+  // Bancos
+  { ticker: 'BBAS3', name: 'Banco do Brasil ON', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 31.40, estimatedMonthlyDividend: 0.22, announcementDay: 10, paymentDay: 28 },
+  { ticker: 'ITSA4', name: 'Itaúsa PN', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 8.65, estimatedMonthlyDividend: 0.065, announcementDay: 1, paymentDay: 15 },
+  { ticker: 'ITUB4', name: 'Itaú Unibanco PN', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 20.80, estimatedMonthlyDividend: 0.21, announcementDay: 1, paymentDay: 1 },
+  { ticker: 'BBDC4', name: 'Bradesco PN', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 15.20, estimatedMonthlyDividend: 0.09, announcementDay: 1, paymentDay: 2 },
+  { ticker: 'SANB11', name: 'Santander Brasil Unit', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 24.50, estimatedMonthlyDividend: 0.18, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'ABCB4', name: 'Banco ABC Brasil PN', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 26.90, estimatedMonthlyDividend: 0.16, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'BRSR6', name: 'Banrisul PNB', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 24.80, estimatedMonthlyDividend: 0.095, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'BPAC11', name: 'BTG Pactual Unit', assetClass: 'ACAO', segment: 'Ações - Bancos', base: 10, vp: 14.50, estimatedMonthlyDividend: 0.11, announcementDay: 5, paymentDay: 15 },
+
+  // Energia Elétrica (Transmissão & Geração)
+  { ticker: 'TAEE11', name: 'Taesa Unit', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 19.80, estimatedMonthlyDividend: 0.26, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'ISAE4', name: 'ISA Energia Brasil PN (ex-TRPL4)', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 28.40, estimatedMonthlyDividend: 0.19, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'TRPL4', name: 'ISA CTEEP Transmissão Paulista PN', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 28.40, estimatedMonthlyDividend: 0.19, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'EGIE3', name: 'Engie Brasil Energia ON', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 14.20, estimatedMonthlyDividend: 0.28, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'CPFE3', name: 'CPFL Energia ON', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 16.90, estimatedMonthlyDividend: 0.25, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'CMIG4', name: 'Cemig PN', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 9.20, estimatedMonthlyDividend: 0.095, announcementDay: 15, paymentDay: 30 },
+  { ticker: 'CPLE6', name: 'Copel PNB', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 8.40, estimatedMonthlyDividend: 0.055, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'ALUP11', name: 'Alupar Investimento Unit', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 26.50, estimatedMonthlyDividend: 0.16, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'ENGI11', name: 'Energisa Unit', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 34.20, estimatedMonthlyDividend: 0.20, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'AURE3', name: 'Auren Energia ON', assetClass: 'ACAO', segment: 'Ações - Energia', base: 10, vp: 12.80, estimatedMonthlyDividend: 0.08, announcementDay: 10, paymentDay: 25 },
+
+  // Seguros & Bolsa
+  { ticker: 'BBSE3', name: 'BB Seguridade ON', assetClass: 'ACAO', segment: 'Ações - Seguros', base: 10, vp: 5.60, estimatedMonthlyDividend: 0.29, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'CXSE3', name: 'Caixa Seguridade ON', assetClass: 'ACAO', segment: 'Ações - Seguros', base: 10, vp: 4.30, estimatedMonthlyDividend: 0.10, announcementDay: 10, paymentDay: 20 },
+  { ticker: 'PSSA3', name: 'Porto Seguro ON', assetClass: 'ACAO', segment: 'Ações - Seguros', base: 10, vp: 20.50, estimatedMonthlyDividend: 0.17, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'B3SA3', name: 'B3 Brasil Bolsa Balcão ON', assetClass: 'ACAO', segment: 'Ações - Seguros', base: 10, vp: 3.90, estimatedMonthlyDividend: 0.05, announcementDay: 10, paymentDay: 25 },
+
+  // Saneamento
+  { ticker: 'SAPR11', name: 'Sanepar Unit', assetClass: 'ACAO', segment: 'Ações - Saneamento', base: 10, vp: 33.80, estimatedMonthlyDividend: 0.19, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'SAPR4', name: 'Sanepar PN', assetClass: 'ACAO', segment: 'Ações - Saneamento', base: 10, vp: 6.76, estimatedMonthlyDividend: 0.04, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'CSMG3', name: 'Copasa ON', assetClass: 'ACAO', segment: 'Ações - Saneamento', base: 10, vp: 20.90, estimatedMonthlyDividend: 0.16, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'SBSP3', name: 'Sabesp ON', assetClass: 'ACAO', segment: 'Ações - Saneamento', base: 10, vp: 48.50, estimatedMonthlyDividend: 0.22, announcementDay: 15, paymentDay: 28 },
+
+  // Telecom, Indústria & Commodities
+  { ticker: 'VIVT3', name: 'Telefônica Brasil (Vivo) ON', assetClass: 'ACAO', segment: 'Ações - Telecom & Indústria', base: 10, vp: 42.10, estimatedMonthlyDividend: 0.28, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'KLBN11', name: 'Klabin Unit', assetClass: 'ACAO', segment: 'Ações - Telecom & Indústria', base: 10, vp: 10.40, estimatedMonthlyDividend: 0.11, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'WEGE3', name: 'WEG S.A. ON', assetClass: 'ACAO', segment: 'Ações - Telecom & Indústria', base: 10, vp: 4.80, estimatedMonthlyDividend: 0.06, announcementDay: 15, paymentDay: 28 },
+  { ticker: 'PETR4', name: 'Petrobras PN', assetClass: 'ACAO', segment: 'Ações - Commodities', base: 10, vp: 31.20, estimatedMonthlyDividend: 0.38, announcementDay: 15, paymentDay: 20 },
+  { ticker: 'VALE3', name: 'Vale S.A. ON', assetClass: 'ACAO', segment: 'Ações - Commodities', base: 10, vp: 45.80, estimatedMonthlyDividend: 0.42, announcementDay: 10, paymentDay: 25 },
+  { ticker: 'GOAU4', name: 'Metalúrgica Gerdau PN', assetClass: 'ACAO', segment: 'Ações - Commodities', base: 10, vp: 18.20, estimatedMonthlyDividend: 0.08, announcementDay: 10, paymentDay: 25 },
 ];
 
 const CATALOG_MAP = new Map<string, FiiCatalogItem>(
@@ -115,12 +158,34 @@ const CATALOG_MAP = new Map<string, FiiCatalogItem>(
 export function findFiiInfo(ticker: string): FiiCatalogItem {
   const cleanTicker = ticker.toUpperCase().trim();
   const found = CATALOG_MAP.get(cleanTicker);
-  if (found) return found;
+  if (found) {
+    return {
+      ...found,
+      assetClass: found.assetClass || 'FII',
+    };
+  }
+
+  // Verifica se é uma Ação da B3 (termina em 3, 4, 5, 6 ou Unit conhecida)
+  const isStock = /^[A-Z]{4}[3456]$/.test(cleanTicker);
+  if (isStock) {
+    return {
+      ticker: cleanTicker,
+      name: `${cleanTicker} Ação B3`,
+      assetClass: 'ACAO',
+      segment: 'Ações - Outros',
+      base: 10,
+      vp: 15.0,
+      estimatedMonthlyDividend: 0.09,
+      announcementDay: 10,
+      paymentDay: 25,
+    };
+  }
 
   // Inferência padrão caso um FII novo seja importado da B3
   return {
     ticker: cleanTicker,
     name: `${cleanTicker} Fundo Imobiliário B3`,
+    assetClass: 'FII',
     segment: 'Outros',
     base: 10,
     vp: 10.0,
