@@ -417,8 +417,8 @@ export function usePortfolio() {
 
   // Motor de Domínio Puro: Agrupar posições e calcular resumo
   const positions: FiiPosition[] = useMemo(
-    () => calculatePortfolioPositions(transactions, quotes, customDividends),
-    [transactions, quotes, customDividends]
+    () => calculatePortfolioPositions(transactions, quotes, customDividends, currentYearMonth),
+    [transactions, quotes, customDividends, currentYearMonth]
   );
 
   const summary = useMemo(

@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.5.0';
+export const APP_VERSION = '2.5.1';
 export const APP_UPDATED_AT = '12/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.5.1',
+    date: '12/10/2026',
+    highlights: [
+      'Correção de build na Vercel (Next.js 16 Cache Components): elimina leituras diretas de new Date() durante o prerender SSR de Client Components em portfolioEngine.ts, DividendFlow.tsx, PerformanceComparisonChart.tsx e recommendationEngine.ts',
+      'Compatibilidade de rota dinâmica em /api/market com connection() do Next.js 16',
+    ],
+  },
   {
     version: '2.5.0',
     date: '12/10/2026',

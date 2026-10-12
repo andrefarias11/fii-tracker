@@ -111,7 +111,8 @@ export function PerformanceComparisonChart({
 
   // Descobre o PRIMEIRO DIA em que o usuário começou a investir e gera os dias em sequência até HOJE
   const { series, startDateFormatted, todayFormatted, totalDays } = useMemo(() => {
-    const now = new Date();
+    const now =
+      typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
 
     const validDates = transactions

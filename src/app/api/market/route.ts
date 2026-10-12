@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, connection } from 'next/server';
 import { FII_DATABASE, findFiiInfo } from '../../../data/fiiDatabase';
 import { classifyB3Ticker } from '../../../lib/b3Parser';
 
@@ -103,7 +103,6 @@ async function getFullB3Directory(): Promise<UniversalMarketItem[]> {
       {
         headers: BROWSER_HEADERS,
         signal: controller.signal,
-        next: { revalidate: 600 },
       }
     );
 
@@ -211,6 +210,7 @@ async function searchYahooB3(query: string): Promise<UniversalMarketItem[]> {
 }
 
 export async function GET(request: Request) {
+  await connection();
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get('q') || '').trim().toUpperCase();
   const assetType = (searchParams.get('type') || 'ALL').toUpperCase();

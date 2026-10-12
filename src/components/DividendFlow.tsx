@@ -34,7 +34,8 @@ export function DividendFlow({
   const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
 
-  const currentDate = new Date();
+  const currentDate =
+    typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
   const yearMonthKey = `fii_tracker_div_status_${currentDate.getFullYear()}_${currentDate.getMonth() + 1}`;
 
   const [statusOverrides, setStatusOverrides] = useState<Record<string, DividendStatus>>(() => {

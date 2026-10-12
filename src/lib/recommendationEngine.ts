@@ -81,7 +81,8 @@ export function evaluateAllFiis(
     }
   }
 
-  const now = new Date();
+  const now =
+    typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
   const todayDay = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 

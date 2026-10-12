@@ -166,14 +166,23 @@ function buildMonthSequence(startYm: string, endYm: string): string[] {
 export function calculatePortfolioPositions(
   transactions: Transaction[],
   quotes: Record<string, QuoteData> = {},
-  customDividends: Record<string, number> = {}
+  customDividends: Record<string, number> = {},
+  currentYearMonth: string = ''
 ): FiiPosition[] {
+  if (transactions.length === 0) {
+    return [];
+  }
+
   const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
   const realDividendsByTickerMonth = new Map<string, Map<string, number>>();
   const firstBuyMonthByTicker = new Map<string, string>();
 
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
-  const nowYm = new Date().toISOString().slice(0, 7);
+  const latestTxYm =
+    chronologicalTxs[chronologicalTxs.length - 1]?.date?.slice(0, 7) || '2026-10';
+  const nowYm =
+    currentYearMonth ||
+    (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 7) : latestTxYm);
 
   for (const tx of chronologicalTxs) {
     const cleanTicker = normalizeB3Ticker(tx.ticker);
@@ -347,10 +356,15 @@ export function calculatePortfolioPositions(
  */
 export function calculateDividendStaircase(
   positions: FiiPosition[],
-  transactions: Transaction[]
+  transactions: Transaction[],
+  currentYearMonth: string = ''
 ): DividendStaircaseSummary {
-  const nowYm = new Date().toISOString().slice(0, 7);
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+  const latestTxYm =
+    chronologicalTxs[chronologicalTxs.length - 1]?.date?.slice(0, 7) || '2026-10';
+  const nowYm =
+    currentYearMonth ||
+    (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 7) : latestTxYm);
 
   const validYms = chronologicalTxs
     .map((t) => (t.date && t.date.length >= 7 ? t.date.slice(0, 7) : ''))
