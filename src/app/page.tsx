@@ -11,6 +11,7 @@ import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
 import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { OpportunityRadar } from '../components/OpportunityRadar';
+import { UniversalB3Explorer } from '../components/UniversalB3Explorer';
 import { MentorsTab } from '../components/MentorsTab';
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
@@ -27,6 +28,7 @@ import {
   ReceiptText,
   Sparkles,
   Trophy,
+  Globe,
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
@@ -60,7 +62,7 @@ export default function HomePage() {
     if (typeof window === 'undefined') return 'portfolio';
     const raw = new URLSearchParams(window.location.search).get('tab');
     if (raw === 'proventos') return 'proventos';
-    if (raw === 'radar' || raw === 'mentors') return 'radar';
+    if (raw === 'radar' || raw === 'mentors' || raw === 'universal') return 'radar';
     if (raw === 'goals' || raw === 'achievements') return 'goals';
     return 'portfolio';
   });
@@ -71,11 +73,12 @@ export default function HomePage() {
       ? 'history'
       : 'assets';
   });
-  const [exploreSubView, setExploreSubView] = useState<'radar' | 'mentors'>(() => {
+  const [exploreSubView, setExploreSubView] = useState<'radar' | 'universal' | 'mentors'>(() => {
     if (typeof window === 'undefined') return 'radar';
-    return new URLSearchParams(window.location.search).get('tab') === 'mentors'
-      ? 'mentors'
-      : 'radar';
+    const raw = new URLSearchParams(window.location.search).get('tab');
+    if (raw === 'mentors') return 'mentors';
+    if (raw === 'universal') return 'universal';
+    return 'radar';
   });
   const [goalsSubView, setGoalsSubView] = useState<'achievements' | 'targets' | 'simulator'>(
     'achievements'
@@ -285,11 +288,11 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 3. ABA: EXPLORAR (RADAR B3 + MENTORES UNIFICADOS) */}
+        {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL 100% B3 + MENTORES) */}
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado iOS: Radar B3 vs Mentores */}
-            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            {/* Seletor Segmentado iOS: Radar vs Busca B3 (100%) vs Mentores */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
                 type="button"
                 onClick={() => setExploreSubView('radar')}
@@ -300,7 +303,20 @@ export default function HomePage() {
                 }`}
               >
                 <Compass className="w-3.5 h-3.5 text-emerald-400" />
-                Radar de Oportunidades
+                Radar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExploreSubView('universal')}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  exploreSubView === 'universal'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                Busca B3 (100%)
               </button>
 
               <button
@@ -313,7 +329,7 @@ export default function HomePage() {
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                Mentores (Barsi & Cia)
+                Mentores
               </button>
             </div>
 
@@ -327,6 +343,13 @@ export default function HomePage() {
                   totalMonthlyDividends={summary.totalMonthlyDividends}
                   isPrivacyMode={isPrivacyMode}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                />
+              </div>
+            ) : exploreSubView === 'universal' ? (
+              <div className="animate-in fade-in duration-150">
+                <UniversalB3Explorer
+                  positions={positions}
+                  monthlyTarget={goals.monthlyTarget}
                 />
               </div>
             ) : (

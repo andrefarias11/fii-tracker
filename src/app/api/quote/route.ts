@@ -15,6 +15,8 @@ interface YahooChartResult {
         previousClose?: number;
         chartPreviousClose?: number;
         symbol?: string;
+        shortName?: string;
+        longName?: string;
       };
       indicators?: {
         quote?: Array<{
@@ -278,10 +280,19 @@ async function fetchTickerQuote(ticker: string) {
 
     const vp = catalogInfo.vp || currentPrice;
     const pvp = vp > 0 ? Number((currentPrice / vp).toFixed(2)) : 1.0;
+    const isGenericCatalogName =
+      catalogInfo.name.endsWith('Ação B3') ||
+      catalogInfo.name.endsWith('Fundo Imobiliário B3');
+    const resolvedName =
+      !isGenericCatalogName
+        ? catalogInfo.name
+        : meta.longName || meta.shortName || catalogInfo.name;
 
     return {
       ticker: clean,
+      name: resolvedName,
       assetClass: catalogInfo.assetClass || 'FII',
+      segment: catalogInfo.segment,
       price: currentPrice,
       prevClose,
       changePercent,

@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.5.0';
 export const APP_UPDATED_AT = '12/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.5.0',
+    date: '12/10/2026',
+    highlights: [
+      'Explorador Universal de 100% da B3 (/api/market + UniversalB3Explorer): conecta o app à lista completa de todas as Ações e FIIs negociados na B3 via Brapi + Yahoo Finance Search (.SA)',
+      'Raio-X Ao Vivo de Qualquer Ticker da B3: ao tocar em qualquer ativo ou digitar o código na busca, consulta cotação em tempo real, soma os dividendos reais pagos nos últimos 12 meses e calcula automaticamente Preço-Teto de Barsi (6%) e Número Mágico',
+    ],
+  },
   {
     version: '2.4.0',
     date: '12/10/2026',
