@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
@@ -15,9 +15,12 @@ import { UniversalB3Explorer } from '../components/UniversalB3Explorer';
 import { MentorsTab } from '../components/MentorsTab';
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
+import { MonthlyWrappedModal } from '../components/MonthlyWrappedModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
+import { calculateMonthlyWrapped } from '../lib/monthlyWrapped';
+import { triggerHaptic } from '../lib/haptic';
 import {
   Wallet,
   Target,
@@ -29,6 +32,7 @@ import {
   Sparkles,
   Trophy,
   Globe,
+  ChevronRight,
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
@@ -86,6 +90,23 @@ export default function HomePage() {
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
+  const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
+
+  const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
+
+  useEffect(() => {
+    if (isInitialized) {
+      setMonthlyWrapped(calculateMonthlyWrapped(positions, transactions, goals.monthlyTarget));
+    }
+  }, [isInitialized, positions, transactions, goals.monthlyTarget]);
+
+  const formatBRL = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(val);
+  };
+
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -96,6 +117,7 @@ export default function HomePage() {
   });
 
   const handleTogglePrivacy = () => {
+    triggerHaptic('light');
     setIsPrivacyMode((prev) => {
       const next = !prev;
       try {
@@ -216,11 +238,66 @@ export default function HomePage() {
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
 
+            {/* CARD RETROSPECTIVA MENSAL ESTILO SPOTIFY WRAPPED / NUBANK */}
+            {monthlyWrapped && monthlyWrapped.hasActivity && (
+              <div
+                onClick={() => {
+                  triggerHaptic('trophy');
+                  setIsWrappedModalOpen(true);
+                }}
+                className="relative overflow-hidden rounded-[26px] bg-gradient-to-r from-emerald-950/70 via-[#131418] to-[#16161c] border border-emerald-500/30 p-4 shadow-xl cursor-pointer active:scale-[0.99] transition-all group"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
+                <div className="relative z-10 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-500/20 shrink-0">
+                      <div className="w-full h-full bg-[#0d0d10] rounded-[14px] flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
+                          Retrospectiva B3 • {monthlyWrapped.monthName}
+                        </span>
+                        {monthlyWrapped.isCurrentMonth && (
+                          <span className="text-[9px] font-semibold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+                            Ao vivo
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-300 font-medium leading-snug">
+                        Você recebeu{' '}
+                        <strong className="text-emerald-300 font-bold">
+                          {isPrivacyMode ? 'R$ ••••' : formatBRL(monthlyWrapped.totalDividends)}
+                        </strong>{' '}
+                        em proventos, aportou em{' '}
+                        <strong className="text-white font-bold">
+                          {monthlyWrapped.totalSharesBought} cotas
+                        </strong>{' '}
+                        e sua bola de neve avançou{' '}
+                        <strong className="text-cyan-300 font-bold">
+                          +{monthlyWrapped.snowballGrowthPercent}%
+                        </strong>
+                        !
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/[0.04] text-zinc-400 group-hover:text-emerald-300 transition-colors shrink-0">
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Seletor Segmentado iOS: Meus Ativos vs Extrato */}
             <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
                 type="button"
-                onClick={() => setHomeSubView('assets')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setHomeSubView('assets');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   homeSubView === 'assets'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -233,7 +310,10 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => setHomeSubView('history')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setHomeSubView('history');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   homeSubView === 'history'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -295,7 +375,10 @@ export default function HomePage() {
             <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
                 type="button"
-                onClick={() => setExploreSubView('radar')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setExploreSubView('radar');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   exploreSubView === 'radar'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -308,7 +391,10 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => setExploreSubView('universal')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setExploreSubView('universal');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   exploreSubView === 'universal'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -321,7 +407,10 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => setExploreSubView('mentors')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setExploreSubView('mentors');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   exploreSubView === 'mentors'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -372,7 +461,10 @@ export default function HomePage() {
             <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
                 type="button"
-                onClick={() => setGoalsSubView('achievements')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setGoalsSubView('achievements');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   goalsSubView === 'achievements'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -385,7 +477,10 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => setGoalsSubView('targets')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setGoalsSubView('targets');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   goalsSubView === 'targets'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -398,7 +493,10 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={() => setGoalsSubView('simulator')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setGoalsSubView('simulator');
+                }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   goalsSubView === 'simulator'
                     ? 'bg-white/[0.1] text-white shadow-sm'
@@ -470,8 +568,11 @@ export default function HomePage() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 ${
+                onClick={() => {
+                  triggerHaptic('selection');
+                  setActiveTab(item.id);
+                }}
+                className={`flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
                   isActive
                     ? 'bg-white/[0.11] text-white'
                     : 'text-zinc-500 hover:text-zinc-300'
@@ -501,6 +602,15 @@ export default function HomePage() {
         existingTransactions={transactions}
         onClose={() => setIsB3ModalOpen(false)}
         onImportTransactions={importTransactionsFromB3}
+      />
+
+      <MonthlyWrappedModal
+        isOpen={isWrappedModalOpen}
+        onClose={() => setIsWrappedModalOpen(false)}
+        positions={positions}
+        transactions={transactions}
+        monthlyTarget={goals.monthlyTarget}
+        isPrivacyMode={isPrivacyMode}
       />
 
       <SettingsModal

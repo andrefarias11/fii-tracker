@@ -27,6 +27,8 @@ import {
   Target,
 } from 'lucide-react';
 import { FiiPosition, Transaction } from '../types/portfolio';
+import confetti from 'canvas-confetti';
+import { triggerHaptic } from '../lib/haptic';
 import {
   evaluateAchievements,
   AchievementItem,
@@ -66,6 +68,23 @@ export function AchievementsTimeline({
     }
     return overview.achievements;
   }, [overview.achievements, filter]);
+
+  const handleAchievementClick = (item: AchievementItem) => {
+    if (item.unlocked) {
+      triggerHaptic('trophy');
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors:
+          item.tier === 'PLATINA'
+            ? ['#22d3ee', '#38bdf8', '#10b981', '#f59e0b']
+            : ['#10b981', '#f59e0b', '#cbd5e1'],
+      });
+    } else {
+      triggerHaptic('medium');
+    }
+  };
 
   const renderIcon = (iconName: string, className: string) => {
     switch (iconName) {
@@ -256,7 +275,10 @@ export function AchievementsTimeline({
         <div className="inline-flex p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
           <button
             type="button"
-            onClick={() => setFilter('ALL')}
+            onClick={() => {
+              triggerHaptic('selection');
+              setFilter('ALL');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               filter === 'ALL' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
             }`}
@@ -265,7 +287,10 @@ export function AchievementsTimeline({
           </button>
           <button
             type="button"
-            onClick={() => setFilter('UNLOCKED')}
+            onClick={() => {
+              triggerHaptic('selection');
+              setFilter('UNLOCKED');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               filter === 'UNLOCKED'
                 ? 'bg-emerald-500 text-zinc-950'
@@ -276,7 +301,10 @@ export function AchievementsTimeline({
           </button>
           <button
             type="button"
-            onClick={() => setFilter('LOCKED')}
+            onClick={() => {
+              triggerHaptic('selection');
+              setFilter('LOCKED');
+            }}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
               filter === 'LOCKED' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
             }`}
@@ -306,17 +334,19 @@ export function AchievementsTimeline({
 
                 {/* Ícone do Troféu na Linha do Tempo */}
                 <div
-                  className={`relative z-10 w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-all ${styles.iconBox}`}
+                  onClick={() => handleAchievementClick(item)}
+                  className={`relative z-10 w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
                 >
                   {renderIcon(item.iconName, 'w-4 h-4')}
                 </div>
 
                 {/* Card da Conquista */}
                 <div
-                  className={`flex-1 p-4 rounded-2xl border transition-all ${
+                  onClick={() => handleAchievementClick(item)}
+                  className={`flex-1 p-4 rounded-2xl border transition-all cursor-pointer active:scale-[0.99] select-none ${
                     item.unlocked
-                      ? 'bg-white/[0.03] border-emerald-500/25'
-                      : 'bg-white/[0.015] border-white/[0.05] opacity-80'
+                      ? 'bg-white/[0.03] border-emerald-500/25 hover:border-emerald-500/40'
+                      : 'bg-white/[0.015] border-white/[0.05] opacity-80 hover:border-white/[0.1]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">

@@ -20,6 +20,7 @@ import {
 } from '../lib/b3Parser';
 import { Transaction } from '../types/portfolio';
 import confetti from 'canvas-confetti';
+import { triggerHaptic } from '../lib/haptic';
 
 interface B3ImportModalProps {
   isOpen: boolean;
@@ -101,6 +102,7 @@ export function B3ImportModal({
         origin: { y: 0.6 },
         colors: ['#10b981', '#34d399', '#059669', '#38bdf8'],
       });
+      triggerHaptic('success');
       onClose();
     } catch (err) {
       console.error('Erro ao salvar importação:', err);

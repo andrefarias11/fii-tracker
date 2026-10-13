@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.5.1';
-export const APP_UPDATED_AT = '12/10/2026';
+export const APP_VERSION = '2.6.0';
+export const APP_UPDATED_AT = '13/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.6.0',
+    date: '13/10/2026',
+    highlights: [
+      'Feedback Tátil Háptico (Web Vibration API + Taptic Engine em src/lib/haptic.ts): leves vibrações táteis no celular ao tocar na dock inferior flutuante, ao alternar sub-segmentos iOS, ao concluir importação da B3 com sucesso e comemoração com clique tátil e confetes ao tocar em troféus desbloqueados',
+      'Resumo Mensal Estilo "Spotify Wrapped / Nubank" (MonthlyWrappedModal.tsx + calculateMonthlyWrapped): card comemorativo em destaque no topo da Carteira ("Seu mês de [Mês] na B3: você recebeu R$ X em proventos, aportou em Y cotas e sua bola de neve avançou Z%!") com carrossel de meses, maior pagador, líder do Número Mágico e gerador de mensagem para compartilhar no WhatsApp',
+    ],
+  },
   {
     version: '2.5.1',
     date: '12/10/2026',
