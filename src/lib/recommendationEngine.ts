@@ -50,6 +50,7 @@ export interface DayRecommendation {
   remainingBudget: number;
   totalSuggestedCost: number;
   unallocatedCash: number;
+  caixinhaSuggestion?: string;
   projectedMonthlyIncomeGain: number;
   items: RecommendedBasketItem[];
   strategyExplanation: string;
@@ -266,10 +267,17 @@ export function generateDailyRecommendation(
         const newTotalShares = targetPos.totalShares + shares;
         const remainingToMagic = Math.max(0, targetPos.magicNumber - newTotalShares);
 
+        const unallocatedCash = Number((budget - cost).toFixed(2));
+        const caixinhaSuggestion =
+          unallocatedCash > 0
+            ? `Sobrou R$ ${unallocatedCash.toFixed(2).replace('.', ',')}? Guarde na Caixinha Nubank (100% CDI) rendendo juros diários até juntar com o aporte do próximo mês!`
+            : undefined;
+
         return {
           remainingBudget: budget,
           totalSuggestedCost: cost,
-          unallocatedCash: Number((budget - cost).toFixed(2)),
+          unallocatedCash,
+          caixinhaSuggestion,
           projectedMonthlyIncomeGain: income,
           items: [
             {
@@ -405,6 +413,10 @@ export function generateDailyRecommendation(
   }
 
   const unallocatedCash = Number((budget - currentTotalCost).toFixed(2));
+  const caixinhaSuggestion =
+    unallocatedCash > 0
+      ? `Sobrou R$ ${unallocatedCash.toFixed(2).replace('.', ',')}? Guarde na Caixinha Nubank (100% CDI) rendendo juros diários até juntar com o aporte do próximo mês!`
+      : undefined;
 
   const explanation =
     items.length > 0
@@ -415,6 +427,7 @@ export function generateDailyRecommendation(
     remainingBudget: budget,
     totalSuggestedCost: Number(currentTotalCost.toFixed(2)),
     unallocatedCash,
+    caixinhaSuggestion,
     projectedMonthlyIncomeGain: Number(totalIncome.toFixed(2)),
     items,
     strategyExplanation: explanation,

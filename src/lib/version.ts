@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.7.0';
+export const APP_VERSION = '2.7.1';
 export const APP_UPDATED_AT = '13/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,14 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.7.1',
+    date: '13/10/2026',
+    highlights: [
+      'Sugestão de "Troco do Aporte" na Caixinha (OpportunityRadar.tsx + recommendationEngine.ts): ao calcular a cesta de compras do mês (ex: R$ 200 de meta), o saldo que sobra (ex: R$ 11,00) agora é destacado em um card inteligente: "Sobrou R$ 11,00? Guarde na Caixinha Nubank (100% CDI) rendendo juros diários até juntar com o aporte do próximo mês!"',
+      'Atalho Direto para a Caixinha: botão "Guardar na Caixinha agora →" integrado diretamente ao modal de Renda Fixa e Caixinhas para registro em 1 toque.',
+    ],
+  },
   {
     version: '2.7.0',
     date: '13/10/2026',

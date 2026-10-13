@@ -489,6 +489,11 @@ export default function HomePage() {
                   monthlyTarget={goals.monthlyTarget}
                   currentMonthInvested={summary.currentMonthInvested}
                   totalMonthlyDividends={summary.totalMonthlyDividends}
+                  fixedIncomeAssets={fixedIncomeAssets}
+                  onOpenAddFixedIncome={() => {
+                    setEditingFixedIncomeAsset(null);
+                    setIsFixedIncomeModalOpen(true);
+                  }}
                   isPrivacyMode={isPrivacyMode}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
                 />

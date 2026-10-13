@@ -9,13 +9,16 @@ import {
   Snowflake,
   Scale,
   Zap,
+  PiggyBank,
+  ArrowRight,
 } from 'lucide-react';
-import { QuoteData, FiiPosition } from '../types/portfolio';
+import { QuoteData, FiiPosition, FixedIncomeAsset } from '../types/portfolio';
 import {
   evaluateAllFiis,
   generateDailyRecommendation,
   RecommendationStrategy,
 } from '../lib/recommendationEngine';
+import { triggerHaptic } from '../lib/haptic';
 
 interface OpportunityRadarProps {
   quotes: Record<string, QuoteData>;
@@ -23,8 +26,10 @@ interface OpportunityRadarProps {
   monthlyTarget: number;
   currentMonthInvested: number;
   totalMonthlyDividends: number;
+  fixedIncomeAssets?: FixedIncomeAsset[];
   isPrivacyMode?: boolean;
   onOpenB3Modal?: () => void;
+  onOpenAddFixedIncome?: () => void;
 }
 
 export function OpportunityRadar({
@@ -33,12 +38,21 @@ export function OpportunityRadar({
   monthlyTarget,
   currentMonthInvested,
   totalMonthlyDividends,
+  fixedIncomeAssets = [],
   isPrivacyMode = false,
   onOpenB3Modal,
+  onOpenAddFixedIncome,
 }: OpportunityRadarProps) {
   const [filterSegment, setFilterSegment] = useState<string>('TODOS');
   const [strategyMode, setStrategyMode] = useState<RecommendationStrategy>('balanced');
   const [reinvestDividends, setReinvestDividends] = useState<boolean>(false);
+
+  const userCaixinha = fixedIncomeAssets.find(
+    (a) => a.type === 'CAIXINHA' || a.rateType === 'CDI'
+  );
+  const targetCaixinhaLabel = userCaixinha
+    ? userCaixinha.name
+    : 'Caixinha Nubank (100% CDI)';
 
   const formatBRL = (val: number, hideInPrivacy = false) => {
     if (hideInPrivacy && isPrivacyMode) return 'R$ ••••';
@@ -216,9 +230,43 @@ export function OpportunityRadar({
             })}
 
             {recommendation.unallocatedCash > 0 && (
-              <div className="text-[11px] text-zinc-400 text-right pr-1">
-                Troco livre na corretora:{' '}
-                <strong className="text-zinc-200">{formatBRL(recommendation.unallocatedCash)}</strong>
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-[#15131d] to-amber-950/20 border border-purple-500/30 flex items-start gap-3 shadow-lg my-2.5 animate-in fade-in duration-200">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                  <PiggyBank className="w-4 h-4 text-purple-300" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300">
+                      Sugestão de Troco Inteligente
+                    </span>
+                    <span className="text-[9px] font-semibold text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
+                      100% CDI
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-200 font-medium leading-relaxed">
+                    Sobrou{' '}
+                    <strong className="text-white font-bold">
+                      {formatBRL(recommendation.unallocatedCash)}
+                    </strong>
+                    ? Guarde na{' '}
+                    <strong className="text-purple-300 font-bold">
+                      {targetCaixinhaLabel}
+                    </strong>{' '}
+                    rendendo juros diários até juntar com o aporte do próximo mês!
+                  </p>
+                  {onOpenAddFixedIncome && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        onOpenAddFixedIncome();
+                      }}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-purple-300 hover:text-purple-200 active:scale-95 transition-all"
+                    >
+                      Guardar na Caixinha agora <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
