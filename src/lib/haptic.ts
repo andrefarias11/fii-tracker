@@ -119,3 +119,4 @@ export function triggerHaptic(type: HapticType = 'light'): void {
   // 2. Fallback para iOS / WebKit (simulação acústico-tátil Taptic Engine)
   playIosTapticTick(type);
 }
+
