@@ -19,6 +19,9 @@ import { MonthlyWrappedModal } from '../components/MonthlyWrappedModal';
 import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
+import { AddFixedIncomeModal } from '../components/AddFixedIncomeModal';
+import { FixedIncomeList } from '../components/FixedIncomeList';
+import { FixedIncomeAsset } from '../types/portfolio';
 import { calculateMonthlyWrapped } from '../lib/monthlyWrapped';
 import { triggerHaptic } from '../lib/haptic';
 import {
@@ -33,6 +36,7 @@ import {
   Trophy,
   Globe,
   ChevronRight,
+  PiggyBank,
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
@@ -43,6 +47,8 @@ export default function HomePage() {
     transactions,
     positions,
     summary,
+    fixedIncomeAssets,
+    unifiedSummary,
     goals,
     quotes,
     bcbIndicators,
@@ -51,9 +57,15 @@ export default function HomePage() {
     isCloudConnected,
     isSyncing,
     syncWithCloud,
+    addTransaction,
+    updateTransaction,
     deleteTransaction,
     clearAllTransactions,
     resetDemo,
+    addFixedIncomeAsset,
+    updateFixedIncomeAsset,
+    deleteFixedIncomeAsset,
+    resetFixedIncomeDemo,
     updateGoals,
     updateCustomDividend,
     fetchLiveQuotes,
@@ -71,11 +83,12 @@ export default function HomePage() {
     return 'portfolio';
   });
   // Sub-seções estilo Apple iOS Segmented Control para evitar poluição visual
-  const [homeSubView, setHomeSubView] = useState<'assets' | 'history'>(() => {
+  const [homeSubView, setHomeSubView] = useState<'assets' | 'fixed_income' | 'history'>(() => {
     if (typeof window === 'undefined') return 'assets';
-    return new URLSearchParams(window.location.search).get('tab') === 'history'
-      ? 'history'
-      : 'assets';
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'history') return 'history';
+    if (tab === 'fixed_income' || tab === 'caixinhas') return 'fixed_income';
+    return 'assets';
   });
   const [exploreSubView, setExploreSubView] = useState<'radar' | 'universal' | 'mentors'>(() => {
     if (typeof window === 'undefined') return 'radar';
@@ -91,6 +104,8 @@ export default function HomePage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
+  const [isFixedIncomeModalOpen, setIsFixedIncomeModalOpen] = useState<boolean>(false);
+  const [editingFixedIncomeAsset, setEditingFixedIncomeAsset] = useState<FixedIncomeAsset | null>(null);
 
   const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
 
@@ -226,15 +241,16 @@ export default function HomePage() {
               monthlyTarget={goals.monthlyTarget}
               monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
               bcbIndicators={bcbIndicators}
+              unifiedSummary={unifiedSummary}
+              fixedIncomeCount={fixedIncomeAssets.length}
               isPrivacyMode={isPrivacyMode}
               onNavigateToProventos={() => setActiveTab('proventos')}
               onNavigateToGoals={() => {
                 setActiveTab('goals');
                 setGoalsSubView('achievements');
               }}
-              onOpenExtrato={() =>
-                setHomeSubView((prev) => (prev === 'history' ? 'assets' : 'history'))
-              }
+              onOpenExtrato={() => setHomeSubView('history')}
+              onNavigateToFixedIncome={() => setHomeSubView('fixed_income')}
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
 
@@ -290,8 +306,8 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Seletor Segmentado iOS: Meus Ativos vs Extrato */}
-            <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            {/* Seletor Segmentado iOS: Meus Ativos vs Renda Fixa & Caixinhas vs Extrato */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
               <button
                 type="button"
                 onClick={() => {
@@ -304,8 +320,24 @@ export default function HomePage() {
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                Meus Ativos ({positions.length})
+                <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Bolsa ({positions.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setHomeSubView('fixed_income');
+                }}
+                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  homeSubView === 'fixed_income'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <PiggyBank className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">Caixinhas ({fixedIncomeAssets.length})</span>
               </button>
 
               <button
@@ -320,8 +352,8 @@ export default function HomePage() {
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <ReceiptText className="w-3.5 h-3.5 text-emerald-400" />
-                Extrato B3 ({transactions.length})
+                <ReceiptText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Extrato ({transactions.length})</span>
               </button>
             </div>
 
@@ -329,6 +361,7 @@ export default function HomePage() {
               <div className="space-y-3 animate-in fade-in duration-150">
                 <AllocationCard
                   positions={positions}
+                  fixedIncomeAssets={fixedIncomeAssets}
                   onNavigateToRadar={() => {
                     setActiveTab('radar');
                     setExploreSubView('radar');
@@ -340,6 +373,32 @@ export default function HomePage() {
                   isPrivacyMode={isPrivacyMode}
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                />
+              </div>
+            ) : homeSubView === 'fixed_income' ? (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                <AllocationCard
+                  positions={positions}
+                  fixedIncomeAssets={fixedIncomeAssets}
+                  onNavigateToRadar={() => {
+                    setActiveTab('radar');
+                    setExploreSubView('radar');
+                  }}
+                />
+
+                <FixedIncomeList
+                  assets={fixedIncomeAssets}
+                  bcbIndicators={bcbIndicators}
+                  isPrivacyMode={isPrivacyMode}
+                  onAddNew={() => {
+                    setEditingFixedIncomeAsset(null);
+                    setIsFixedIncomeModalOpen(true);
+                  }}
+                  onEdit={(asset) => {
+                    setEditingFixedIncomeAsset(asset);
+                    setIsFixedIncomeModalOpen(true);
+                  }}
+                  onResetDemo={resetFixedIncomeDemo}
                 />
               </div>
             ) : (
@@ -611,6 +670,18 @@ export default function HomePage() {
         transactions={transactions}
         monthlyTarget={goals.monthlyTarget}
         isPrivacyMode={isPrivacyMode}
+      />
+
+      <AddFixedIncomeModal
+        isOpen={isFixedIncomeModalOpen}
+        onClose={() => {
+          setIsFixedIncomeModalOpen(false);
+          setEditingFixedIncomeAsset(null);
+        }}
+        onSave={addFixedIncomeAsset}
+        onUpdate={updateFixedIncomeAsset}
+        onDelete={deleteFixedIncomeAsset}
+        editingAsset={editingFixedIncomeAsset}
       />
 
       <SettingsModal

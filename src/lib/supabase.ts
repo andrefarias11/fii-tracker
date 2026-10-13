@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Transaction, PortfolioGoals } from '../types/portfolio';
+import { Transaction, PortfolioGoals, FixedIncomeAsset } from '../types/portfolio';
 
 const STORAGE_KEY_SUPABASE_URL = 'fii_tracker_supabase_url_v1';
 const STORAGE_KEY_SUPABASE_KEY = 'fii_tracker_supabase_key_v1';
@@ -265,4 +265,70 @@ export async function upsertRemoteDividend(ticker: string, dividend: number): Pr
     return false;
   }
 }
+// ----------------- Operações de Renda Fixa & Caixinhas -----------------
 
+export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | null> {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('fixed_income_assets')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return null;
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      institution: row.institution,
+      investedAmount: Number(row.invested_amount || 0),
+      currentBalance: Number(row.current_balance || 0),
+      rateType: row.rate_type || 'CDI',
+      ratePercent: Number(row.rate_percent || 100),
+      isExempt: Boolean(row.is_exempt),
+      notes: row.notes || undefined,
+      updatedAt: row.updated_at || new Date().toISOString().slice(0, 10),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('fixed_income_assets').upsert({
+      id: asset.id,
+      name: asset.name,
+      type: asset.type,
+      institution: asset.institution,
+      invested_amount: asset.investedAmount,
+      current_balance: asset.currentBalance,
+      rate_type: asset.rateType,
+      rate_percent: asset.ratePercent,
+      is_exempt: asset.isExempt,
+      notes: asset.notes || null,
+      updated_at: asset.updatedAt,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteRemoteFixedIncome(id: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('fixed_income_assets').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}

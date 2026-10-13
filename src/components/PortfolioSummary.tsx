@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -8,8 +9,11 @@ import {
   Target,
   FileSpreadsheet,
   ReceiptText,
+  PiggyBank,
+  Wallet,
 } from 'lucide-react';
-import { BcbIndicators } from '../types/portfolio';
+import { BcbIndicators, UnifiedPortfolioSummary } from '../types/portfolio';
+import { triggerHaptic } from '../lib/haptic';
 
 interface SummaryProps {
   currentEquity: number;
@@ -22,11 +26,14 @@ interface SummaryProps {
   monthlyTarget?: number;
   monthlyGoalProgressPercent?: number;
   bcbIndicators?: BcbIndicators | null;
+  unifiedSummary?: UnifiedPortfolioSummary | null;
+  fixedIncomeCount?: number;
   isPrivacyMode?: boolean;
   onNavigateToProventos?: () => void;
   onNavigateToGoals?: () => void;
   onOpenExtrato?: () => void;
   onOpenB3Modal?: () => void;
+  onNavigateToFixedIncome?: () => void;
 }
 
 export function PortfolioSummary({
@@ -39,13 +46,46 @@ export function PortfolioSummary({
   currentMonthInvested = 0,
   monthlyGoalProgressPercent = 0,
   bcbIndicators = null,
+  unifiedSummary = null,
+  fixedIncomeCount = 0,
   isPrivacyMode = false,
   onNavigateToProventos,
   onNavigateToGoals,
   onOpenExtrato,
   onOpenB3Modal,
+  onNavigateToFixedIncome,
 }: SummaryProps) {
-  const isPositive = totalProfitLoss >= 0;
+  const hasFixedIncome = Boolean(
+    unifiedSummary && unifiedSummary.fixedIncomeEquity > 0
+  );
+
+  const [viewScope, setViewScope] = useState<'global' | 'bolsa'>(
+    hasFixedIncome ? 'global' : 'bolsa'
+  );
+
+  const isGlobalView = viewScope === 'global' && hasFixedIncome;
+
+  const displayEquity = isGlobalView
+    ? unifiedSummary?.totalGlobalEquity ?? currentEquity
+    : currentEquity;
+
+  const displayInvested = isGlobalView
+    ? unifiedSummary?.totalGlobalInvested ?? totalInvested
+    : totalInvested;
+
+  const displayProfitLoss = isGlobalView
+    ? unifiedSummary?.totalGlobalProfitLoss ?? totalProfitLoss
+    : totalProfitLoss;
+
+  const displayProfitLossPercent = isGlobalView
+    ? unifiedSummary?.totalGlobalProfitLossPercent ?? totalProfitLossPercent
+    : totalProfitLossPercent;
+
+  const displayMonthlyIncome = isGlobalView
+    ? unifiedSummary?.totalGlobalMonthlyIncome ?? totalMonthlyDividends
+    : totalMonthlyDividends;
+
+  const isPositive = displayProfitLoss >= 0;
 
   const formatBRL = (value: number) => {
     if (isPrivacyMode) return 'R$ •••••';
@@ -67,10 +107,45 @@ export function PortfolioSummary({
       <div className="relative overflow-hidden rounded-[28px] bg-[#121215] border border-white/[0.07] p-6 shadow-2xl">
         <div className="absolute -top-16 -right-16 w-48 h-48 bg-emerald-500/[0.07] rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-zinc-400 tracking-wide">
-            Patrimônio em FIIs (Custódia B3)
-          </span>
+        {/* Linha Superior: Escopo e Indicador de Inflação */}
+        <div className="flex items-center justify-between mb-2">
+          {hasFixedIncome ? (
+            <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setViewScope('global');
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
+                  viewScope === 'global'
+                    ? 'bg-amber-500/20 text-amber-300'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Patrimônio Global
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setViewScope('bolsa');
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
+                  viewScope === 'bolsa'
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Apenas Bolsa (B3)
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs font-medium text-zinc-400 tracking-wide">
+              Patrimônio em FIIs (Custódia B3)
+            </span>
+          )}
+
           {realReturnAboveIpca !== null && realReturnAboveIpca >= 0 && (
             <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
               IPCA +{realReturnAboveIpca}% a.a.
@@ -79,9 +154,21 @@ export function PortfolioSummary({
         </div>
 
         {/* Valor Principal em Destaque Minimalista */}
-        <h2 className="text-[34px] font-extrabold tracking-tight text-white leading-tight mb-2.5">
-          {formatBRL(currentEquity)}
+        <h2 className="text-[34px] font-extrabold tracking-tight text-white leading-tight mb-2">
+          {formatBRL(displayEquity)}
         </h2>
+
+        {/* Breakdown de Classes quando no modo Global */}
+        {isGlobalView && unifiedSummary && (
+          <div className="flex items-center gap-2 mb-3 text-[11px] text-zinc-400 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 font-medium">
+              🏢 Bolsa: {formatBRL(unifiedSummary.bolsaEquity)}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 font-medium">
+              🛡️ Caixinhas & RF: {formatBRL(unifiedSummary.fixedIncomeEquity)}
+            </span>
+          </div>
+        )}
 
         {/* Linha Sutil de Rentabilidade + Valor Investido */}
         <div className="flex items-center gap-2.5 flex-wrap text-xs">
@@ -98,46 +185,53 @@ export function PortfolioSummary({
               <TrendingDown className="w-3.5 h-3.5" />
             )}
             {isPositive ? '+' : ''}
-            {formatBRL(totalProfitLoss)} ({isPositive ? '+' : ''}
-            {totalProfitLossPercent}%)
+            {formatBRL(displayProfitLoss)} ({isPositive ? '+' : ''}
+            {displayProfitLossPercent}%)
           </span>
 
           <span className="text-zinc-500">
-            Custo <strong className="text-zinc-300 font-semibold">{formatBRL(totalInvested)}</strong>
+            Custo <strong className="text-zinc-300 font-semibold">{formatBRL(displayInvested)}</strong>
           </span>
         </div>
 
-        {/* Fileira de Ações Rápidas Estilo Nubank (Modo Exclusivo B3) */}
-        {(onOpenExtrato || onOpenB3Modal) && (
-          <div className="grid grid-cols-2 gap-2.5 mt-5 pt-4 border-t border-white/[0.06]">
-            {onOpenB3Modal && (
-              <button
-                type="button"
-                onClick={onOpenB3Modal}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
-              >
-                <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
-                Importar Planilha B3
-              </button>
-            )}
+        {/* Fileira de Ações Rápidas Estilo Nubank */}
+        <div className="grid grid-cols-2 gap-2.5 mt-5 pt-4 border-t border-white/[0.06]">
+          {onOpenB3Modal && (
+            <button
+              type="button"
+              onClick={onOpenB3Modal}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
+            >
+              <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
+              Importar Planilha B3
+            </button>
+          )}
 
-            {onOpenExtrato && (
-              <button
-                type="button"
-                onClick={onOpenExtrato}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 font-semibold text-xs active:scale-95 transition-all"
-              >
-                <ReceiptText className="w-3.5 h-3.5 text-zinc-400" />
-                Extrato B3
-              </button>
-            )}
-          </div>
-        )}
+          {onNavigateToFixedIncome ? (
+            <button
+              type="button"
+              onClick={onNavigateToFixedIncome}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-xs active:scale-95 transition-all border border-amber-500/20"
+            >
+              <PiggyBank className="w-4 h-4 text-amber-400" />
+              {hasFixedIncome ? `Caixinhas (${fixedIncomeCount})` : '+ Caixinhas / RF'}
+            </button>
+          ) : onOpenExtrato ? (
+            <button
+              type="button"
+              onClick={onOpenExtrato}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200 font-semibold text-xs active:scale-95 transition-all"
+            >
+              <ReceiptText className="w-3.5 h-3.5 text-zinc-400" />
+              Extrato B3
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* DOIS MINI-WIDGETS LADO A LADO ESTILO APPLE iOS */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Card 1: Proventos Mensais */}
+        {/* Card 1: Proventos / Renda Mensal Total */}
         <div
           onClick={onNavigateToProventos}
           className={`rounded-[24px] bg-[#121215] border border-white/[0.06] p-4 flex flex-col justify-between transition-all ${
@@ -154,13 +248,21 @@ export function PortfolioSummary({
           </div>
 
           <div>
-            <span className="text-[11px] text-zinc-400 block">Proventos / mês</span>
-            <div className="text-lg font-extrabold text-white tracking-tight mt-0.5">
-              {formatBRL(totalMonthlyDividends)}
-            </div>
-            <span className="text-[10px] text-emerald-400 font-medium">
-              YoC {averageYieldOnCostPercent}% a.m. isento
+            <span className="text-[11px] text-zinc-400 block">
+              {isGlobalView ? 'Renda Passiva / mês' : 'Proventos / mês'}
             </span>
+            <div className="text-lg font-extrabold text-white tracking-tight mt-0.5">
+              {formatBRL(displayMonthlyIncome)}
+            </div>
+            {isGlobalView && unifiedSummary && unifiedSummary.fixedIncomeMonthlyYield > 0 ? (
+              <span className="text-[10px] text-amber-300 font-medium">
+                +{formatBRL(unifiedSummary.fixedIncomeMonthlyYield)} em caixinhas
+              </span>
+            ) : (
+              <span className="text-[10px] text-emerald-400 font-medium">
+                YoC {averageYieldOnCostPercent}% a.m. isento
+              </span>
+            )}
           </div>
         </div>
 

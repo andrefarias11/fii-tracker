@@ -7,11 +7,14 @@ import {
   PortfolioGoals,
   QuoteData,
   BcbIndicators,
+  FixedIncomeAsset,
+  UnifiedPortfolioSummary,
 } from '../types/portfolio';
 import { deduplicateB3Transactions, normalizeB3Ticker } from '../lib/b3Parser';
 import {
   calculatePortfolioPositions,
   calculatePortfolioSummary,
+  calculateUnifiedPortfolioSummary,
 } from '../domain/portfolioEngine';
 import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
 import { runAutoDailyPushCheck } from '../lib/pushNotifications';
@@ -27,18 +30,38 @@ import {
   upsertRemoteGoals,
   fetchRemoteDividends,
   upsertRemoteDividend,
+  fetchRemoteFixedIncome,
+  upsertRemoteFixedIncome,
+  deleteRemoteFixedIncome,
   getSupabaseConfig,
 } from '../lib/supabase';
 
 const STORAGE_KEY_TRANSACTIONS = 'fii_tracker_transactions_v1';
 const STORAGE_KEY_GOALS = 'fii_tracker_goals_v1';
 const STORAGE_KEY_DIVIDENDS = 'fii_tracker_dividends_v1';
+const STORAGE_KEY_FIXED_INCOME = 'fii_tracker_fixed_income_v1';
 
 const DEFAULT_GOALS: PortfolioGoals = {
   monthlyTarget: 200,
   milestoneEquityTarget: 1000,
   monthlyIncomeTarget: 10,
 };
+
+export const DEMO_FIXED_INCOME: FixedIncomeAsset[] = [
+  {
+    id: 'demo-fi-1',
+    name: 'Caixinha Reserva Nubank',
+    type: 'CAIXINHA',
+    institution: 'Nubank',
+    investedAmount: 500,
+    currentBalance: 518.4,
+    rateType: 'CDI',
+    ratePercent: 100,
+    isExempt: false,
+    updatedAt: '2026-10-01',
+    notes: 'Reserva com liquidez imediata (100% CDI)',
+  },
+];
 
 export const DEMO_TRANSACTIONS: Transaction[] = [
   {
@@ -65,6 +88,7 @@ export const DEMO_TRANSACTIONS: Transaction[] = [
 
 export function usePortfolio() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [fixedIncomeAssets, setFixedIncomeAssets] = useState<FixedIncomeAsset[]>([]);
   const [goals, setGoals] = useState<PortfolioGoals>(DEFAULT_GOALS);
   const [customDividends, setCustomDividends] = useState<Record<string, number>>({});
   const [quotes, setQuotes] = useState<Record<string, QuoteData>>({});
@@ -92,10 +116,11 @@ export function usePortfolio() {
       setIsCloudConnected(isConnected);
 
       if (isConnected) {
-        const [remoteGoals, remoteDivs, remoteTxs] = await Promise.all([
+        const [remoteGoals, remoteDivs, remoteTxs, remoteFixedIncome] = await Promise.all([
           fetchRemoteGoals(),
           fetchRemoteDividends(),
           fetchRemoteTransactions(),
+          fetchRemoteFixedIncome(),
         ]);
 
         if (remoteGoals) {
@@ -120,6 +145,11 @@ export function usePortfolio() {
             }
           }
         }
+
+        if (remoteFixedIncome && remoteFixedIncome.length > 0) {
+          setFixedIncomeAssets(remoteFixedIncome);
+          localStorage.setItem(STORAGE_KEY_FIXED_INCOME, JSON.stringify(remoteFixedIncome));
+        }
       }
     } catch (err) {
       console.error('Erro na sincronização com Supabase:', err);
@@ -136,11 +166,18 @@ export function usePortfolio() {
       const savedTx = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
       const savedGoals = localStorage.getItem(STORAGE_KEY_GOALS);
       const savedDivs = localStorage.getItem(STORAGE_KEY_DIVIDENDS);
+      const savedFixedIncome = localStorage.getItem(STORAGE_KEY_FIXED_INCOME);
 
       if (savedTx) {
         setTransactions(JSON.parse(savedTx));
       } else {
         setTransactions([]);
+      }
+
+      if (savedFixedIncome) {
+        setFixedIncomeAssets(JSON.parse(savedFixedIncome));
+      } else {
+        setFixedIncomeAssets([]);
       }
 
       if (savedGoals) {
@@ -415,6 +452,69 @@ export function usePortfolio() {
     }
   }, [isInitialized, transactions.length, fetchLiveQuotes]);
 
+  // Salvar renda fixa localmente
+  const persistFixedIncome = (newList: FixedIncomeAsset[]) => {
+    setFixedIncomeAssets(newList);
+    try {
+      localStorage.setItem(STORAGE_KEY_FIXED_INCOME, JSON.stringify(newList));
+    } catch (e) {
+      console.error('Erro ao salvar renda fixa:', e);
+    }
+  };
+
+  const addFixedIncomeAsset = async (data: Omit<FixedIncomeAsset, 'id' | 'updatedAt'>) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const newAsset: FixedIncomeAsset = {
+      ...data,
+      id: `fi-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      updatedAt: today,
+    };
+    const updated = [newAsset, ...fixedIncomeAssets];
+    persistFixedIncome(updated);
+
+    if (isCloudConnected) {
+      await upsertRemoteFixedIncome(newAsset);
+    }
+    return newAsset;
+  };
+
+  const updateFixedIncomeAsset = async (id: string, data: Partial<FixedIncomeAsset>) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const updatedList = fixedIncomeAssets.map((asset) => {
+      if (asset.id === id) {
+        return {
+          ...asset,
+          ...data,
+          updatedAt: today,
+        };
+      }
+      return asset;
+    });
+    persistFixedIncome(updatedList);
+
+    const updatedAsset = updatedList.find((a) => a.id === id);
+    if (isCloudConnected && updatedAsset) {
+      await upsertRemoteFixedIncome(updatedAsset);
+    }
+    return updatedAsset;
+  };
+
+  const deleteFixedIncomeAsset = async (id: string) => {
+    const updated = fixedIncomeAssets.filter((a) => a.id !== id);
+    persistFixedIncome(updated);
+
+    if (isCloudConnected) {
+      await deleteRemoteFixedIncome(id);
+    }
+  };
+
+  const resetFixedIncomeDemo = async () => {
+    persistFixedIncome(DEMO_FIXED_INCOME);
+    if (isCloudConnected && DEMO_FIXED_INCOME[0]) {
+      await upsertRemoteFixedIncome(DEMO_FIXED_INCOME[0]);
+    }
+  };
+
   // Motor de Domínio Puro: Agrupar posições e calcular resumo
   const positions: FiiPosition[] = useMemo(
     () => calculatePortfolioPositions(transactions, quotes, customDividends, currentYearMonth),
@@ -426,14 +526,20 @@ export function usePortfolio() {
     [positions, transactions, goals, currentYearMonth]
   );
 
+  const unifiedSummary: UnifiedPortfolioSummary = useMemo(
+    () => calculateUnifiedPortfolioSummary(positions, fixedIncomeAssets, bcbIndicators),
+    [positions, fixedIncomeAssets, bcbIndicators]
+  );
+
   // Exportar Backup JSON
   const exportBackup = () => {
     const data = {
-      version: '2.0',
+      version: '2.5',
       exportedAt: new Date().toISOString(),
       transactions,
       goals,
       customDividends,
+      fixedIncomeAssets,
     };
     return JSON.stringify(data, null, 2);
   };
@@ -454,6 +560,9 @@ export function usePortfolio() {
       if (parsed.customDividends) {
         setCustomDividends(parsed.customDividends);
         localStorage.setItem(STORAGE_KEY_DIVIDENDS, JSON.stringify(parsed.customDividends));
+      }
+      if (Array.isArray(parsed.fixedIncomeAssets)) {
+        persistFixedIncome(parsed.fixedIncomeAssets);
       }
       return true;
     } catch (e) {
@@ -477,6 +586,8 @@ export function usePortfolio() {
     transactions,
     positions,
     summary,
+    fixedIncomeAssets,
+    unifiedSummary,
     goals,
     quotes,
     bcbIndicators,
@@ -490,6 +601,10 @@ export function usePortfolio() {
     deleteTransaction,
     clearAllTransactions,
     resetDemo,
+    addFixedIncomeAsset,
+    updateFixedIncomeAsset,
+    deleteFixedIncomeAsset,
+    resetFixedIncomeDemo,
     updateGoals,
     updateCustomDividend,
     fetchLiveQuotes,

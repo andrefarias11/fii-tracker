@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.6.0';
+export const APP_VERSION = '2.7.0';
 export const APP_UPDATED_AT = '13/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,18 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.7.0',
+    date: '13/10/2026',
+    highlights: [
+      'Patrimônio Unificado & Renda Fixa (Caixinhas Nubank, CDBs e Tesouro Direto): suporte completo para acompanhar reservas de emergência e renda fixa junto aos FIIs e Ações da B3',
+      'Modal de Cadastro Rápido com Presets de 1 Toque (AddFixedIncomeModal.tsx): Caixinha Nubank (100% CDI), CDB Liquidez Diária (102% CDI), Tesouro Selic 2029, Tesouro IPCA+ e LCI/LCA (com isenção de IR automática)',
+      'Cálculo em Tempo Real de Rendimento Mensal Líquido (calculateFixedIncomeMonthlyYield): integração com as taxas oficiais do Banco Central (/api/bcb) para estimar exatamente quantos R$ pingam todo mês na caixinha',
+      'Hero Card & Seletor de Escopo (PortfolioSummary.tsx): alternador instantâneo entre "Patrimônio Global" e "Apenas Bolsa (B3)", exibindo soma consolidada de renda passiva mensal (dividendos + rendimentos de renda fixa)',
+      'Macro Alocação de Ativos (AllocationCard.tsx): gráfico segmentado consolidado entre FIIs (Imobiliário), Ações (Empresas) e Renda Fixa & Caixinhas',
+      'Seletor Segmentado iOS de 3 Vias na Tela Inicial: [ Bolsa (Ativos) ] | [ Caixinhas & Renda Fixa ] | [ Extrato B3 ] com persistência local e espelhamento em nuvem Supabase',
+    ],
+  },
   {
     version: '2.6.0',
     date: '13/10/2026',

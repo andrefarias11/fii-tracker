@@ -108,5 +108,57 @@ export interface BcbIndicators {
   source: 'BCB_OFICIAL' | 'FALLBACK';
 }
 
+export type FixedIncomeType =
+  | 'CAIXINHA' // Caixinhas (Nubank, PicPay, Mercado Pago, etc.)
+  | 'CDB' // CDB 100% CDI, 110% CDI, Liquidez Diária
+  | 'TESOURO_SELIC' // Tesouro Selic (Reserva de Emergência)
+  | 'TESOURO_IPCA' // Tesouro IPCA+ (Proteção contra inflação)
+  | 'TESOURO_PREFIXADO' // Tesouro Prefixado
+  | 'LCI_LCA' // LCI / LCA (Isentos de Imposto de Renda)
+  | 'OUTROS';
+
+export interface FixedIncomeAsset {
+  id: string;
+  name: string; // Ex: "Caixinha Reserva Nubank", "Tesouro Selic 2029", "CDB XP 110% CDI"
+  type: FixedIncomeType;
+  institution: string; // Ex: "Nubank", "XP", "Tesouro Direto", "Inter", "Itaú"
+  investedAmount: number; // Valor original aplicado (R$)
+  currentBalance: number; // Saldo atual acumulado com rendimentos (R$)
+  rateType: 'CDI' | 'IPCA' | 'PREFIXADO';
+  ratePercent: number; // Ex: 100 (% do CDI) ou 6.5 (IPCA + 6.5%) ou 12.0 (% Prefixado)
+  isExempt: boolean; // Se é isento de IR (LCI/LCA = true)
+  notes?: string;
+  updatedAt: string; // YYYY-MM-DD
+}
+
+export interface UnifiedPortfolioSummary {
+  // Bolsa (FIIs + Ações)
+  bolsaEquity: number;
+  bolsaInvested: number;
+  bolsaProfitLoss: number;
+  bolsaProfitLossPercent: number;
+  bolsaMonthlyDividends: number;
+
+  // Renda Fixa & Caixinhas
+  fixedIncomeEquity: number;
+  fixedIncomeInvested: number;
+  fixedIncomeProfitLoss: number;
+  fixedIncomeMonthlyYield: number; // Rendimento mensal líquido estimado em R$
+
+  // Patrimônio Unificado Global
+  totalGlobalEquity: number;
+  totalGlobalInvested: number;
+  totalGlobalProfitLoss: number;
+  totalGlobalProfitLossPercent: number;
+  totalGlobalMonthlyIncome: number; // Dividendos da Bolsa + Rendimento da Renda Fixa
+
+  // Macro Alocação (%)
+  fiiEquity: number;
+  fiiPercent: number;
+  acaoEquity: number;
+  acaoPercent: number;
+  fixedIncomePercent: number;
+}
+
 
 

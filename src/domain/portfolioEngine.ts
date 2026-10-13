@@ -3,6 +3,9 @@ import {
   FiiPosition,
   PortfolioGoals,
   QuoteData,
+  FixedIncomeAsset,
+  UnifiedPortfolioSummary,
+  BcbIndicators,
 } from '../types/portfolio';
 import { findFiiInfo } from '../data/fiiDatabase';
 import { normalizeB3Ticker } from '../lib/b3Parser';
@@ -558,4 +561,134 @@ export function calculatePortfolioSummary(
     incomeGoalProgressPercent,
   };
 }
+
+/**
+ * Calcula o rendimento mensal líquido estimado (R$) de uma Caixinha / Título de Renda Fixa
+ * usando os indicadores ao vivo do Banco Central (CDI, Selic e IPCA)
+ */
+export function calculateFixedIncomeMonthlyYield(
+  asset: FixedIncomeAsset,
+  bcbIndicators: BcbIndicators | null
+): number {
+  if (asset.currentBalance <= 0) return 0;
+
+  let monthlyRatePercent = 0;
+
+  if (asset.rateType === 'CDI') {
+    // CDI Líquido padrão do Banco Central (com IR médio de 17.5%): ~0.71% a.m.
+    const cdiNetMonthly = bcbIndicators?.cdiNetMonthly ?? 0.71;
+    // Se isento de IR (LCI / LCA): usa CDI bruto mensal (~0.85% a.m.)
+    const cdiGrossMonthly = bcbIndicators
+      ? Number(((Math.pow(1 + bcbIndicators.cdiAnnual / 100, 1 / 12) - 1) * 100).toFixed(4))
+      : 0.85;
+
+    const baseRate = asset.isExempt ? cdiGrossMonthly : cdiNetMonthly;
+    monthlyRatePercent = (asset.ratePercent / 100) * baseRate;
+  } else if (asset.rateType === 'IPCA') {
+    // IPCA médio mensal do BCB (~0.35% a.m.) + spread contratado
+    const ipcaMonthly = bcbIndicators?.ipcaMonthly ?? 0.35;
+    const spreadGrossAnnual = asset.ratePercent; // Ex: 6.0 (% a.a.)
+    const spreadGrossMonthly = (Math.pow(1 + spreadGrossAnnual / 100, 1 / 12) - 1) * 100;
+    const spreadNetMonthly = asset.isExempt ? spreadGrossMonthly : spreadGrossMonthly * 0.825;
+    monthlyRatePercent = ipcaMonthly + spreadNetMonthly;
+  } else if (asset.rateType === 'PREFIXADO') {
+    // Taxa bruta anual convertida em mensal líquida
+    const grossMonthly = (Math.pow(1 + asset.ratePercent / 100, 1 / 12) - 1) * 100;
+    monthlyRatePercent = asset.isExempt ? grossMonthly : grossMonthly * 0.825;
+  }
+
+  const yieldAmount = asset.currentBalance * (monthlyRatePercent / 100);
+  return Number(Math.max(0, yieldAmount).toFixed(2));
+}
+
+/**
+ * Consolida o Patrimônio Unificado Global: FIIs + Ações + Renda Fixa / Caixinhas
+ */
+export function calculateUnifiedPortfolioSummary(
+  positions: FiiPosition[],
+  fixedIncomeAssets: FixedIncomeAsset[],
+  bcbIndicators: BcbIndicators | null
+): UnifiedPortfolioSummary {
+  // 1. Bolsa (FIIs + Ações)
+  const bolsaEquity = Number(
+    positions.reduce((acc, p) => acc + p.currentTotal, 0).toFixed(2)
+  );
+  const bolsaInvested = Number(
+    positions.reduce((acc, p) => acc + p.totalInvested, 0).toFixed(2)
+  );
+  const bolsaProfitLoss = Number((bolsaEquity - bolsaInvested).toFixed(2));
+  const bolsaProfitLossPercent =
+    bolsaInvested > 0 ? Number(((bolsaProfitLoss / bolsaInvested) * 100).toFixed(2)) : 0;
+  const bolsaMonthlyDividends = Number(
+    positions.reduce((acc, p) => acc + p.totalMonthlyDividend, 0).toFixed(2)
+  );
+
+  // 2. Renda Fixa & Caixinhas
+  const fixedIncomeEquity = Number(
+    fixedIncomeAssets.reduce((acc, a) => acc + a.currentBalance, 0).toFixed(2)
+  );
+  const fixedIncomeInvested = Number(
+    fixedIncomeAssets.reduce((acc, a) => acc + a.investedAmount, 0).toFixed(2)
+  );
+  const fixedIncomeProfitLoss = Number(
+    (fixedIncomeEquity - fixedIncomeInvested).toFixed(2)
+  );
+  const fixedIncomeMonthlyYield = Number(
+    fixedIncomeAssets
+      .reduce((acc, a) => acc + calculateFixedIncomeMonthlyYield(a, bcbIndicators), 0)
+      .toFixed(2)
+  );
+
+  // 3. Consolidado Global
+  const totalGlobalEquity = Number((bolsaEquity + fixedIncomeEquity).toFixed(2));
+  const totalGlobalInvested = Number((bolsaInvested + fixedIncomeInvested).toFixed(2));
+  const totalGlobalProfitLoss = Number((totalGlobalEquity - totalGlobalInvested).toFixed(2));
+  const totalGlobalProfitLossPercent =
+    totalGlobalInvested > 0
+      ? Number(((totalGlobalProfitLoss / totalGlobalInvested) * 100).toFixed(2))
+      : 0;
+  const totalGlobalMonthlyIncome = Number(
+    (bolsaMonthlyDividends + fixedIncomeMonthlyYield).toFixed(2)
+  );
+
+  // 4. Macro Classes
+  const fiiPositions = positions.filter((p) => p.assetClass !== 'ACAO');
+  const fiiEquity = Number(
+    fiiPositions.reduce((acc, p) => acc + p.currentTotal, 0).toFixed(2)
+  );
+  const acaoPositions = positions.filter((p) => p.assetClass === 'ACAO');
+  const acaoEquity = Number(
+    acaoPositions.reduce((acc, p) => acc + p.currentTotal, 0).toFixed(2)
+  );
+
+  const fiiPercent =
+    totalGlobalEquity > 0 ? Math.round((fiiEquity / totalGlobalEquity) * 100) : 0;
+  const acaoPercent =
+    totalGlobalEquity > 0 ? Math.round((acaoEquity / totalGlobalEquity) * 100) : 0;
+  const fixedIncomePercent =
+    totalGlobalEquity > 0 ? Math.max(0, 100 - fiiPercent - acaoPercent) : 0;
+
+  return {
+    bolsaEquity,
+    bolsaInvested,
+    bolsaProfitLoss,
+    bolsaProfitLossPercent,
+    bolsaMonthlyDividends,
+    fixedIncomeEquity,
+    fixedIncomeInvested,
+    fixedIncomeProfitLoss,
+    fixedIncomeMonthlyYield,
+    totalGlobalEquity,
+    totalGlobalInvested,
+    totalGlobalProfitLoss,
+    totalGlobalProfitLossPercent,
+    totalGlobalMonthlyIncome,
+    fiiEquity,
+    fiiPercent,
+    acaoEquity,
+    acaoPercent,
+    fixedIncomePercent,
+  };
+}
+
 

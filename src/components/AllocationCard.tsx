@@ -1,10 +1,13 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
-import { FiiPosition } from '../types/portfolio';
+import { useState } from 'react';
+import { ArrowRight, PieChart, Layers } from 'lucide-react';
+import { FiiPosition, FixedIncomeAsset } from '../types/portfolio';
+import { triggerHaptic } from '../lib/haptic';
 
 interface AllocationCardProps {
   positions: FiiPosition[];
+  fixedIncomeAssets?: FixedIncomeAsset[];
   onNavigateToRadar?: () => void;
 }
 
@@ -42,14 +45,60 @@ function normalizeSector(segment: string): { label: string; colorClass: string; 
   return { label: 'Outros', colorClass: 'bg-zinc-500', dotClass: 'bg-zinc-400' };
 }
 
-export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardProps) {
-  if (positions.length === 0) return null;
+export function AllocationCard({
+  positions,
+  fixedIncomeAssets = [],
+  onNavigateToRadar,
+}: AllocationCardProps) {
+  const hasFixedIncome = fixedIncomeAssets.length > 0;
+  const [allocationMode, setAllocationMode] = useState<'macro' | 'sectors'>(
+    hasFixedIncome ? 'macro' : 'sectors'
+  );
 
-  const totalEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
-  if (totalEquity <= 0) return null;
+  const totalBolsaEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
+  const totalFixedIncomeEquity = fixedIncomeAssets.reduce((acc, a) => acc + a.currentBalance, 0);
+  const totalGlobalEquity = totalBolsaEquity + totalFixedIncomeEquity;
 
+  if (totalGlobalEquity <= 0) return null;
+
+  // 1. Fatias do Macro Alocação (FIIs vs Ações vs Renda Fixa)
+  const fiiEquity = positions
+    .filter((p) => p.assetClass !== 'ACAO')
+    .reduce((acc, p) => acc + p.currentTotal, 0);
+  const acaoEquity = positions
+    .filter((p) => p.assetClass === 'ACAO')
+    .reduce((acc, p) => acc + p.currentTotal, 0);
+
+  const fiiPercent = Math.round((fiiEquity / totalGlobalEquity) * 100);
+  const acaoPercent = Math.round((acaoEquity / totalGlobalEquity) * 100);
+  const fixedIncomePercent = Math.max(0, 100 - fiiPercent - acaoPercent);
+
+  const macroSlices: SectorSlice[] = [
+    {
+      label: 'FIIs (Imobiliário)',
+      value: fiiEquity,
+      percent: fiiPercent,
+      colorClass: 'bg-emerald-400',
+      dotClass: 'bg-emerald-400',
+    },
+    {
+      label: 'Ações (Empresas)',
+      value: acaoEquity,
+      percent: acaoPercent,
+      colorClass: 'bg-cyan-400',
+      dotClass: 'bg-cyan-400',
+    },
+    {
+      label: 'Renda Fixa & Caixinhas',
+      value: totalFixedIncomeEquity,
+      percent: fixedIncomePercent,
+      colorClass: 'bg-amber-400',
+      dotClass: 'bg-amber-400',
+    },
+  ].filter((s) => s.value > 0);
+
+  // 2. Fatias de Setores da Bolsa
   const map = new Map<string, { value: number; colorClass: string; dotClass: string }>();
-
   for (const pos of positions) {
     const { label, colorClass, dotClass } = normalizeSector(pos.segment);
     const current = map.get(label) || { value: 0, colorClass, dotClass };
@@ -57,25 +106,59 @@ export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardP
     map.set(label, current);
   }
 
-  const slices: SectorSlice[] = Array.from(map.entries())
+  const sectorSlices: SectorSlice[] = Array.from(map.entries())
     .map(([label, data]) => ({
       label,
       value: data.value,
-      percent: Math.round((data.value / totalEquity) * 100),
+      percent: totalBolsaEquity > 0 ? Math.round((data.value / totalBolsaEquity) * 100) : 0,
       colorClass: data.colorClass,
       dotClass: data.dotClass,
     }))
     .sort((a, b) => b.value - a.value);
 
-  const topSlice = slices[0];
+  const activeSlices = allocationMode === 'macro' && hasFixedIncome ? macroSlices : sectorSlices;
+  const topSlice = activeSlices[0];
   const isConcentrated = topSlice && topSlice.percent >= 70;
 
   return (
     <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-zinc-300">
-          Distribuição por Setor
-        </span>
+      {/* Título & Alternador de Modo */}
+      <div className="flex items-center justify-between mb-2.5">
+        {hasFixedIncome ? (
+          <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setAllocationMode('macro');
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                allocationMode === 'macro'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Patrimônio Unificado
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                setAllocationMode('sectors');
+              }}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                allocationMode === 'sectors'
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              Setores da Bolsa
+            </button>
+          </div>
+        ) : (
+          <span className="text-xs font-semibold text-zinc-300">Distribuição por Setor</span>
+        )}
+
         {isConcentrated && onNavigateToRadar ? (
           <button
             type="button"
@@ -86,14 +169,14 @@ export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardP
           </button>
         ) : (
           <span className="text-[11px] text-zinc-500">
-            {slices.length} {slices.length === 1 ? 'setor' : 'setores'}
+            {activeSlices.length} {activeSlices.length === 1 ? 'classe' : 'classes'}
           </span>
         )}
       </div>
 
       {/* Barra Segmentada Minimalista */}
-      <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-2.5">
-        {slices.map((s) => (
+      <div className="w-full h-2.5 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-2.5">
+        {activeSlices.map((s) => (
           <div
             key={s.label}
             className={`h-full ${s.colorClass} first:rounded-l-full last:rounded-r-full transition-all duration-500`}
@@ -105,7 +188,7 @@ export function AllocationCard({ positions, onNavigateToRadar }: AllocationCardP
 
       {/* Legenda Limpa */}
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
-        {slices.map((s) => (
+        {activeSlices.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
             <span className={`w-1.5 h-1.5 rounded-full ${s.dotClass}`} />
             <span className="text-zinc-400">{s.label}</span>
