@@ -85,19 +85,17 @@ export function FixedIncomeList({
   return (
     <div className="space-y-4">
       {/* Header Resumo da Renda Fixa */}
-      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#15161b] via-[#121215] to-[#16131c] border border-amber-500/20 p-5 shadow-xl">
-        <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 shadow-xl">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center">
-              <PiggyBank className="w-4 h-4 text-amber-400" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+              <PiggyBank className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-xs font-semibold text-zinc-300 block">
+              <span className="text-xs font-semibold text-zinc-200 block">
                 Renda Fixa & Caixinhas
               </span>
-              <span className="text-[10px] text-zinc-500">
+              <span className="text-[11px] text-zinc-500">
                 {assets.length} {assets.length === 1 ? 'aplicação' : 'aplicações'}
               </span>
             </div>
@@ -109,7 +107,7 @@ export function FixedIncomeList({
               triggerHaptic('light');
               onAddNew();
             }}
-            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-semibold text-xs active:scale-95 transition-all"
+            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             Adicionar
@@ -117,14 +115,14 @@ export function FixedIncomeList({
         </div>
 
         {/* Métricas Principais */}
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/[0.06]">
+        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.06]">
           <div>
-            <span className="text-[11px] text-zinc-400 block">Saldo Total em Reserva</span>
-            <div className="text-xl font-extrabold text-white tracking-tight mt-0.5">
+            <span className="text-[11px] text-zinc-400 block mb-0.5">Saldo Total em Reserva</span>
+            <div className="text-xl font-bold text-white tracking-tight tabular-nums">
               {formatBRL(totalBalance)}
             </div>
             {totalProfitLoss > 0 && (
-              <span className="text-[10px] text-emerald-400 font-semibold inline-flex items-center gap-0.5 mt-0.5">
+              <span className="text-[11px] text-emerald-400 font-medium inline-flex items-center gap-0.5 mt-0.5 tabular-nums">
                 <TrendingUp className="w-3 h-3" />
                 +{formatBRL(totalProfitLoss)} rendidos
               </span>
@@ -132,12 +130,12 @@ export function FixedIncomeList({
           </div>
 
           <div>
-            <span className="text-[11px] text-zinc-400 block">Rendimento Estimado</span>
-            <div className="text-xl font-extrabold text-amber-300 tracking-tight mt-0.5">
+            <span className="text-[11px] text-zinc-400 block mb-0.5">Rendimento Estimado</span>
+            <div className="text-xl font-bold text-emerald-400 tracking-tight tabular-nums">
               +{formatBRL(totalMonthlyYield)}
               <span className="text-xs font-normal text-zinc-400">/mês</span>
             </div>
-            <span className="text-[10px] text-zinc-500 font-medium block mt-0.5">
+            <span className="text-[11px] text-zinc-500 font-medium block mt-0.5 tabular-nums">
               {bcbIndicators ? `CDI ${bcbIndicators.cdiNetMonthly}% a.m. líq.` : 'Rendimento líquido'}
             </span>
           </div>
@@ -158,27 +156,23 @@ export function FixedIncomeList({
                   triggerHaptic('light');
                   onEdit(asset);
                 }}
-                className="group relative rounded-[22px] bg-[#121215] border border-white/[0.06] hover:border-amber-500/30 p-4 transition-all cursor-pointer active:scale-[0.99]"
+                className="group relative rounded-[20px] bg-[#121215] border border-white/[0.06] hover:border-white/[0.14] p-4 transition-all cursor-pointer active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between gap-3">
                   {/* Badge da Instituição + Nome */}
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${getInstitutionColor(
-                        asset.institution
-                      )} p-0.5 shadow-md shrink-0 flex items-center justify-center`}
-                    >
-                      <PiggyBank className="w-5 h-5 text-white" />
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] shrink-0 flex items-center justify-center text-zinc-300">
+                      <PiggyBank className="w-5 h-5" />
                     </div>
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                        <h4 className="text-sm font-bold text-white transition-colors">
                           {asset.name}
                         </h4>
                         {asset.isExempt && (
-                          <span className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                            <ShieldCheck className="w-2.5 h-2.5" /> Isento IR
+                          <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-500/20">
+                            <ShieldCheck className="w-3 h-3" /> Isento IR
                           </span>
                         )}
                       </div>
@@ -188,7 +182,7 @@ export function FixedIncomeList({
                         <span>•</span>
                         <span>{getTypeLabel(asset.type)}</span>
                         <span>•</span>
-                        <span className="text-amber-400/90 font-medium">
+                        <span className="text-zinc-300 font-medium tabular-nums">
                           {asset.rateType === 'CDI'
                             ? `${asset.ratePercent}% CDI`
                             : asset.rateType === 'IPCA'
@@ -201,25 +195,25 @@ export function FixedIncomeList({
 
                   {/* Saldo Atual & Rendimento Mensal */}
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-extrabold text-white">
+                    <div className="text-sm font-bold text-white tabular-nums">
                       {formatBRL(asset.currentBalance)}
                     </div>
-                    <div className="text-[11px] font-semibold text-amber-300/90 flex items-center justify-end gap-0.5">
-                      <TrendingUp className="w-3 h-3 text-amber-400" />
+                    <div className="text-[11px] font-semibold text-emerald-400 flex items-center justify-end gap-1 tabular-nums">
+                      <TrendingUp className="w-3 h-3" />
                       +{formatBRL(monthlyYield)}/mês
                     </div>
                   </div>
                 </div>
 
                 {/* Linha Inferior com Metadados & Botão de Editar */}
-                <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-zinc-500">
+                <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-zinc-500">
                   <div className="flex items-center gap-2">
                     {profit > 0 ? (
-                      <span className="text-emerald-400/90 font-medium">
+                      <span className="text-emerald-400/90 font-medium tabular-nums">
                         Rendeu {formatBRL(profit)} desde o aporte
                       </span>
                     ) : (
-                      <span>Aporte: {formatBRL(asset.investedAmount)}</span>
+                      <span className="tabular-nums">Aporte: {formatBRL(asset.investedAmount)}</span>
                     )}
                     {asset.notes && (
                       <>
@@ -229,7 +223,7 @@ export function FixedIncomeList({
                     )}
                   </div>
 
-                  <span className="inline-flex items-center gap-1 text-zinc-400 group-hover:text-amber-300 transition-colors font-medium">
+                  <span className="inline-flex items-center gap-1 text-zinc-400 group-hover:text-zinc-200 transition-colors font-medium">
                     Ajustar saldo <Edit3 className="w-3 h-3" />
                   </span>
                 </div>
@@ -239,9 +233,9 @@ export function FixedIncomeList({
         </div>
       ) : (
         /* Empty State Elegante */
-        <div className="rounded-[26px] bg-[#121215] border border-white/[0.06] p-6 text-center space-y-4">
-          <div className="w-14 h-14 rounded-3xl bg-amber-500/10 border border-amber-500/20 mx-auto flex items-center justify-center">
-            <PiggyBank className="w-7 h-7 text-amber-400" />
+        <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.06] mx-auto flex items-center justify-center text-zinc-300">
+            <PiggyBank className="w-6 h-6" />
           </div>
 
           <div className="space-y-1 max-w-xs mx-auto">
@@ -261,7 +255,7 @@ export function FixedIncomeList({
                 triggerHaptic('light');
                 onAddNew();
               }}
-              className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-md shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               Adicionar Caixinha ou Título
@@ -273,7 +267,7 @@ export function FixedIncomeList({
                 triggerHaptic('light');
                 onResetDemo();
               }}
-              className="w-full sm:w-auto py-2.5 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 font-semibold text-xs active:scale-95 transition-all"
+              className="w-full sm:w-auto py-2.5 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 font-semibold text-xs active:scale-95 transition-all border border-white/[0.06]"
             >
               Carregar Exemplo (Nubank)
             </button>

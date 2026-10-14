@@ -254,52 +254,49 @@ export default function HomePage() {
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
 
-            {/* CARD RETROSPECTIVA MENSAL ESTILO SPOTIFY WRAPPED / NUBANK */}
+            {/* CARD RETROSPECTIVA MENSAL */}
             {monthlyWrapped && monthlyWrapped.hasActivity && (
               <div
                 onClick={() => {
                   triggerHaptic('trophy');
                   setIsWrappedModalOpen(true);
                 }}
-                className="relative overflow-hidden rounded-[26px] bg-gradient-to-r from-emerald-950/70 via-[#131418] to-[#16161c] border border-emerald-500/30 p-4 shadow-xl cursor-pointer active:scale-[0.99] transition-all group"
+                className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 cursor-pointer active:scale-[0.99] transition-all group"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
-                <div className="relative z-10 flex items-center justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-md shadow-emerald-500/20 shrink-0">
-                      <div className="w-full h-full bg-[#0d0d10] rounded-[14px] flex items-center justify-center">
-                        <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
-                      </div>
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
+                      <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                           Retrospectiva B3 • {monthlyWrapped.monthName}
                         </span>
                         {monthlyWrapped.isCurrentMonth && (
-                          <span className="text-[9px] font-semibold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-semibold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full border border-white/[0.06]">
                             Ao vivo
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-300 font-medium leading-snug">
-                        Você recebeu{' '}
-                        <strong className="text-emerald-300 font-bold">
+                      <p className="text-xs text-zinc-300 leading-snug">
+                        Recebeu{' '}
+                        <strong className="text-emerald-400 font-bold tabular-nums">
                           {isPrivacyMode ? 'R$ ••••' : formatBRL(monthlyWrapped.totalDividends)}
                         </strong>{' '}
                         em proventos, aportou em{' '}
-                        <strong className="text-white font-bold">
+                        <strong className="text-white font-bold tabular-nums">
                           {monthlyWrapped.totalSharesBought} cotas
                         </strong>{' '}
                         e sua bola de neve avançou{' '}
-                        <strong className="text-cyan-300 font-bold">
+                        <strong className="text-emerald-400 font-bold tabular-nums">
                           +{monthlyWrapped.snowballGrowthPercent}%
                         </strong>
-                        !
+                        .
                       </p>
                     </div>
                   </div>
-                  <div className="p-2 rounded-xl bg-white/[0.04] text-zinc-400 group-hover:text-emerald-300 transition-colors shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-colors shrink-0">
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>

@@ -26,17 +26,17 @@ export function IosInstallBanner() {
   if (isDismissed) return null;
 
   return (
-    <div className="relative rounded-3xl bg-gradient-to-r from-emerald-950/70 via-zinc-900 to-zinc-900 border border-emerald-500/30 p-4 shadow-xl mb-4">
+    <div className="relative rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 mb-4">
       <button
         onClick={handleDismiss}
         aria-label="Dispensar banner"
-        className="absolute top-3 right-3 text-zinc-400 hover:text-white p-1"
+        className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 transition-colors"
       >
         <X className="w-4 h-4" />
       </button>
 
-      <div className="flex items-start gap-3 pr-6">
-        <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+      <div className="flex items-start gap-3.5 pr-6">
+        <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
           <Share className="w-4 h-4 text-emerald-400" />
         </div>
 
@@ -44,10 +44,10 @@ export function IosInstallBanner() {
           <h4 className="text-xs font-bold text-white mb-1">
             Instalar app no iPhone
           </h4>
-          <p className="text-[11px] text-zinc-300 leading-relaxed mb-2">
+          <p className="text-[11px] text-zinc-400 leading-relaxed mb-2.5">
             Para usar em tela cheia como um app nativo, toque no botão{' '}
-            <strong className="text-emerald-300">Compartilhar</strong> (abaixo no Safari) e selecione:{' '}
-            <span className="inline-flex items-center gap-1 font-semibold text-white bg-zinc-800 px-1.5 py-0.5 rounded">
+            <strong className="text-zinc-200">Compartilhar</strong> no Safari e selecione:{' '}
+            <span className="inline-flex items-center gap-1 font-semibold text-zinc-200 bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded-md">
               <PlusSquare className="w-3 h-3 text-emerald-400" />
               Adicionar à Tela de Início
             </span>
@@ -55,9 +55,9 @@ export function IosInstallBanner() {
 
           <button
             onClick={handleDismiss}
-            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300"
+            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
           >
-            Entendido, já sei como fazer!
+            Entendido, já sei como fazer
           </button>
         </div>
       </div>

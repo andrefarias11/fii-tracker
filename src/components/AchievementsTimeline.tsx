@@ -135,35 +135,35 @@ export function AchievementsTimeline({
   const getTierStyles = (tier: AchievementTier, unlocked: boolean) => {
     if (!unlocked) {
       return {
-        badge: 'bg-white/[0.04] text-zinc-500 border-white/[0.06]',
-        iconBox: 'bg-white/[0.03] border-white/[0.06] text-zinc-500',
-        bar: 'bg-zinc-600',
+        badge: 'bg-white/[0.03] text-zinc-500 border-white/[0.06]',
+        iconBox: 'bg-white/[0.02] border-white/[0.05] text-zinc-600',
+        bar: 'bg-zinc-700',
       };
     }
     switch (tier) {
       case 'BRONZE':
         return {
-          badge: 'bg-amber-700/20 text-amber-300 border-amber-600/30',
-          iconBox: 'bg-amber-500/15 border-amber-500/30 text-amber-400',
+          badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+          iconBox: 'bg-white/[0.03] border-white/[0.06] text-amber-400',
           bar: 'bg-amber-500',
         };
       case 'PRATA':
         return {
-          badge: 'bg-slate-400/15 text-slate-200 border-slate-400/30',
-          iconBox: 'bg-slate-400/15 border-slate-300/30 text-slate-200',
+          badge: 'bg-slate-400/10 text-slate-200 border-slate-400/20',
+          iconBox: 'bg-white/[0.03] border-white/[0.06] text-slate-200',
           bar: 'bg-slate-300',
         };
       case 'OURO':
         return {
-          badge: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
-          iconBox: 'bg-yellow-500/15 border-yellow-400/30 text-yellow-400',
+          badge: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20',
+          iconBox: 'bg-white/[0.03] border-white/[0.06] text-yellow-400',
           bar: 'bg-yellow-400',
         };
       case 'PLATINA':
         return {
-          badge: 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30',
-          iconBox: 'bg-cyan-500/15 border-cyan-400/30 text-cyan-300',
-          bar: 'bg-gradient-to-r from-cyan-400 to-emerald-400',
+          badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
+          iconBox: 'bg-white/[0.03] border-white/[0.06] text-cyan-300',
+          bar: 'bg-cyan-400',
         };
     }
   };
@@ -178,28 +178,22 @@ export function AchievementsTimeline({
   return (
     <div className="space-y-4">
       {/* Hero Card: Troféu Platina & Progresso Geral */}
-      <div className="p-6 rounded-[28px] bg-[#121215] border border-white/[0.07] relative overflow-hidden">
+      <div className="p-5 rounded-[24px] bg-[#121215] border border-white/[0.06] relative overflow-hidden">
         <div className="flex items-start justify-between gap-4 mb-5">
-          <div className="flex items-center gap-3.5">
-            <div
-              className={`w-13 h-13 rounded-2xl flex items-center justify-center border shrink-0 ${
-                overview.isPlatinumUnlocked
-                  ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300 shadow-lg shadow-cyan-500/20'
-                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
-              }`}
-            >
-              <Trophy className="w-6 h-6" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
+              <Trophy className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
                   Modo Carreira B3
                 </span>
-                <span className="text-[11px] font-semibold text-zinc-400">
+                <span className="text-[11px] font-semibold text-zinc-400 tabular-nums">
                   {overview.totalXp} / {overview.maxXp} XP
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-white mt-1 tracking-tight">
+              <h2 className="text-base font-bold text-white mt-1 tracking-tight">
                 {overview.currentLevelTitle}
               </h2>
               <p className="text-xs text-zinc-400">
@@ -209,9 +203,9 @@ export function AchievementsTimeline({
           </div>
 
           <div className="text-right shrink-0">
-            <span className="text-2xl font-extrabold text-white tracking-tight">
+            <span className="text-xl font-extrabold text-white tracking-tight tabular-nums">
               {overview.unlockedCount}
-              <span className="text-sm text-zinc-500 font-semibold">/{overview.totalCount}</span>
+              <span className="text-xs text-zinc-500 font-semibold">/{overview.totalCount}</span>
             </span>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
               Troféus
@@ -223,14 +217,14 @@ export function AchievementsTimeline({
         <div className="space-y-1.5 mb-4">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-400 font-medium flex items-center gap-1.5">
-              <Crown className="w-3.5 h-3.5 text-cyan-400" />
+              <Crown className="w-3.5 h-3.5 text-zinc-300" />
               Progresso do Troféu Platina
             </span>
-            <span className="font-bold text-white">{overview.platinumProgressPercent}%</span>
+            <span className="font-bold text-white tabular-nums">{overview.platinumProgressPercent}%</span>
           </div>
-          <div className="w-full h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-700"
+              className="h-full rounded-full bg-emerald-400 transition-all duration-700"
               style={{ width: `${overview.platinumProgressPercent}%` }}
             />
           </div>
@@ -238,20 +232,20 @@ export function AchievementsTimeline({
 
         {/* Próxima conquista na mira */}
         {overview.nextAchievement && (
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                <Target className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
+                <Target className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block tabular-nums">
                   Próximo Troféu na Mira ({overview.nextAchievement.progressPercent}%)
                 </span>
                 <p className="text-xs font-bold text-white truncate">
                   #{String(overview.nextAchievement.order).padStart(2, '0')} ·{' '}
                   {overview.nextAchievement.title}
                 </p>
-                <p className="text-[11px] text-zinc-400 truncate">
+                <p className="text-[11px] text-zinc-400 truncate tabular-nums">
                   {overview.nextAchievement.formattedCurrent} de{' '}
                   {overview.nextAchievement.formattedTarget}
                 </p>
@@ -280,7 +274,7 @@ export function AchievementsTimeline({
               setFilter('ALL');
             }}
             className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
-              filter === 'ALL' ? 'bg-white text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
+              filter === 'ALL' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Todas ({overview.totalCount})
@@ -306,7 +300,7 @@ export function AchievementsTimeline({
               setFilter('LOCKED');
             }}
             className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
-              filter === 'LOCKED' ? 'bg-white text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
+              filter === 'LOCKED' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Faltam ({overview.totalCount - overview.unlockedCount})
@@ -314,20 +308,20 @@ export function AchievementsTimeline({
         </div>
       </div>
 
-      {/* Linha do Tempo Vertical das 20 Conquistas */}
-      <div className="p-5 rounded-[28px] bg-[#121215] border border-white/[0.06]">
-        <div className="relative space-y-4">
+      {/* Linha do Tempo Vertical das Conquistas */}
+      <div className="p-5 rounded-[24px] bg-[#121215] border border-white/[0.06]">
+        <div className="relative space-y-3">
           {filteredAchievements.map((item: AchievementItem, index: number) => {
             const styles = getTierStyles(item.tier, item.unlocked);
             const isLast = index === filteredAchievements.length - 1;
 
             return (
-              <div key={item.id} className="relative flex items-start gap-3.5">
+              <div key={item.id} className="relative flex items-start gap-3">
                 {/* Linha conectora vertical */}
                 {!isLast && (
                   <div
-                    className={`absolute left-5 top-11 bottom-[-18px] w-[2px] ${
-                      item.unlocked ? 'bg-emerald-500/35' : 'bg-white/[0.06]'
+                    className={`absolute left-4 top-10 bottom-[-14px] w-[1px] ${
+                      item.unlocked ? 'bg-emerald-500/30' : 'bg-white/[0.06]'
                     }`}
                   />
                 )}
@@ -335,24 +329,24 @@ export function AchievementsTimeline({
                 {/* Ícone do Troféu na Linha do Tempo */}
                 <div
                   onClick={() => handleAchievementClick(item)}
-                  className={`relative z-10 w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
+                  className={`relative z-10 w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
                 >
-                  {renderIcon(item.iconName, 'w-4 h-4')}
+                  {renderIcon(item.iconName, 'w-3.5 h-3.5')}
                 </div>
 
                 {/* Card da Conquista */}
                 <div
                   onClick={() => handleAchievementClick(item)}
-                  className={`flex-1 p-4 rounded-2xl border transition-all cursor-pointer active:scale-[0.99] select-none ${
+                  className={`flex-1 p-3.5 rounded-2xl transition-all cursor-pointer active:scale-[0.99] select-none ${
                     item.unlocked
-                      ? 'bg-white/[0.03] border-emerald-500/25 hover:border-emerald-500/40'
-                      : 'bg-white/[0.015] border-white/[0.05] opacity-80 hover:border-white/[0.1]'
+                      ? 'bg-white/[0.025] hover:bg-white/[0.04]'
+                      : 'bg-white/[0.015] hover:bg-white/[0.03] opacity-75'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                        <span className="text-[10px] font-bold text-zinc-500">
+                        <span className="text-[10px] font-bold text-zinc-500 tabular-nums">
                           #{String(item.order).padStart(2, '0')}
                         </span>
                         <span
@@ -360,7 +354,7 @@ export function AchievementsTimeline({
                         >
                           {item.tier}
                         </span>
-                        <span className="text-[10px] font-semibold text-zinc-500">
+                        <span className="text-[10px] font-semibold text-zinc-500 tabular-nums">
                           +{item.xp} XP
                         </span>
                       </div>
@@ -376,26 +370,26 @@ export function AchievementsTimeline({
 
                     <div className="text-right shrink-0">
                       {item.unlocked ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           {item.unlockedAt
-                            ? `Conquistado em ${formatDateBR(item.unlockedAt)}`
+                            ? `Em ${formatDateBR(item.unlockedAt)}`
                             : 'Desbloqueado'}
                         </span>
                       ) : (
-                        <span className="text-xs font-bold text-zinc-400">
+                        <span className="text-xs font-bold text-zinc-400 tabular-nums">
                           {item.progressPercent}%
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <p className="text-xs text-zinc-400 leading-relaxed mb-3">{item.description}</p>
+                  <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{item.description}</p>
 
                   {/* Barra de Progresso Individual */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400 font-medium">{item.subtitle}</span>
-                      <span className="text-zinc-300 font-semibold">
+                      <span className="text-zinc-300 font-semibold tabular-nums">
                         {item.formattedCurrent}{' '}
                         <span className="text-zinc-500">/ {item.formattedTarget}</span>
                       </span>

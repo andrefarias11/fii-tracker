@@ -121,9 +121,9 @@ export function AllocationCard({
   const isConcentrated = topSlice && topSlice.percent >= 70;
 
   return (
-    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-4">
+    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5">
       {/* Título & Alternador de Modo */}
-      <div className="flex items-center justify-between mb-2.5">
+      <div className="flex items-center justify-between mb-3">
         {hasFixedIncome ? (
           <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.05]">
             <button
@@ -134,8 +134,8 @@ export function AllocationCard({
               }}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                 allocationMode === 'macro'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Patrimônio Unificado
@@ -148,8 +148,8 @@ export function AllocationCard({
               }}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                 allocationMode === 'sectors'
-                  ? 'bg-emerald-500/20 text-emerald-300'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Setores da Bolsa
@@ -175,7 +175,7 @@ export function AllocationCard({
       </div>
 
       {/* Barra Segmentada Minimalista */}
-      <div className="w-full h-2.5 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-2.5">
+      <div className="w-full h-2.5 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-3">
         {activeSlices.map((s) => (
           <div
             key={s.label}
@@ -192,7 +192,7 @@ export function AllocationCard({
           <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
             <span className={`w-1.5 h-1.5 rounded-full ${s.dotClass}`} />
             <span className="text-zinc-400">{s.label}</span>
-            <span className="text-zinc-200 font-semibold">{s.percent}%</span>
+            <span className="text-zinc-200 font-semibold tabular-nums">{s.percent}%</span>
           </div>
         ))}
       </div>

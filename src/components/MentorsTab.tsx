@@ -63,38 +63,34 @@ export function MentorsTab({
     switch (color) {
       case 'emerald':
         return {
-          border: 'border-emerald-500/30',
-          bgGradient: 'from-zinc-900 via-zinc-900 to-emerald-950/30',
-          iconBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
-          badgeBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-          pillBg: 'bg-emerald-500/10 text-emerald-400',
+          border: 'border-white/[0.06]',
+          iconBg: 'bg-white/[0.04] border-white/[0.06] text-zinc-300',
+          badgeBg: 'bg-white/[0.04] text-zinc-300 border-white/[0.06]',
+          pillBg: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
           highlightText: 'text-emerald-400',
         };
       case 'amber':
         return {
-          border: 'border-amber-500/30',
-          bgGradient: 'from-zinc-900 via-zinc-900 to-amber-950/30',
-          iconBg: 'bg-amber-500/15 border-amber-500/30 text-amber-400',
-          badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-          pillBg: 'bg-amber-500/10 text-amber-400',
+          border: 'border-white/[0.06]',
+          iconBg: 'bg-white/[0.04] border-white/[0.06] text-zinc-300',
+          badgeBg: 'bg-white/[0.04] text-zinc-300 border-white/[0.06]',
+          pillBg: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
           highlightText: 'text-amber-400',
         };
       case 'sky':
         return {
-          border: 'border-sky-500/30',
-          bgGradient: 'from-zinc-900 via-zinc-900 to-sky-950/30',
-          iconBg: 'bg-sky-500/15 border-sky-500/30 text-sky-400',
-          badgeBg: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-          pillBg: 'bg-sky-500/10 text-sky-400',
+          border: 'border-white/[0.06]',
+          iconBg: 'bg-white/[0.04] border-white/[0.06] text-zinc-300',
+          badgeBg: 'bg-white/[0.04] text-zinc-300 border-white/[0.06]',
+          pillBg: 'bg-sky-500/10 text-sky-400 border border-sky-500/20',
           highlightText: 'text-sky-400',
         };
       case 'violet':
         return {
-          border: 'border-violet-500/30',
-          bgGradient: 'from-zinc-900 via-zinc-900 to-violet-950/30',
-          iconBg: 'bg-violet-500/15 border-violet-500/30 text-violet-400',
-          badgeBg: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-          pillBg: 'bg-violet-500/10 text-violet-400',
+          border: 'border-white/[0.06]',
+          iconBg: 'bg-white/[0.04] border-white/[0.06] text-zinc-300',
+          badgeBg: 'bg-white/[0.04] text-zinc-300 border-white/[0.06]',
+          pillBg: 'bg-violet-500/10 text-violet-400 border border-violet-500/20',
           highlightText: 'text-violet-400',
         };
     }
@@ -116,11 +112,11 @@ export function MentorsTab({
   return (
     <div className="space-y-4">
       {/* 1. CABEÇALHO EXPLICATIVO + CONSENSO DOS MENTORES */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/40 border border-emerald-500/30 p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-2.5">
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-emerald-400" />
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+              <GraduationCap className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -131,15 +127,15 @@ export function MentorsTab({
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             B3 Ao Vivo
           </span>
         </div>
 
         {/* Consenso dos Mentores (Ativos que passam no crivo de múltiplos mentores hoje) */}
         {consensus.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-zinc-800/80">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-2">
+          <div className="mt-3 pt-3 border-t border-white/[0.06]">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-2.5">
               <Award className="w-3.5 h-3.5" />
               <span>Consenso Hoje (Aprovado por 2+ Mentores)</span>
             </div>
@@ -148,17 +144,17 @@ export function MentorsTab({
               {consensus.slice(0, 2).map((item) => (
                 <div
                   key={item.fii.ticker}
-                  className="p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 flex items-center justify-between gap-2"
+                  className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between gap-2"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                      <span className="text-sm font-extrabold text-white">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                      <span className="text-sm font-bold text-white">
                         {item.fii.ticker}
                       </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums">
                         {formatBRL(item.fii.currentPrice)} • P/VP {item.fii.pvp}
                       </span>
-                      <span className="text-[10px] font-semibold text-zinc-400">
+                      <span className="text-[11px] font-medium text-emerald-400 tabular-nums">
                         Yield {item.fii.monthlyYieldPercent}% a.m.
                       </span>
                     </div>
@@ -167,7 +163,7 @@ export function MentorsTab({
                       {item.mentors.map((m) => (
                         <span
                           key={m.id}
-                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-800 text-zinc-300"
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-white/[0.05] text-zinc-300"
                         >
                           ✓ {m.name.split(' ')[0] === 'Prof.' ? 'Prof. Baroni' : m.name.split(' ').slice(0, 2).join(' ')}
                         </span>
@@ -182,22 +178,22 @@ export function MentorsTab({
       </div>
 
       {/* 2. FILTRO POR MENTOR */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'ALL', label: 'Todos os Mentores' },
-          { id: 'barsi', label: '👑 Luiz Barsi' },
-          { id: 'buffett', label: '🏛️ Warren Buffett' },
-          { id: 'graham', label: '🛡️ Benjamin Graham' },
-          { id: 'baroni', label: '🎓 Prof. Baroni' },
+          { id: 'barsi', label: 'Luiz Barsi' },
+          { id: 'buffett', label: 'Warren Buffett' },
+          { id: 'graham', label: 'Benjamin Graham' },
+          { id: 'baroni', label: 'Prof. Baroni' },
         ].map((chip) => (
           <button
             key={chip.id}
             type="button"
             onClick={() => setSelectedMentor(chip.id as 'ALL' | MentorId)}
-            className={`text-xs px-3 py-1.5 rounded-xl whitespace-nowrap font-medium transition-all ${
+            className={`text-xs px-3.5 py-1.5 rounded-xl whitespace-nowrap font-medium transition-all ${
               selectedMentor === chip.id
                 ? 'bg-emerald-500 text-zinc-950 font-bold shadow-sm'
-                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
             }`}
           >
             {chip.label}
@@ -220,24 +216,20 @@ export function MentorsTab({
           return (
             <div
               key={mentor.id}
-              className={`rounded-3xl bg-gradient-to-br ${styles.bgGradient} border ${styles.border} p-4 shadow-lg transition-all`}
+              className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 shadow-lg transition-all"
             >
               {/* Cabeçalho do Mentor */}
-              <div className="flex items-start justify-between gap-2 mb-2.5">
+              <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-9 h-9 rounded-2xl border flex items-center justify-center shrink-0 ${styles.iconBg}`}
-                  >
+                  <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 text-zinc-300">
                     <MentorIcon className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-extrabold text-white">
+                      <h3 className="text-sm font-bold text-white">
                         {mentor.name}
                       </h3>
-                      <span
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${styles.badgeBg}`}
-                      >
+                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
                         {mentor.badge}
                       </span>
                     </div>
@@ -247,16 +239,16 @@ export function MentorsTab({
               </div>
 
               {/* Frase Clássica + Pilares */}
-              <div className="p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/70 mb-3">
+              <div className="p-3.5 rounded-2xl bg-white/[0.025] mb-3">
                 <p className="text-[11px] italic text-zinc-300 flex items-start gap-1.5 leading-relaxed">
                   <Quote className="w-3.5 h-3.5 text-zinc-500 shrink-0 mt-0.5" />
                   <span>{mentor.quote}</span>
                 </p>
-                <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-zinc-800/60">
+                <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-white/[0.05]">
                   {mentor.pillars.map((pillar) => (
                     <span
                       key={pillar}
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-zinc-900 text-zinc-300 border border-zinc-800"
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-white/[0.04] text-zinc-300"
                     >
                       • {pillar}
                     </span>
@@ -266,21 +258,19 @@ export function MentorsTab({
 
               {/* Diagnóstico da Carteira (Especial Prof. Baroni) */}
               {mentor.portfolioDiagnosis && (
-                <div className="mb-3 p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/25 text-[11px] text-violet-200 leading-relaxed">
-                  <strong className="text-violet-300">Diagnóstico da sua carteira:</strong>{' '}
+                <div className="mb-3 p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.06] text-[11px] text-zinc-300 leading-relaxed">
+                  <strong className="text-emerald-400">Diagnóstico da sua carteira:</strong>{' '}
                   {mentor.portfolioDiagnosis}
                 </div>
               )}
 
               {/* ESCOLHA Nº 1 DO MENTOR AGORA NA B3 */}
-              <div className="p-3.5 rounded-2xl bg-zinc-950/90 border border-zinc-800/90">
+              <div className="p-4 rounded-2xl bg-white/[0.025]">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span
-                    className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${styles.pillBg}`}
-                  >
-                    ★ Top #1 Indicação {mentor.name.split(' ')[0] === 'Prof.' ? 'Baroni' : mentor.name.split(' ')[1] || mentor.name}
+                  <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Indicação Principal {mentor.name.split(' ')[0] === 'Prof.' ? 'Baroni' : mentor.name.split(' ')[1] || mentor.name}
                   </span>
-                  <span className="text-[10px] font-mono text-zinc-400">
+                  <span className="text-[11px] text-zinc-400 tabular-nums">
                     {top1.keyMetricLabel}:{' '}
                     <strong className="text-zinc-200">{top1.keyMetricValue}</strong>
                   </span>
@@ -290,8 +280,8 @@ export function MentorsTab({
                 <div className="mb-2.5">
                   <p className="text-xs font-bold text-white leading-snug">
                     Usando a estratégia{' '}
-                    <span className={styles.highlightText}>{mentor.name}</span>, investir em{' '}
-                    <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-white font-mono">
+                    <span className="text-emerald-400">{mentor.name}</span>, investir em{' '}
+                    <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-white font-mono">
                       {top1.fii.ticker}
                     </span>{' '}
                     devido a:
@@ -305,34 +295,32 @@ export function MentorsTab({
                       key={idx}
                       className="text-[11px] text-zinc-300 flex items-start gap-1.5 leading-relaxed"
                     >
-                      <CheckCircle2
-                        className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${styles.highlightText}`}
-                      />
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
                       <span>{reason}</span>
                     </li>
                   ))}
                 </ul>
 
                 {/* Métricas Rápidas da B3 + Botão Aportar */}
-                <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-zinc-900/90 border border-zinc-800/70 mb-3 text-center">
+                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-3 text-center">
                   <div>
-                    <span className="text-[9px] text-zinc-500 block">Preço B3</span>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-[11px] text-zinc-500 block">Preço B3</span>
+                    <span className="text-xs font-bold text-white tabular-nums">
                       {formatBRL(top1.fii.currentPrice)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[9px] text-zinc-500 block">P/VP Atual</span>
-                    <span className="text-xs font-bold text-zinc-200">
+                    <span className="text-[11px] text-zinc-500 block">P/VP Atual</span>
+                    <span className="text-xs font-bold text-zinc-200 tabular-nums">
                       {top1.fii.pvp}{' '}
-                      <span className="text-[10px] text-emerald-400">
+                      <span className="text-[11px] text-emerald-400 font-normal">
                         ({top1.fii.discountPercent > 0 ? `-${top1.fii.discountPercent}%` : 'Justo'})
                       </span>
                     </span>
                   </div>
                   <div>
-                    <span className="text-[9px] text-zinc-500 block">Yield Isento</span>
-                    <span className={`text-xs font-bold ${styles.highlightText}`}>
+                    <span className="text-[11px] text-zinc-500 block">Yield Isento</span>
+                    <span className="text-xs font-bold text-emerald-400 tabular-nums">
                       {top1.fii.monthlyYieldPercent}% a.m.
                     </span>
                   </div>
@@ -340,15 +328,15 @@ export function MentorsTab({
 
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <span className="text-[11px] text-zinc-400">
-                    Com {formatBRL(monthlyTarget, true)}:{' '}
-                    <strong className="text-zinc-200">
+                    Com <span className="tabular-nums">{formatBRL(monthlyTarget, true)}</span>:{' '}
+                    <strong className="text-zinc-200 tabular-nums">
                       +{top1.suggestedSharesForBudget}{' '}
                       {top1.suggestedSharesForBudget === 1 ? 'cota' : 'cotas'}
                     </strong>{' '}
-                    (+{formatBRL(top1.monthlyIncomeFromBudget, true)}/mês)
+                    (+<span className="tabular-nums">{formatBRL(top1.monthlyIncomeFromBudget, true)}</span>/mês)
                   </span>
 
-                  <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06] text-zinc-300 tabular-nums">
                     Teto {formatBRL(top1.fii.ceilingPrice)}
                   </span>
                 </div>
@@ -383,37 +371,37 @@ export function MentorsTab({
                   )}
 
                   {isExpanded && (
-                    <div className="space-y-2 mt-2 pt-2 border-t border-zinc-800/60 animate-in fade-in duration-150">
+                    <div className="space-y-2 mt-2 pt-2 border-t border-white/[0.05] animate-in fade-in duration-150">
                       {otherPicks.map((pick) => (
                         <div
                           key={pick.fii.ticker}
-                          className="p-3 rounded-2xl bg-zinc-950/60 border border-zinc-800/70"
+                          className="p-3.5 rounded-2xl bg-white/[0.025]"
                         >
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-white/[0.05] text-zinc-300">
                                 #{pick.rank}
                               </span>
-                              <span className="text-xs font-extrabold text-white">
+                              <span className="text-xs font-bold text-white">
                                 {pick.fii.ticker}
                               </span>
-                              <span className="text-[10px] text-zinc-400">
+                              <span className="text-[11px] text-zinc-400">
                                 {pick.fii.segment}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-white">
+                              <span className="text-xs font-bold text-white tabular-nums">
                                 {formatBRL(pick.fii.currentPrice)}
                               </span>
-                              <span className="text-[10px] font-semibold text-emerald-400">
+                              <span className="text-[11px] font-medium text-emerald-400 tabular-nums">
                                 P/VP {pick.fii.pvp}
                               </span>
                             </div>
                           </div>
 
                           <p className="text-[11px] text-zinc-300 leading-relaxed">
-                            <strong className={styles.highlightText}>Por que investir:</strong>{' '}
+                            <strong className="text-emerald-400">Por que investir:</strong>{' '}
                             {pick.reasons[0]} {pick.reasons[1]}
                           </p>
                         </div>
@@ -428,7 +416,7 @@ export function MentorsTab({
       </div>
 
       {/* Nota Educativa */}
-      <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 text-[11px] text-zinc-400 flex items-start gap-2">
+      <div className="p-4 rounded-[24px] bg-[#121215] border border-white/[0.06] text-[11px] text-zinc-400 flex items-start gap-2.5">
         <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
         <p className="leading-relaxed">
           As análises acima aplicam automaticamente as regras matemáticas de cada mentor (Preço-Teto de Barsi, Fosso Competitivo de Buffett, Desconto P/VP de Graham e Equilíbrio 60/40 de Baroni) sobre os preços e dividendos sincronizados da B3.

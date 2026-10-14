@@ -72,7 +72,7 @@ export function DividendStaircaseChart({
   return (
     <div className="space-y-4">
       {/* HERO CARD DA ESCADINHA + PAYBACK DA CARTEIRA */}
-      <div className="rounded-[28px] bg-[#121215] border border-white/[0.07] p-6 space-y-4">
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -80,47 +80,47 @@ export function DividendStaircaseChart({
                 Total Recebido desde o 1º Aporte
               </span>
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
                   hasRealB3Dividends
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-sky-500/10 text-sky-400'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-white/[0.04] text-zinc-400 border border-white/[0.06]'
                 }`}
               >
                 {hasRealB3Dividends ? 'Extrato B3 Oficial' : 'Histórico de Cotas'}
               </span>
             </div>
 
-            <div className="text-[30px] font-extrabold text-white tracking-tight">
+            <div className="text-[30px] font-bold text-white tracking-tight tabular-nums">
               {formatBRL(staircase.totalLifetimeDividends)}
             </div>
           </div>
 
           {staircase.growthPercent > 0 && (
             <div className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-right shrink-0">
-              <div className="flex items-center justify-end gap-1 text-[10px] font-bold text-emerald-400">
-                <TrendingUp className="w-3 h-3" />
+              <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-emerald-400 tabular-nums">
+                <TrendingUp className="w-3.5 h-3.5" />
                 +{staircase.growthPercent}%
               </div>
-              <span className="text-[9px] text-zinc-400 block">desde o 1º mês</span>
+              <span className="text-[11px] text-zinc-400 block">desde o 1º mês</span>
             </div>
           )}
         </div>
 
         {/* Barra de Payback Global da Carteira */}
-        <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.05] space-y-2">
+        <div className="p-4 rounded-2xl bg-white/[0.025] space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-400 font-medium flex items-center gap-1.5">
               <Coins className="w-3.5 h-3.5 text-emerald-400" />
               Payback da Carteira (Retorno em Proventos)
             </span>
-            <span className="font-extrabold text-emerald-400">
+            <span className="font-bold text-emerald-400 tabular-nums">
               {staircase.portfolioPaybackPercent}%
             </span>
           </div>
 
-          <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-white/[0.05] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+              className="h-full rounded-full bg-emerald-400 transition-all duration-500"
               style={{
                 width: `${Math.min(100, Math.max(2, staircase.portfolioPaybackPercent))}%`,
               }}
@@ -129,12 +129,12 @@ export function DividendStaircaseChart({
 
           <div className="flex items-center justify-between text-[11px] text-zinc-500">
             <span>
-              Média mensal: <strong className="text-zinc-300">{formatBRL(averageMonthlyDividends)}</strong>
+              Média mensal: <strong className="text-zinc-300 tabular-nums">{formatBRL(averageMonthlyDividends)}</strong>
             </span>
             {bestMonth && (
               <span>
                 Recorde ({bestMonth.shortLabel}):{' '}
-                <strong className="text-emerald-400">{formatBRL(bestMonth.totalDividends)}</strong>
+                <strong className="text-emerald-400 tabular-nums">{formatBRL(bestMonth.totalDividends)}</strong>
               </span>
             )}
           </div>
@@ -142,17 +142,21 @@ export function DividendStaircaseChart({
       </div>
 
       {/* GRÁFICO DE BARRAS INTERATIVO — ESCADINHA MÊS A MÊS */}
-      <div className="rounded-[26px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-emerald-400" />
-              Escadinha de Dividendos ({staircase.months.length}{' '}
-              {staircase.months.length === 1 ? 'mês' : 'meses'})
-            </h3>
-            <p className="text-[11px] text-zinc-400">
-              Toque em qualquer barra para inspecionar os ativos pagadores daquele mês
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                Escadinha de Dividendos ({staircase.months.length}{' '}
+                {staircase.months.length === 1 ? 'mês' : 'meses'})
+              </h3>
+              <p className="text-[11px] text-zinc-400">
+                Toque em qualquer barra para inspecionar os ativos pagadores
+              </p>
+            </div>
           </div>
         </div>
 
@@ -177,9 +181,9 @@ export function DividendStaircaseChart({
                 >
                   {/* Valor no topo da barra */}
                   <span
-                    className={`text-[9px] font-mono mb-1.5 transition-all ${
+                    className={`text-[11px] font-mono mb-1.5 transition-all tabular-nums ${
                       isSelected
-                        ? 'text-emerald-400 font-extrabold scale-105'
+                        ? 'text-emerald-400 font-bold scale-105'
                         : 'text-zinc-500 group-hover:text-zinc-300'
                     }`}
                   >
@@ -195,10 +199,10 @@ export function DividendStaircaseChart({
                     <div
                       className={`w-full max-w-[34px] rounded-t-xl transition-all duration-300 relative ${
                         isSelected
-                          ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-lg shadow-emerald-500/25 ring-1 ring-emerald-300/50'
+                          ? 'bg-emerald-400 shadow-md shadow-emerald-500/20'
                           : m.isOfficialB3
-                          ? 'bg-emerald-500/45 hover:bg-emerald-500/70'
-                          : 'bg-zinc-800 hover:bg-zinc-700'
+                          ? 'bg-emerald-500/40 hover:bg-emerald-500/60'
+                          : 'bg-white/[0.08] hover:bg-white/[0.15]'
                       }`}
                       style={{ height: `${heightPct}%` }}
                     />
@@ -206,8 +210,8 @@ export function DividendStaircaseChart({
 
                   {/* Rótulo do Mês */}
                   <span
-                    className={`text-[10px] mt-2 font-semibold whitespace-nowrap ${
-                      isSelected ? 'text-white font-bold' : 'text-zinc-500'
+                    className={`text-[11px] mt-2 font-semibold whitespace-nowrap ${
+                      isSelected ? 'text-white' : 'text-zinc-500'
                     }`}
                   >
                     {m.shortLabel}
@@ -226,10 +230,10 @@ export function DividendStaircaseChart({
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white">{activeMonth.fullLabel}</span>
                   <span
-                    className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${
+                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                       activeMonth.isOfficialB3
-                        ? 'bg-emerald-500/15 text-emerald-400'
-                        : 'bg-white/[0.06] text-zinc-400'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-white/[0.04] text-zinc-400 border border-white/[0.06]'
                     }`}
                   >
                     {activeMonth.isOfficialB3
@@ -238,13 +242,13 @@ export function DividendStaircaseChart({
                   </span>
                 </div>
                 <span className="text-[11px] text-zinc-500">
-                  Acumulado até este mês: <strong className="text-zinc-300">{formatBRL(cumulativeUntilActive)}</strong>
+                  Acumulado até este mês: <strong className="text-zinc-300 tabular-nums">{formatBRL(cumulativeUntilActive)}</strong>
                 </span>
               </div>
 
               <div className="text-right">
-                <span className="text-[10px] text-zinc-500 block">Total no mês</span>
-                <span className="text-sm font-extrabold text-emerald-400">
+                <span className="text-[11px] text-zinc-500 block mb-0.5">Total no mês</span>
+                <span className="text-sm font-bold text-emerald-400 tabular-nums">
                   +{formatBRL(activeMonth.totalDividends)}
                 </span>
               </div>
@@ -255,10 +259,10 @@ export function DividendStaircaseChart({
                 {activeMonth.breakdown.map((item) => (
                   <div
                     key={item.ticker}
-                    className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-between text-xs"
+                    className="px-3 py-2 rounded-xl bg-white/[0.025] flex items-center justify-between text-xs"
                   >
                     <span className="font-bold text-zinc-200">{item.ticker}</span>
-                    <span className="font-semibold text-emerald-400">
+                    <span className="font-semibold text-emerald-400 tabular-nums">
                       +{formatBRL(item.amount)}
                     </span>
                   </div>
@@ -271,7 +275,7 @@ export function DividendStaircaseChart({
 
       {/* DICA DE IMPORTAÇÃO DE MOVIMENTAÇÃO B3 */}
       {!hasRealB3Dividends && (
-        <div className="rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/20 p-3.5 flex items-start gap-2.5 text-xs text-zinc-300">
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] p-3.5 flex items-start gap-2.5 text-xs text-zinc-300">
           <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
             <strong className="text-white">Quer ver os centavos exatos pagos na conta?</strong>{' '}
@@ -281,7 +285,7 @@ export function DividendStaircaseChart({
       )}
 
       {hasRealB3Dividends && (
-        <div className="rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/20 p-3 flex items-center gap-2 text-xs text-emerald-300">
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] p-3 flex items-center gap-2 text-xs text-zinc-300">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>
             Escadinha sincronizada com os proventos reais importados da sua planilha de <strong>Movimentação B3</strong>.

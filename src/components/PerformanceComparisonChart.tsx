@@ -361,12 +361,12 @@ export function PerformanceComparisonChart({
         );
 
   return (
-    <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg">
+    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 shadow-lg">
       {/* Cabeçalho: Do 1º Dia de Aporte até Hoje */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 text-zinc-300">
+            <TrendingUp className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">
@@ -379,17 +379,17 @@ export function PerformanceComparisonChart({
           </div>
         </div>
 
-        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-zinc-950 border border-zinc-800 text-[10px] font-bold text-emerald-400 shrink-0">
-          <Calendar className="w-3 h-3" />
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px] font-semibold text-zinc-300 shrink-0">
+          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
           {totalDays} {totalDays === 1 ? 'dia' : 'dias'}
         </div>
       </div>
 
       {/* Seletor do Valor de Referência Inicial */}
-      <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/70 mb-3">
+      <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-white/[0.025] mb-3">
         <span className="text-[11px] text-zinc-400">
           Valor de Referência:{' '}
-          <strong className="text-white">{formatBRL(referenceAmount)}</strong>
+          <strong className="text-white tabular-nums">{formatBRL(referenceAmount)}</strong>
         </span>
 
         <div className="flex items-center gap-1">
@@ -402,9 +402,9 @@ export function PerformanceComparisonChart({
               key={opt.id}
               type="button"
               onClick={() => setBaseMode(opt.id)}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 baseMode === opt.id
-                  ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-white/[0.08] text-white'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -415,27 +415,27 @@ export function PerformanceComparisonChart({
       </div>
 
       {/* Legenda de Cores das 4 Linhas */}
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 mb-2.5 px-1 text-[10px]">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-2.5 px-1 text-[11px]">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-1 rounded-full bg-emerald-400 inline-block" />
-          <span className="font-bold text-white">Sua Carteira FII</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+          <span className="font-semibold text-white">Sua Carteira FII</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-1 rounded-full bg-sky-400 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block" />
           <span className="text-zinc-300">CDI Líquido</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-1 rounded-full bg-amber-400 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
           <span className="text-zinc-300">Poupança</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-1 rounded-full bg-purple-400 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" />
           <span className="text-zinc-300">Inflação (IPCA)</span>
         </div>
       </div>
 
       {/* Área do Gráfico Diário (1º Dia -> Dias em Sequência -> Hoje) */}
-      <div className="p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
+      <div className="p-3.5 rounded-2xl bg-white/[0.025]">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-56 overflow-visible select-none"
@@ -638,89 +638,89 @@ export function PerformanceComparisonChart({
           })}
         </svg>
 
-        <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 pt-2 border-t border-zinc-800/70">
+        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1 pt-2.5 border-t border-white/[0.05]">
           <span>
             Data: <strong className="text-zinc-200">{activePoint.fullLabel}</strong>
           </span>
           <span>
             Partida ({startDateFormatted.slice(0, 5)}):{' '}
-            <strong className="text-zinc-300">{formatBRL(referenceAmount)}</strong>
+            <strong className="text-zinc-300 tabular-nums">{formatBRL(referenceAmount)}</strong>
           </span>
         </div>
       </div>
 
       {/* Placar Detalhado das 4 Linhas no Dia Selecionado */}
       <div className="grid grid-cols-2 gap-2 mt-3">
-        <div className="p-2.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between">
+        <div className="p-3 rounded-2xl bg-white/[0.025] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
               Sua Carteira FII
             </div>
-            <div className="text-xs font-extrabold text-white mt-0.5">
+            <div className="text-xs font-bold text-white mt-1 tabular-nums">
               {formatBRL(activePoint.fiiValue)}
             </div>
-            <div className="text-[10px] text-emerald-400/90 font-medium">
+            <div className="text-[11px] text-emerald-400/90 font-medium tabular-nums">
               {activePoint.fiiGainBRL >= 0 ? '+' : ''}
-              {formatBRL(activePoint.fiiGainBRL)} no período
+              {formatBRL(activePoint.fiiGainBRL)}
             </div>
           </div>
-          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-md font-mono">
+          <span className="text-[11px] font-semibold text-emerald-400 tabular-nums">
             {activePoint.fiiGainPercent >= 0 ? '+' : ''}
             {activePoint.fiiGainPercent}%
           </span>
         </div>
 
-        <div className="p-2.5 rounded-2xl bg-sky-950/20 border border-sky-500/25 flex items-center justify-between">
+        <div className="p-3 rounded-2xl bg-white/[0.025] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-sky-400">
               <span className="w-2 h-2 rounded-full bg-sky-400" />
               CDI Líquido
             </div>
-            <div className="text-xs font-bold text-zinc-200 mt-0.5">
+            <div className="text-xs font-bold text-zinc-200 mt-1 tabular-nums">
               {formatBRL(activePoint.cdiValue)}
             </div>
-            <div className="text-[10px] text-sky-400/80">
+            <div className="text-[11px] text-sky-400/80 tabular-nums">
               +{formatBRL(activePoint.cdiGainBRL)}
             </div>
           </div>
-          <span className="text-[10px] font-semibold text-sky-400 font-mono">
+          <span className="text-[11px] font-semibold text-sky-400 tabular-nums">
             +{activePoint.cdiGainPercent}%
           </span>
         </div>
 
-        <div className="p-2.5 rounded-2xl bg-amber-950/15 border border-amber-500/20 flex items-center justify-between">
+        <div className="p-3 rounded-2xl bg-white/[0.025] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-400">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
               Poupança
             </div>
-            <div className="text-xs font-bold text-zinc-300 mt-0.5">
+            <div className="text-xs font-bold text-zinc-300 mt-1 tabular-nums">
               {formatBRL(activePoint.poupancaValue)}
             </div>
-            <div className="text-[10px] text-amber-400/80">
+            <div className="text-[11px] text-amber-400/80 tabular-nums">
               +{formatBRL(activePoint.poupancaGainBRL)}
             </div>
           </div>
-          <span className="text-[10px] font-semibold text-amber-400 font-mono">
+          <span className="text-[11px] font-semibold text-amber-400 tabular-nums">
             +{activePoint.poupancaGainPercent}%
           </span>
         </div>
 
-        <div className="p-2.5 rounded-2xl bg-purple-950/15 border border-purple-500/20 flex items-center justify-between">
+        <div className="p-3 rounded-2xl bg-white/[0.025] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-purple-400">
               <span className="w-2 h-2 rounded-full bg-purple-400" />
               Inflação (IPCA)
             </div>
-            <div className="text-xs font-bold text-zinc-300 mt-0.5">
+            <div className="text-xs font-bold text-zinc-300 mt-1 tabular-nums">
               {formatBRL(activePoint.ipcaValue)}
             </div>
-            <div className="text-[10px] text-purple-400/80">
+            <div className="text-[11px] text-purple-400/80 tabular-nums">
               +{formatBRL(activePoint.ipcaGainBRL)}
             </div>
           </div>
-          <span className="text-[10px] font-semibold text-purple-400 font-mono">
+          <span className="text-[11px] font-semibold text-purple-400 tabular-nums">
             +{activePoint.ipcaGainPercent}%
           </span>
         </div>

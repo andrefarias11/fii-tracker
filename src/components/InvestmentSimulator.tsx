@@ -75,7 +75,7 @@ export function InvestmentSimulator({
   };
 
   const formatDuration = (months: number): string => {
-    if (months === 0) return 'Conquistado! 🎉';
+    if (months === 0) return 'Conquistado!';
     if (months < 12) return `${months} ${months === 1 ? 'mês' : 'meses'}`;
     const y = Math.floor(months / 12);
     const m = months % 12;
@@ -90,11 +90,11 @@ export function InvestmentSimulator({
   }));
 
   return (
-    <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-5 shadow-lg space-y-4">
+    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-            <Calculator className="w-4 h-4 text-violet-400" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+            <Calculator className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white">Simulador de Futuro</h3>
@@ -106,21 +106,21 @@ export function InvestmentSimulator({
           <button
             type="button"
             onClick={() => setStartFromCurrentEquity(!startFromCurrentEquity)}
-            className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 border transition-all ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 border transition-all ${
               startFromCurrentEquity
-                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-white/[0.02] border-white/[0.06] text-zinc-400'
             }`}
             title="Alternar entre iniciar com seu patrimônio atual ou do zero"
           >
-            <Wallet className="w-3 h-3" />
-            {startFromCurrentEquity ? 'Com Minha Carteira' : 'Partindo do R$ 0'}
+            <Wallet className="w-3.5 h-3.5" />
+            {startFromCurrentEquity ? 'Com Carteira' : 'Do R$ 0'}
           </button>
         )}
       </div>
 
       {/* Controles simples */}
-      <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-zinc-950/60 border border-zinc-800/60">
+      <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/[0.025]">
         <div>
           <label className="text-[11px] text-zinc-400 block mb-1">Aporte Mensal (R$)</label>
           <input
@@ -129,7 +129,7 @@ export function InvestmentSimulator({
             step="50"
             value={monthlyContribution}
             onChange={(e) => setMonthlyContribution(Math.max(10, Number(e.target.value)))}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-violet-500"
+            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
           />
         </div>
         <div>
@@ -137,7 +137,7 @@ export function InvestmentSimulator({
           <select
             value={monthlyYieldPercent}
             onChange={(e) => setMonthlyYieldPercent(Number(e.target.value))}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-violet-500"
+            className="w-full bg-[#16161a] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
           >
             {averageYieldPercent >= 0.6 &&
               averageYieldPercent <= 1.3 &&
@@ -154,18 +154,18 @@ export function InvestmentSimulator({
       </div>
 
       {/* Tempo estimado até os próximos Marcos */}
-      <div className="p-3 rounded-2xl bg-zinc-950/50 border border-zinc-800/60">
-        <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 mb-2">
-          <Flag className="w-3 h-3 text-violet-400" />
-          Tempo até seus marcos (mantendo {formatBRL(monthlyContribution)}/mês)
+      <div className="p-4 rounded-2xl bg-white/[0.025]">
+        <div className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1.5 mb-2.5">
+          <Flag className="w-3.5 h-3.5 text-zinc-400" />
+          <span>Tempo até seus marcos (mantendo <span className="tabular-nums font-medium text-zinc-300">{formatBRL(monthlyContribution)}/mês</span>)</span>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           {milestones.map((m) => (
-            <div key={m.target} className="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800/80">
-              <div className="text-[10px] text-zinc-400 font-medium">
+            <div key={m.target} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <div className="text-[11px] text-zinc-400 font-medium tabular-nums">
                 R$ {(m.target / 1000).toFixed(0)} mil
               </div>
-              <div className="text-xs font-extrabold text-violet-300 mt-0.5">
+              <div className="text-xs font-bold text-zinc-200 mt-0.5 tabular-nums">
                 {formatDuration(m.months)}
               </div>
             </div>
@@ -178,27 +178,27 @@ export function InvestmentSimulator({
         {scenarios.map((sc) => (
           <div
             key={sc.years}
-            className="p-3.5 rounded-2xl bg-zinc-950/40 border border-zinc-800/60 flex items-center justify-between"
+            className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between"
           >
             <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-xs font-bold text-violet-400 px-2 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold text-zinc-300 px-2 py-0.5 rounded-md bg-white/[0.05]">
                   {sc.years} {sc.years === 1 ? 'ano' : 'anos'}
                 </span>
-                <span className="text-xs font-bold text-white">
+                <span className="text-xs font-bold text-white tabular-nums">
                   {formatBRL(sc.accumulated)}
                 </span>
               </div>
               <div className="text-[11px] text-zinc-400">
-                Investido: {formatBRL(sc.totalInvestedFromPocket)} • Juros:{' '}
-                <strong className="text-emerald-400 font-medium">+{formatBRL(sc.dividendProfit)}</strong>
+                Investido: <span className="tabular-nums">{formatBRL(sc.totalInvestedFromPocket)}</span> • Juros:{' '}
+                <strong className="text-emerald-400 font-semibold tabular-nums">+{formatBRL(sc.dividendProfit)}</strong>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-[10px] text-zinc-500 block">Renda passiva/mês</span>
-              <span className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
-                <TrendingUp className="w-3 h-3" />
+              <span className="text-[11px] text-zinc-500 block mb-0.5">Renda/mês</span>
+              <span className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1 tabular-nums">
+                <TrendingUp className="w-3.5 h-3.5" />
                 {formatBRL(sc.estimatedMonthlyIncome)}
               </span>
             </div>

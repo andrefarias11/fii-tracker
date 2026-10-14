@@ -113,7 +113,7 @@ export function TransactionHistory({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-8 text-center">
+      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center">
         <p className="text-sm text-zinc-400">Nenhuma movimentação registrada ainda.</p>
       </div>
     );
@@ -127,10 +127,10 @@ export function TransactionHistory({
           <button
             type="button"
             onClick={() => setSelectedTicker('TODOS')}
-            className={`text-xs px-3 py-1 rounded-xl whitespace-nowrap font-medium transition-all ${
+            className={`text-xs px-3.5 py-1 rounded-xl whitespace-nowrap font-medium transition-all ${
               selectedTicker === 'TODOS'
                 ? 'bg-emerald-500 text-zinc-950 font-bold'
-                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
             }`}
           >
             Todos ({transactions.length})
@@ -140,10 +140,10 @@ export function TransactionHistory({
               key={t}
               type="button"
               onClick={() => setSelectedTicker(t)}
-              className={`text-xs px-3 py-1 rounded-xl whitespace-nowrap font-mono font-medium transition-all ${
+              className={`text-xs px-3.5 py-1 rounded-xl whitespace-nowrap font-medium transition-all ${
                 selectedTicker === t
                   ? 'bg-emerald-500 text-zinc-950 font-bold'
-                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                  : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
               }`}
             >
               {t}
@@ -163,25 +163,25 @@ export function TransactionHistory({
           return (
             <div key={group.yearMonth} className="space-y-2">
               {/* Cabeçalho do Mês com Subtotal */}
-              <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-zinc-900/60 border border-zinc-800/70">
+              <div className="flex items-center justify-between px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-zinc-200">{group.label}</span>
                   {hitMonthlyGoal && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <CheckCircle2 className="w-3 h-3" />
                       Meta batida
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 text-[11px]">
+                <div className="flex items-center gap-2 text-[11px] tabular-nums">
                   {group.totalDividends > 0 && (
-                    <span className="font-semibold text-amber-300">
+                    <span className="font-semibold text-emerald-400">
                       Proventos: +{formatBRL(group.totalDividends)}
                     </span>
                   )}
                   {group.totalBought > 0 && (
-                    <span className="font-semibold text-emerald-400">
+                    <span className="font-semibold text-zinc-300">
                       +{formatBRL(group.totalBought)}
                     </span>
                   )}
@@ -203,26 +203,26 @@ export function TransactionHistory({
                   return (
                     <div
                       key={tx.id}
-                      className="rounded-2xl bg-zinc-900 border border-zinc-800/80 p-3.5 flex items-center justify-between gap-2"
+                      className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-3.5 flex items-center justify-between gap-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                           <span className="text-sm font-bold text-white">{tx.ticker}</span>
                           <span
-                            className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
                               isDividend
-                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                 : isSell
-                                ? 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
-                                : 'bg-emerald-500/10 text-emerald-400'
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : 'bg-white/[0.04] text-zinc-300 border border-white/[0.06]'
                             }`}
                           >
                             {isDividend ? (
-                              <Coins className="w-2.5 h-2.5" />
+                              <Coins className="w-3 h-3" />
                             ) : isSell ? (
-                              <ArrowUpRight className="w-2.5 h-2.5" />
+                              <ArrowUpRight className="w-3 h-3" />
                             ) : (
-                              <ArrowDownRight className="w-2.5 h-2.5" />
+                              <ArrowDownRight className="w-3 h-3" />
                             )}
                             {isDividend
                               ? 'Provento B3'
@@ -231,14 +231,14 @@ export function TransactionHistory({
                                 }`}
                           </span>
                           {!isDividend && (
-                            <span className="text-[11px] text-zinc-400">a {formatBRL(tx.price)}</span>
+                            <span className="text-[11px] text-zinc-400 tabular-nums">a {formatBRL(tx.price)}</span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-2.5 text-[11px] text-zinc-400">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-zinc-500" />
-                            {formatDate(tx.date)}
+                            <span className="tabular-nums">{formatDate(tx.date)}</span>
                           </span>
                           <span className="flex items-center gap-1">
                             <Building2 className="w-3 h-3 text-zinc-500" />
@@ -255,7 +255,7 @@ export function TransactionHistory({
                       <div className="flex items-center gap-1.5 shrink-0">
                         {!isConfirming && (
                           <span
-                            className={`text-sm font-bold mr-1 ${
+                            className={`text-sm font-bold mr-1 tabular-nums ${
                               isDividend
                                 ? 'text-emerald-400'
                                 : isSell
@@ -283,7 +283,7 @@ export function TransactionHistory({
                             <button
                               type="button"
                               onClick={() => setConfirmingDeleteId(null)}
-                              className="p-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white"
+                              className="p-1.5 rounded-xl bg-white/[0.04] text-zinc-400 hover:text-white"
                               title="Cancelar"
                             >
                               <X className="w-3.5 h-3.5" />
@@ -295,7 +295,7 @@ export function TransactionHistory({
                               <button
                                 type="button"
                                 onClick={() => onEditTransaction(tx)}
-                                className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-95 transition-all"
+                                className="p-1.5 rounded-lg text-zinc-500 hover:text-emerald-400 hover:bg-white/[0.04] active:scale-95 transition-all"
                                 title="Editar operação"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -304,7 +304,7 @@ export function TransactionHistory({
                             <button
                               type="button"
                               onClick={() => setConfirmingDeleteId(tx.id)}
-                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all"
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/[0.04] active:scale-95 transition-all"
                               title="Excluir operação"
                             >
                               <Trash2 className="w-4 h-4" />

@@ -5,6 +5,7 @@ import {
   X,
   FileSpreadsheet,
   Upload,
+  Check,
   CheckCircle2,
   AlertCircle,
   HelpCircle,
@@ -122,13 +123,13 @@ export function B3ImportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-lg bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+              <FileSpreadsheet className="w-4 h-4 text-zinc-300" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Importar Extrato da B3</h2>
@@ -138,7 +139,7 @@ export function B3ImportModal({
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800"
+            className="p-1.5 rounded-full text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -149,7 +150,7 @@ export function B3ImportModal({
           <button
             type="button"
             onClick={() => setShowTutorial(!showTutorial)}
-            className="w-full p-3 rounded-2xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-between text-left text-xs text-zinc-300 hover:border-zinc-700 transition-all"
+            className="w-full p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between text-left text-xs text-zinc-300 hover:bg-white/[0.05] transition-all"
           >
             <span className="flex items-center gap-2">
               <HelpCircle className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -161,7 +162,7 @@ export function B3ImportModal({
           </button>
 
           {showTutorial && (
-            <div className="mt-2.5 p-3.5 rounded-2xl bg-zinc-950/90 border border-zinc-800/90 text-xs text-zinc-300 space-y-2 leading-relaxed animate-in fade-in">
+            <div className="mt-2.5 p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.05] text-xs text-zinc-300 space-y-2 leading-relaxed animate-in fade-in">
               <p>
                 1. Acesse o portal oficial da bolsa:{' '}
                 <a
@@ -190,8 +191,8 @@ export function B3ImportModal({
         {/* Área de Upload / Dropzone */}
         {!parseResult?.success ? (
           <div className="mb-4">
-            <label className="border-2 border-dashed border-zinc-700 hover:border-emerald-500/80 rounded-3xl p-7 flex flex-col items-center justify-center cursor-pointer bg-zinc-950/40 hover:bg-zinc-950/70 transition-all group">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-800 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 flex items-center justify-center mb-3 transition-all text-zinc-400">
+            <label className="border-2 border-dashed border-white/[0.08] hover:border-emerald-500/60 rounded-3xl p-7 flex flex-col items-center justify-center cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.06] group-hover:border-emerald-500/30 group-hover:text-emerald-400 flex items-center justify-center mb-3 transition-all text-zinc-400">
                 <Upload className="w-6 h-6" />
               </div>
               <span className="text-sm font-semibold text-white mb-1">
@@ -228,7 +229,7 @@ export function B3ImportModal({
         ) : (
           /* Prévia das Transações Encontradas */
           <div className="space-y-4 mb-4">
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-2">
+            <div className="p-4 rounded-2xl bg-white/[0.025] border border-white/[0.06] space-y-2">
               <div className="flex items-start justify-between">
                 <div className="space-y-0.5">
                   <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
@@ -338,7 +339,7 @@ export function B3ImportModal({
             )}
 
             {/* Opções de Importação */}
-            <div className="space-y-2 p-3.5 rounded-2xl bg-zinc-950/60 border border-zinc-800 text-xs">
+            <div className="space-y-2 p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.06] text-xs">
               <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
                 <input
                   type="checkbox"
@@ -348,7 +349,7 @@ export function B3ImportModal({
                     setFilterOnlyFIIs(checked);
                     if (file) handleFileChange(file, checked);
                   }}
-                  className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                  className="rounded border-white/[0.2] bg-white/[0.05] text-emerald-500 focus:ring-emerald-500"
                 />
                 <span>Ignorar Ações (importar apenas FIIs)</span>
               </label>
@@ -358,7 +359,7 @@ export function B3ImportModal({
                   type="checkbox"
                   checked={replaceAll}
                   onChange={(e) => setReplaceAll(e.target.checked)}
-                  className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500"
+                  className="rounded border-white/[0.2] bg-white/[0.05] text-emerald-500 focus:ring-emerald-500"
                 />
                 <span>Substituir carteira inteira (apaga todos os dados anteriores)</span>
               </label>
@@ -379,7 +380,7 @@ export function B3ImportModal({
                       return (
                         <div
                           key={`${t.ticker}-${idx}`}
-                          className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-between text-xs"
+                          className="p-2.5 rounded-xl bg-white/[0.025] border border-white/[0.05] flex items-center justify-between text-xs"
                         >
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-white">{t.ticker}</span>
@@ -399,7 +400,7 @@ export function B3ImportModal({
                                 : 'Compra'}
                             </span>
                             {!isDividend && (
-                              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
+                              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
                                 {alreadyInPortfolio
                                   ? isStock
                                     ? '+ Somar ações'
@@ -417,14 +418,14 @@ export function B3ImportModal({
                           </div>
                           <div className="text-right shrink-0">
                             <span
-                              className={`font-semibold block ${
+                              className={`font-semibold block tabular-nums ${
                                 isDividend ? 'text-emerald-400' : 'text-zinc-200'
                               }`}
                             >
                               {isDividend ? '+' : ''}
                               {formatBRL(t.total)}
                             </span>
-                            <span className="text-[10px] text-zinc-500">{t.date}</span>
+                            <span className="text-[11px] text-zinc-500">{t.date}</span>
                           </div>
                         </div>
                       );
@@ -438,8 +439,8 @@ export function B3ImportModal({
                 </div>
 
                 {dedupInfo.skippedTransactions.length > 0 && !replaceAll && (
-                  <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-300 block mb-1">
+                  <div className="p-3 rounded-2xl bg-white/[0.025] border border-white/[0.05]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-300 block mb-1">
                       Ignorados por já estarem no sistema ({dedupInfo.skippedTransactions.length}):
                     </span>
                     <div className="text-[11px] text-zinc-400 space-y-0.5 max-h-24 overflow-y-auto">
@@ -448,7 +449,7 @@ export function B3ImportModal({
                           <span>
                             ✓ <strong className="text-zinc-300">{s.ticker}</strong> ({s.shares} cotas a {formatBRL(s.price)})
                           </span>
-                          <span className="text-[10px] text-zinc-500">{s.date} (já importado)</span>
+                          <span className="text-[11px] text-zinc-500">{s.date} (já importado)</span>
                         </div>
                       ))}
                     </div>
@@ -456,7 +457,7 @@ export function B3ImportModal({
                 )}
               </div>
             ) : (
-              <div className="p-4 rounded-2xl bg-zinc-950/70 border border-zinc-800 text-center text-xs text-zinc-400">
+              <div className="p-4 rounded-2xl bg-white/[0.025] border border-white/[0.06] text-center text-xs text-zinc-400">
                 Todos os {parseResult.transactions.length} lançamentos desta planilha já estão cadastrados na sua carteira!
               </div>
             )}
@@ -466,9 +467,9 @@ export function B3ImportModal({
               type="button"
               onClick={handleConfirmImport}
               disabled={isSaving || transactionsToImport.length === 0}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-95 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40"
+              className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40"
             >
-              <Sparkles className="w-4 h-4" />
+              <Check className="w-4 h-4 stroke-[2.5]" />
               {isSaving
                 ? 'Salvando...'
                 : transactionsToImport.length === 0

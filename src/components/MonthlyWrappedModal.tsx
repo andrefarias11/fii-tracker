@@ -125,16 +125,14 @@ export function MonthlyWrappedModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0d0d10] border border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
+        className="w-full max-w-lg bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho do Modal */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-500/20">
-              <div className="w-full h-full bg-[#0d0d10] rounded-[14px] flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-emerald-400" />
-              </div>
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+              <Sparkles className="w-4 h-4 text-zinc-300" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
@@ -159,7 +157,7 @@ export function MonthlyWrappedModal({
               onClose();
             }}
             aria-label="Fechar"
-            className="p-2 rounded-full text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+            className="p-1.5 rounded-full text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -188,23 +186,22 @@ export function MonthlyWrappedModal({
         )}
 
         {/* CARD PRINCIPAL EM DESTAQUE: FRASE RESUMO */}
-        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-emerald-950/60 via-[#141418] to-[#121215] border border-emerald-500/30 p-5 mb-4 shadow-xl">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 space-y-2">
+        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] p-4.5 mb-4">
+          <div className="space-y-2">
             <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
               {wrapped.fullLabel}
             </span>
             <p className="text-sm font-medium text-zinc-200 leading-relaxed">
               Você recebeu{' '}
-              <strong className="text-emerald-300 font-extrabold text-base">
+              <strong className="text-emerald-400 font-extrabold text-base tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </strong>{' '}
               em proventos, aportou em{' '}
-              <strong className="text-white font-extrabold text-base">
+              <strong className="text-white font-extrabold text-base tabular-nums">
                 {wrapped.totalSharesBought} cotas
               </strong>{' '}
               e sua bola de neve avançou{' '}
-              <strong className="text-cyan-300 font-extrabold text-base">
+              <strong className="text-emerald-400 font-extrabold text-base tabular-nums">
                 +{wrapped.snowballGrowthPercent}%
               </strong>
               !
@@ -215,57 +212,57 @@ export function MonthlyWrappedModal({
         {/* GRADE DE ESTATÍSTICAS NUBANK / APPLE */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Card 1: Proventos */}
-          <div className="rounded-[22px] bg-[#141418] border border-white/[0.06] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
-                <Coins className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+                <Coins className="w-4 h-4 text-zinc-300" />
               </div>
               {wrapped.dividendGrowthPercent > 0 && (
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                  <TrendingUp className="w-2.5 h-2.5" />
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 tabular-nums">
+                  <TrendingUp className="w-3 h-3" />
                   +{wrapped.dividendGrowthPercent}%
                 </span>
               )}
             </div>
             <div>
-              <span className="text-[10px] text-zinc-400 font-semibold uppercase">
+              <span className="text-[11px] text-zinc-400 font-semibold uppercase">
                 Proventos no Mês
               </span>
-              <div className="text-lg font-extrabold text-white tracking-tight">
+              <div className="text-lg font-extrabold text-white tracking-tight tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </div>
               {wrapped.topDividendAsset && (
-                <p className="text-[10px] text-zinc-400 mt-1 truncate">
+                <p className="text-[11px] text-zinc-400 mt-1 truncate">
                   Maior pagador:{' '}
-                  <span className="font-bold text-emerald-300">
+                  <span className="font-bold text-emerald-400">
                     {wrapped.topDividendAsset.ticker}
                   </span>{' '}
-                  ({formatBRL(wrapped.topDividendAsset.amount)})
+                  <span className="tabular-nums">({formatBRL(wrapped.topDividendAsset.amount)})</span>
                 </p>
               )}
             </div>
           </div>
 
           {/* Card 2: Aportes */}
-          <div className="rounded-[22px] bg-[#141418] border border-white/[0.06] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
-                <Layers className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+                <Layers className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[10px] font-bold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
                 {wrapped.distinctAssetsBoughtCount}{' '}
                 {wrapped.distinctAssetsBoughtCount === 1 ? 'ativo' : 'ativos'}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-zinc-400 font-semibold uppercase">
+              <span className="text-[11px] text-zinc-400 font-semibold uppercase">
                 Aportes no Mês
               </span>
-              <div className="text-lg font-extrabold text-white tracking-tight">
+              <div className="text-lg font-extrabold text-white tracking-tight tabular-nums">
                 {formatBRL(wrapped.totalInvested)}
               </div>
-              <p className="text-[10px] text-zinc-400 mt-1">
-                +<strong className="text-white">{wrapped.totalSharesBought}</strong> cotas
+              <p className="text-[11px] text-zinc-400 mt-1">
+                +<strong className="text-white tabular-nums">{wrapped.totalSharesBought}</strong> cotas
                 adquiridas
               </p>
             </div>
@@ -274,35 +271,35 @@ export function MonthlyWrappedModal({
 
         {/* CARD BOLA DE NEVE & NÚMERO MÁGICO */}
         {wrapped.magicNumberLeader && (
-          <div className="rounded-[24px] bg-[#141418] border border-white/[0.06] p-4.5 mb-4 space-y-3">
+          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 mb-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
-                  <Snowflake className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+                  <Snowflake className="w-4 h-4 text-zinc-300" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">Efeito Bola de Neve</h4>
-                  <p className="text-[10px] text-zinc-400">
+                  <p className="text-[11px] text-zinc-400">
                     Líder rumo ao Número Mágico:{' '}
-                    <span className="text-cyan-300 font-bold">
+                    <span className="text-emerald-400 font-bold">
                       {wrapped.magicNumberLeader.ticker}
                     </span>
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-extrabold text-cyan-400">
+              <span className="text-xs font-extrabold text-emerald-400 tabular-nums">
                 {wrapped.magicNumberLeader.progressPercent}%
               </span>
             </div>
 
             <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-500"
+                className="h-full rounded-full bg-emerald-400 transition-all duration-500"
                 style={{ width: `${wrapped.magicNumberLeader.progressPercent}%` }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="flex items-center justify-between text-[11px] text-zinc-400 tabular-nums">
               <span>
                 {wrapped.magicNumberLeader.currentShares} de{' '}
                 {wrapped.magicNumberLeader.magicNumber} cotas
@@ -316,20 +313,20 @@ export function MonthlyWrappedModal({
 
         {/* EQUIVALÊNCIAS DA VIDA REAL */}
         {wrapped.totalDividends > 0 && (
-          <div className="rounded-[22px] bg-white/[0.02] border border-white/[0.05] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2 rounded-xl bg-white/[0.02]">
-              <Coffee className="w-4 h-4 text-amber-400 mx-auto mb-1 opacity-80" />
-              <div className="text-xs font-bold text-white">
+          <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-white/[0.02]">
+              <Coffee className="w-4 h-4 text-zinc-400 mx-auto mb-1" />
+              <div className="text-xs font-bold text-white tabular-nums">
                 ~{wrapped.coffeeCupsPaid} cafés
               </div>
-              <div className="text-[9px] text-zinc-500">pagos pelos FIIs</div>
+              <div className="text-[11px] text-zinc-500">pagos pelos FIIs</div>
             </div>
-            <div className="p-2 rounded-xl bg-white/[0.02]">
-              <Zap className="w-4 h-4 text-emerald-400 mx-auto mb-1 opacity-80" />
-              <div className="text-xs font-bold text-white">
+            <div className="p-2.5 rounded-xl bg-white/[0.02]">
+              <Zap className="w-4 h-4 text-zinc-400 mx-auto mb-1" />
+              <div className="text-xs font-bold text-white tabular-nums">
                 {wrapped.energyBillPaidPercent}% da conta
               </div>
-              <div className="text-[9px] text-zinc-500">de luz bancada</div>
+              <div className="text-[11px] text-zinc-500">de luz bancada</div>
             </div>
           </div>
         )}
@@ -339,7 +336,7 @@ export function MonthlyWrappedModal({
           <p className="text-xs italic text-zinc-400 mb-1">
             &ldquo;{wrapped.quote.text}&rdquo;
           </p>
-          <span className="text-[10px] font-bold text-zinc-500">
+          <span className="text-[11px] font-bold text-zinc-500">
             — {wrapped.quote.author}
           </span>
         </div>
@@ -348,7 +345,7 @@ export function MonthlyWrappedModal({
         <div className="space-y-2">
           <button
             onClick={handleShare}
-            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 text-zinc-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
             {copiedSuccess ? (
               <>

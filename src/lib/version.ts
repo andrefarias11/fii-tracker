@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.9.0';
+export const APP_VERSION = '3.0.0';
 export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,17 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '3.0.0',
+    date: '14/10/2026',
+    highlights: [
+      'Design System 3.0 (Apple Wallet, Linear e Nubank Ultravioleta): unificação absoluta de 100% das superfícies e bordas de cards e modais, padronizados em rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 com inputs elegantes em bg-white/[0.03] border border-white/[0.08]',
+      'Eliminação do "AI Dashboard look" e "Sopa de Neon": remoção completa de gradientes coloridos decorativos, círculos blur-3xl difusos e sombras artificiais em todos os módulos',
+      'Desaninhamento de Superfícies ("Fim das Caixas dentro de Caixas"): substituição de contêineres aninhados com bordas múltiplas por superfícies planas sutis (bg-white/[0.025] rounded-2xl p-3.5) e separadores horizontais limpos (border-t border-white/[0.05])',
+      'Padronização Institucional de Ícones e Cores Semânticas: cabeçalhos de seções unificados no container neutro w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300; uso estrito de emerald-400/500 apenas para proventos/ganho/CTA principal, rose-400/500 para queda/venda e tons de zinc para hierarquia tipográfica',
+      'Limpeza de Controles e Tipografia Financeira: remoção de emojis em botões de filtro, chips, opções e status (substituídos por ícones Lucide contextuais como CheckCircle2), elevação de fontes de apoio para no mínimo 11px e aplicação universal de tabular-nums em todos os valores monetários, cotas e percentuais',
+    ],
+  },
   {
     version: '2.9.0',
     date: '14/10/2026',
