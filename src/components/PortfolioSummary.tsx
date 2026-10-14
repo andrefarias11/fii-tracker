@@ -230,36 +230,36 @@ export function PortfolioSummary({
       </div>
 
       {/* DOIS MINI-WIDGETS LADO A LADO ESTILO APPLE iOS */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {/* Card 1: Proventos / Renda Mensal Total */}
         <div
           onClick={onNavigateToProventos}
-          className={`rounded-[24px] bg-[#121215] border border-white/[0.06] p-4 flex flex-col justify-between transition-all ${
+          className={`rounded-[24px] bg-[#121215] border border-white/[0.06] p-3.5 sm:p-4 flex flex-col justify-between transition-all min-w-0 ${
             onNavigateToProventos
               ? 'cursor-pointer hover:border-white/[0.14] active:scale-[0.98]'
               : ''
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
               <Coins className="w-3.5 h-3.5 text-emerald-400" />
             </div>
-            <ChevronRight className="w-4 h-4 text-zinc-600" />
+            <ChevronRight className="w-4 h-4 text-zinc-600 shrink-0" />
           </div>
 
-          <div>
-            <span className="text-[11px] text-zinc-400 block">
+          <div className="min-w-0">
+            <span className="text-[11px] text-zinc-400 block truncate">
               {isGlobalView ? 'Renda Passiva / mês' : 'Proventos / mês'}
             </span>
-            <div className="text-lg font-extrabold text-white tracking-tight mt-0.5">
+            <div className="text-base sm:text-lg font-extrabold text-white tracking-tight mt-0.5 truncate">
               {formatBRL(displayMonthlyIncome)}
             </div>
             {isGlobalView && unifiedSummary && unifiedSummary.fixedIncomeMonthlyYield > 0 ? (
-              <span className="text-[10px] text-amber-300 font-medium">
+              <span className="text-[10px] text-amber-300 font-medium block truncate">
                 +{formatBRL(unifiedSummary.fixedIncomeMonthlyYield)} em caixinhas
               </span>
             ) : (
-              <span className="text-[10px] text-emerald-400 font-medium">
+              <span className="text-[10px] text-emerald-400 font-medium block truncate">
                 YoC {averageYieldOnCostPercent}% a.m. isento
               </span>
             )}
@@ -269,24 +269,24 @@ export function PortfolioSummary({
         {/* Card 2: Meta de Aporte do Mês */}
         <div
           onClick={onNavigateToGoals}
-          className={`rounded-[24px] bg-[#121215] border border-white/[0.06] p-4 flex flex-col justify-between transition-all ${
+          className={`rounded-[24px] bg-[#121215] border border-white/[0.06] p-3.5 sm:p-4 flex flex-col justify-between transition-all min-w-0 ${
             onNavigateToGoals
               ? 'cursor-pointer hover:border-white/[0.14] active:scale-[0.98]'
               : ''
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="w-7 h-7 rounded-full bg-teal-500/15 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-teal-500/15 flex items-center justify-center shrink-0">
               <Target className="w-3.5 h-3.5 text-teal-400" />
             </div>
-            <span className="text-[11px] font-bold text-emerald-400">
+            <span className="text-[11px] font-bold text-emerald-400 shrink-0">
               {monthlyGoalProgressPercent}%
             </span>
           </div>
 
-          <div>
-            <span className="text-[11px] text-zinc-400 block">Aporte no mês</span>
-            <div className="text-lg font-extrabold text-white tracking-tight mt-0.5">
+          <div className="min-w-0">
+            <span className="text-[11px] text-zinc-400 block truncate">Aporte no mês</span>
+            <div className="text-base sm:text-lg font-extrabold text-white tracking-tight mt-0.5 truncate">
               {formatBRL(currentMonthInvested)}
             </div>
             <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/[0.07] overflow-hidden">
@@ -301,9 +301,9 @@ export function PortfolioSummary({
 
       {/* Pílula Discreta de Referência Banco Central */}
       {bcbIndicators && (
-        <div className="px-4 py-2 rounded-2xl bg-[#121215]/70 border border-white/[0.04] flex items-center justify-between text-[10px] text-zinc-500">
-          <span>Banco Central Hoje</span>
-          <div className="flex items-center gap-2.5 text-zinc-400 font-medium">
+        <div className="px-3.5 sm:px-4 py-2 rounded-2xl bg-[#121215]/70 border border-white/[0.04] flex items-center justify-between gap-2 flex-wrap text-[10px] text-zinc-500">
+          <span className="shrink-0">Banco Central Hoje</span>
+          <div className="flex items-center gap-1.5 sm:gap-2.5 text-zinc-400 font-medium flex-wrap">
             <span>Selic {bcbIndicators.selicAnnual}%</span>
             <span>•</span>
             <span>CDI Líq. {bcbIndicators.cdiNetAnnual}%</span>

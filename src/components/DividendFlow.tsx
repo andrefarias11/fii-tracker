@@ -94,112 +94,112 @@ export function DividendFlow({
   return (
     <div className="space-y-4">
       {/* Seletor Segmentado 3-em-1 Estilo Apple iOS */}
-      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
         <button
           type="button"
           onClick={() => setSubView('calendar')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
             subView === 'calendar'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-          Calendário
+          <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">Calendário</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubView('staircase')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
             subView === 'staircase'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
-          Escadinha
+          <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">Escadinha</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubView('chart')}
-          className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
             subView === 'chart'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-          vs CDI
+          <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="truncate">vs CDI</span>
         </button>
       </div>
 
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* HERO CARD DE PROVENTOS ESTILO NUBANK */}
-          <div className="rounded-[28px] bg-[#121215] border border-white/[0.07] p-6">
+          <div className="rounded-[28px] bg-[#121215] border border-white/[0.07] p-5 sm:p-6">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-zinc-400 font-medium">
+              <span className="text-xs text-zinc-400 font-medium truncate">
                 Proventos • {capitalizedMonth}
               </span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 shrink-0">
                 Isento de IR
               </span>
             </div>
 
-            <div className="text-[32px] font-extrabold text-white tracking-tight mb-4">
+            <div className="text-[28px] sm:text-[32px] font-extrabold text-white tracking-tight mb-4 truncate">
               {formatBRL(summary.totalExpected)}
             </div>
 
             {/* 3 Pílulas de Status Limpas */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
-                className={`p-3 rounded-2xl border text-left transition-all ${
+                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
                   filterStatus === 'PAID'
                     ? 'bg-emerald-500/15 border-emerald-500/40'
                     : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 mb-0.5">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Pago
+                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-emerald-400 mb-0.5 truncate">
+                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Pago</span>
                 </div>
-                <div className="text-sm font-bold text-white">{formatBRL(summary.totalReceived)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalReceived)}</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
-                className={`p-3 rounded-2xl border text-left transition-all ${
+                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
                   filterStatus === 'CONFIRMED'
                     ? 'bg-amber-500/15 border-amber-500/40'
                     : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-400 mb-0.5">
-                  <Clock className="w-3 h-3" />
-                  Confirmado
+                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-amber-400 mb-0.5 truncate">
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Confirmado</span>
                 </div>
-                <div className="text-sm font-bold text-white">{formatBRL(summary.totalConfirmed)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalConfirmed)}</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
-                className={`p-3 rounded-2xl border text-left transition-all ${
+                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
                   filterStatus === 'ESTIMATED'
                     ? 'bg-sky-500/15 border-sky-500/40'
                     : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[10px] font-medium text-sky-400 mb-0.5">
-                  <HelpCircle className="w-3 h-3" />
-                  Previsto
+                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-sky-400 mb-0.5 truncate">
+                  <HelpCircle className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Previsto</span>
                 </div>
-                <div className="text-sm font-bold text-white">{formatBRL(summary.totalEstimated)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalEstimated)}</div>
               </button>
             </div>
           </div>

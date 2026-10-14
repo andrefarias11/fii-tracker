@@ -271,16 +271,16 @@ export function AchievementsTimeline({
       </div>
 
       {/* Filtro de Conquistas */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+      <div className="w-full">
+        <div className="grid grid-cols-3 w-full p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
           <button
             type="button"
             onClick={() => {
               triggerHaptic('selection');
               setFilter('ALL');
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              filter === 'ALL' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
+              filter === 'ALL' ? 'bg-white text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Todas ({overview.totalCount})
@@ -291,9 +291,9 @@ export function AchievementsTimeline({
               triggerHaptic('selection');
               setFilter('UNLOCKED');
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
               filter === 'UNLOCKED'
-                ? 'bg-emerald-500 text-zinc-950'
+                ? 'bg-emerald-500 text-zinc-950 font-bold'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -305,8 +305,8 @@ export function AchievementsTimeline({
               triggerHaptic('selection');
               setFilter('LOCKED');
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              filter === 'LOCKED' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
+              filter === 'LOCKED' ? 'bg-white text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
             }`}
           >
             Faltam ({overview.totalCount - overview.unlockedCount})

@@ -125,7 +125,7 @@ export function MonthlyWrappedModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0d0d10] border border-white/[0.1] rounded-t-[32px] sm:rounded-[32px] p-5 sm:p-6 shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[92vh] overflow-y-auto text-white"
+        className="w-full max-w-lg bg-[#0d0d10] border border-white/[0.1] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho do Modal */}

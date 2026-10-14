@@ -169,7 +169,7 @@ export function PositionList({
               onClick={() => handleToggleExpand(pos.ticker)}
               className="p-4 cursor-pointer flex items-center justify-between gap-3"
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {/* Ícone de Ticker Minimalista */}
                 <div className="w-11 h-11 rounded-2xl bg-white/[0.05] border border-white/[0.06] flex flex-col items-center justify-center shrink-0">
                   <span className="text-[11px] font-extrabold text-white tracking-tight leading-none">
@@ -184,7 +184,7 @@ export function PositionList({
                   </span>
                 </div>
 
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[15px] font-bold text-white tracking-tight">
                       {pos.ticker}
@@ -245,8 +245,8 @@ export function PositionList({
             {/* Detalhes Sob Demanda (Progressive Disclosure) */}
             {isExpanded && (
               <div className="px-4 pb-4 pt-2 border-t border-white/[0.05] space-y-3 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                  <span className="truncate">{pos.name}</span>
+                <div className="flex items-center justify-between text-[11px] text-zinc-400 gap-2">
+                  <span className="flex-1 min-w-0 truncate">{pos.name}</span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-zinc-300">
                       P/VP {pos.pvp}
@@ -345,10 +345,11 @@ export function PositionList({
                       >
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.01"
                           value={dividendInput}
                           onChange={(e) => setDividendInput(e.target.value)}
-                          className="w-16 px-2 py-0.5 rounded-lg bg-zinc-800 text-white text-xs border border-zinc-700 outline-none"
+                          className="w-20 px-2 py-0.5 rounded-lg bg-zinc-800 text-white text-base sm:text-xs border border-zinc-700 outline-none"
                           autoFocus
                         />
                         <button

@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.8.0';
+export const APP_VERSION = '2.9.0';
 export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.9.0',
+    date: '14/10/2026',
+    highlights: [
+      'Ergonomia e Responsividade Nativa para iPhone 17 (Safari e PWA Standalone): prevenção de auto-zoom indesejado em formulários iOS fixando fontes de <input> e <select> em 16px (text-base sm:text-sm / sm:text-xs) com teclados virtuais otimizados (inputMode="decimal" para dinheiro e inputMode="numeric" para cotas)',
+      'Bottom Sheets Nativos no iPhone: padronização de todos os modais (Transações, Renda Fixa, Configurações, Importação B3 e Retrospectiva) com abertura inferior flex items-end sm:items-center, altura dinâmica max-h-[88dvh] e cantos arredondados rounded-t-[28px] sm:rounded-[28px]',
+      'Safe Area & Home Indicator (.pb-safe-modal e .bottom-safe-dock): classes utilitárias no globals.css com padding dinâmico via env(safe-area-inset-bottom), garantindo que botões de ação e a dock flutuante inferior nunca fiquem encobertos pela barra do iPhone',
+      'Anti-Overflow Horizontal (393px–402px): remoção de larguras fixas rígidas substituídas por flex-1 min-w-0 truncate em PositionList e UniversalB3Explorer, grid adaptativa de filtros em AchievementsTimeline e espaçamentos otimizados em PortfolioSummary e DividendFlow',
+    ],
+  },
   {
     version: '2.8.0',
     date: '14/10/2026',

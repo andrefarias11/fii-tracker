@@ -125,10 +125,11 @@ export function InvestmentSimulator({
           <label className="text-[11px] text-zinc-400 block mb-1">Aporte Mensal (R$)</label>
           <input
             type="number"
+            inputMode="decimal"
             step="50"
             value={monthlyContribution}
             onChange={(e) => setMonthlyContribution(Math.max(10, Number(e.target.value)))}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold outline-none focus:border-violet-500"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-violet-500"
           />
         </div>
         <div>
@@ -136,7 +137,7 @@ export function InvestmentSimulator({
           <select
             value={monthlyYieldPercent}
             onChange={(e) => setMonthlyYieldPercent(Number(e.target.value))}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-bold outline-none focus:border-violet-500"
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-violet-500"
           >
             {averageYieldPercent >= 0.6 &&
               averageYieldPercent <= 1.3 &&

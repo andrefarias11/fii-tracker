@@ -336,8 +336,8 @@ export function OpportunityRadar({
                 key={fii.ticker}
                 className="rounded-3xl bg-zinc-900 border border-zinc-800/80 p-4 shadow-sm hover:border-zinc-700 transition-all"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-base font-extrabold text-white">{fii.ticker}</span>
                       <span
@@ -363,12 +363,12 @@ export function OpportunityRadar({
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-zinc-400 truncate max-w-[210px] mt-0.5">
+                    <div className="text-xs text-zinc-400 truncate flex-1 min-w-0 mt-0.5">
                       {fii.name}
                     </div>
                   </div>
 
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <div className="text-base font-bold text-white">{formatBRL(fii.currentPrice)}</div>
                     <span
                       className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -390,22 +390,22 @@ export function OpportunityRadar({
                 </div>
 
                 {/* Métricas Chave (VP/VPA, Yield e Preço Teto) */}
-                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 mb-2.5 text-center text-xs">
-                  <div>
-                    <span className="text-[10px] text-zinc-500 block">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-2.5 rounded-2xl bg-zinc-950/60 border border-zinc-800/60 mb-2.5 text-center text-xs">
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-zinc-500 block truncate">
                       {isStock ? 'VPA / Ação' : 'VP / Cota'}
                     </span>
-                    <span className="font-semibold text-zinc-300">{formatBRL(fii.vp)}</span>
+                    <span className="font-semibold text-zinc-300 block truncate">{formatBRL(fii.vp)}</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-500 block">Yield Anual</span>
-                    <span className="font-bold text-emerald-400">{fii.annualYieldPercent}% a.a.</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-zinc-500 block truncate">Yield Anual</span>
+                    <span className="font-bold text-emerald-400 block truncate">{fii.annualYieldPercent}% a.a.</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-500 block">
+                  <div className="min-w-0">
+                    <span className="text-[10px] text-zinc-500 block truncate">
                       {isStock ? 'Teto Barsi (6%)' : 'Preço Teto (0,9%)'}
                     </span>
-                    <span className="font-semibold text-zinc-200">{formatBRL(fii.ceilingPrice)}</span>
+                    <span className="font-semibold text-zinc-200 block truncate">{formatBRL(fii.ceilingPrice)}</span>
                   </div>
                 </div>
 
@@ -414,12 +414,12 @@ export function OpportunityRadar({
                   {fii.rationale}
                 </p>
 
-                <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60">
-                  <span className="text-[11px] text-zinc-500 truncate max-w-[230px]">
+                <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60 gap-2">
+                  <span className="text-[11px] text-zinc-500 truncate flex-1 min-w-0">
                     🛡️ {fii.management} • {formatBRL(fii.monthlyDividend)}/{isStock ? 'mês eq.' : 'cota'}
                   </span>
 
-                  <span className="text-[10px] font-semibold text-zinc-400">
+                  <span className="text-[10px] font-semibold text-zinc-400 shrink-0">
                     Yield {fii.monthlyYieldPercent}% a.m.
                   </span>
                 </div>

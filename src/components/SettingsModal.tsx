@@ -265,7 +265,7 @@ export function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -589,7 +589,7 @@ export function SettingsModal({
                 placeholder="https://xyz.supabase.co"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500 font-mono"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-base sm:text-xs text-white outline-none focus:border-emerald-500 font-mono"
               />
             </div>
 
@@ -600,7 +600,7 @@ export function SettingsModal({
                 placeholder="eyJhbGciOiJIUzI1NiIsIn..."
                 value={supabaseKey}
                 onChange={(e) => setSupabaseKey(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500 font-mono"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-base sm:text-xs text-white outline-none focus:border-emerald-500 font-mono"
               />
             </div>
 
@@ -674,11 +674,12 @@ export function SettingsModal({
             </label>
             <input
               type="number"
+              inputMode="decimal"
               step="any"
               min="0"
               value={monthlyTarget}
               onChange={(e) => setMonthlyTarget(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-emerald-500"
               required
             />
             <p className="text-[11px] text-zinc-500 mt-1">Sua meta principal definida: R$ {monthlyTarget || '0'}/mês</p>
@@ -691,11 +692,12 @@ export function SettingsModal({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 value={milestoneEquity}
                 onChange={(e) => setMilestoneEquity(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-emerald-500"
                 required
               />
             </div>
@@ -706,11 +708,12 @@ export function SettingsModal({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 value={monthlyIncome}
                 onChange={(e) => setMonthlyIncome(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-sm text-white font-bold outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-emerald-500"
                 required
               />
             </div>

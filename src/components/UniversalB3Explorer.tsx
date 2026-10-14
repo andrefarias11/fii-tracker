@@ -418,7 +418,7 @@ export function UniversalB3Explorer({
               }
             }}
             placeholder="Digite qualquer ticker ou empresa (ex: WEGE3, PRIO3, RZTR11, MGLU3...)"
-            className="w-full pl-10 pr-20 py-3 rounded-2xl bg-black/50 border border-white/[0.08] focus:border-emerald-500/60 text-xs text-white placeholder:text-zinc-500 outline-none transition-all"
+            className="w-full pl-10 pr-20 py-3 rounded-2xl bg-black/50 border border-white/[0.08] focus:border-emerald-500/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all"
           />
           {query && (
             <button
@@ -519,7 +519,7 @@ export function UniversalB3Explorer({
                       : 'bg-[#121215] border-white/[0.06] hover:border-white/[0.15]'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.06] flex flex-col items-center justify-center shrink-0">
                       <span className="text-[10px] font-extrabold text-white leading-none">
                         {item.ticker.slice(0, 4)}
@@ -533,7 +533,7 @@ export function UniversalB3Explorer({
                       </span>
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-bold text-white">
                           {item.ticker}
@@ -548,7 +548,7 @@ export function UniversalB3Explorer({
                           {isStock ? 'Ação' : 'FII'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-zinc-400 truncate max-w-[175px]">
+                      <p className="text-[11px] text-zinc-400 truncate">
                         {item.name}
                       </p>
                     </div>

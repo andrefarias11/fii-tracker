@@ -224,7 +224,7 @@ export default function HomePage() {
       />
 
       {/* Conteúdo Principal com Respiro Estilo iOS */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-28 space-y-4">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-32 space-y-4">
         <IosInstallBanner />
 
         {/* 1. ABA: INÍCIO (CARTEIRA + EXTRATO INTEGRADO) */}
@@ -624,7 +624,7 @@ export default function HomePage() {
       </main>
 
       {/* DOCK FLUTUANTE ESTILO APPLE iOS / NUBANK (Apenas 4 Abas Limpas) */}
-      <nav className="fixed bottom-4 inset-x-0 z-30 px-6 pb-safe pointer-events-none">
+      <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none">
         <div className="max-w-xs mx-auto pointer-events-auto rounded-full bg-[#16161a]/90 backdrop-blur-2xl border border-white/[0.09] shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
