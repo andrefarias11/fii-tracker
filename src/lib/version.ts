@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '3.1.0';
+export const APP_VERSION = '3.2.0';
 export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '3.2.0',
+    date: '14/10/2026',
+    highlights: [
+      'Redesign XP Investimentos iOS (Parte 1): migração visual completa para o Design System da XP Dark com fundo global #0b0b0d, superfícies de cards em #1c1c1e rounded-[20px] e destaques em Amarelo Ouro (#f5b800 e secundário #2b2512)',
+      'PortfolioSummary 100% Solto no Topo: remoção de contêiner delimitador com renderização solta sobre o fundo em 7 linhas limpas (Total Bolsa, Patrimônio em destaque text-[32px], Resultado total com indicadores ▲/▼, Proventos no mês com YoC, divisória sutil, Valor aplicado e botões de ação Importar B3 e Caixinha/Meta)',
+      'PositionList no Modelo "Meus Ativos" XP: cabeçalho com contagem de ativos e botão funcional "Ordenar ↓↑" em #f5b800 com alternância cíclica entre Posição, Resultado e Proventos; cards individuais com ícone de gráfico em caixa contornada branca, tabela Key-Value de 6 linhas e botões pílula ("Detalhes" expansíveis com P/VP, Teto, Número Mágico e Payback, e "Aportar" integrado ao modal de compras)',
+      'Header Estilo XP: título dinâmico da aba ativa à esquerda (Carteira, Proventos, Explorar, Rentabilidade) e botões de ação circulares w-10 h-10 em bg-[#1c1c1e] text-zinc-200',
+    ],
+  },
   {
     version: '3.1.0',
     date: '14/10/2026',

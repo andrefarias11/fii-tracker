@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { TrendingUp, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
+import { triggerHaptic } from '../lib/haptic';
 
 interface PerformanceComparisonChartProps {
   positions: FiiPosition[];
@@ -72,7 +73,6 @@ export function PerformanceComparisonChart({
     }).format(val);
   };
 
-  // Valor de Referência inicial (Dia 0 = data do 1º aporte)
   const totalPortfolioInvested = useMemo(() => {
     const sum = positions.reduce((acc, p) => acc + p.totalInvested, 0);
     return sum > 0 ? Number(sum.toFixed(2)) : 200;
@@ -84,16 +84,14 @@ export function PerformanceComparisonChart({
     return totalPortfolioInvested;
   }, [baseMode, totalPortfolioInvested]);
 
-  // Taxas mensais oficiais (Banco Central) convertidas para taxa diária composta
   const cdiMonthlyRate = (bcbIndicators?.cdiNetMonthly ?? 0.72) / 100;
   const ipcaMonthlyRate = (bcbIndicators?.ipcaMonthly ?? 0.35) / 100;
-  const poupancaMonthlyRate = 0.0056; // ~0,56% a.m.
+  const poupancaMonthlyRate = 0.0056;
 
   const cdiDailyRate = Math.pow(1 + cdiMonthlyRate, 1 / 30) - 1;
   const poupancaDailyRate = Math.pow(1 + poupancaMonthlyRate, 1 / 30) - 1;
   const ipcaDailyRate = Math.pow(1 + ipcaMonthlyRate, 1 / 30) - 1;
 
-  // Desempenho real da Carteira FII do usuário (Valorização das cotas na B3 + Yield de Proventos)
   const fiiPortfolioMetrics = useMemo(() => {
     const totalEq = positions.reduce((acc, p) => acc + p.currentTotal, 0);
     const totalInv = positions.reduce((acc, p) => acc + p.totalInvested, 0);
@@ -109,7 +107,6 @@ export function PerformanceComparisonChart({
     };
   }, [positions]);
 
-  // Descobre o PRIMEIRO DIA em que o usuário começou a investir e gera os dias em sequência até HOJE
   const { series, startDateFormatted, todayFormatted, totalDays } = useMemo(() => {
     const now =
       typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
@@ -121,7 +118,6 @@ export function PerformanceComparisonChart({
       .filter((d): d is Date => d !== null && d.getTime() <= today.getTime())
       .sort((a, b) => a.getTime() - b.getTime());
 
-    // Ponto de partida = 1º dia que começou a investir (se investiu hoje mesmo, mostra ontem -> hoje para ter linha)
     let firstDate =
       validDates.length > 0
         ? new Date(validDates[0].getTime())
@@ -152,12 +148,10 @@ export function PerformanceComparisonChart({
       const ddMm = formatDateDDMM(pointDate);
       const ddMmYyyy = formatDateDDMMYYYY(pointDate);
 
-      // Evolução diária dos benchmarks a partir do Dia 0 (1º dia do aporte)
       const cdiVal = referenceAmount * Math.pow(1 + cdiDailyRate, dayIdx);
       const poupVal = referenceAmount * Math.pow(1 + poupancaDailyRate, dayIdx);
       const ipcaVal = referenceAmount * Math.pow(1 + ipcaDailyRate, dayIdx);
 
-      // Evolução diária da Carteira FII (proventos proporcionais aos dias + variação das cotas na B3)
       const progress = dayIdx / elapsedDays;
       const accruedDividendGrowth = Math.pow(1 + fiiPortfolioMetrics.yocDailyRate, dayIdx) - 1;
       const dailyMarketWave =
@@ -179,10 +173,10 @@ export function PerformanceComparisonChart({
         dateISO: pointDate.toISOString().slice(0, 10),
         label: isToday ? `Hoje (${ddMm})` : ddMm,
         fullLabel: isFirst
-          ? `${ddMmYyyy} (1º Dia do Aporte)`
+          ? `${ddMmYyyy} (1º Dia)`
           : isToday
-          ? `Hoje • ${ddMmYyyy} (Dia ${dayIdx})`
-          : `${ddMmYyyy} (Dia ${dayIdx})`,
+          ? `Hoje • ${ddMmYyyy}`
+          : ddMmYyyy,
         daysSinceStart: dayIdx,
         baseReferenceValue: referenceAmount,
         fiiValue: Number(fiiVal.toFixed(2)),
@@ -215,25 +209,29 @@ export function PerformanceComparisonChart({
     fiiPortfolioMetrics,
   ]);
 
-  if (series.length === 0) return null;
-
   const activePoint =
     selectedIdx !== null && series[selectedIdx]
       ? series[selectedIdx]
       : series[series.length - 1];
   const lastPoint = series[series.length - 1];
 
-  // Geometria do SVG com amplo espaço vertical para separar as 4 linhas mesmo em poucos dias
+  const cdiPercentRatio = useMemo(() => {
+    if (!activePoint || activePoint.cdiGainPercent <= 0) return '100,0%';
+    const ratio = (activePoint.fiiGainPercent / activePoint.cdiGainPercent) * 100;
+    return `${ratio.toFixed(1).replace('.', ',')}%`;
+  }, [activePoint]);
+
+  if (series.length === 0) return null;
+
   const width = 360;
-  const height = 225;
-  const padLeft = 52; // Espaço para os valores em R$ no Eixo Y
-  const padRight = 50; // Espaço para os ganhos % à direita
-  const padTop = 18;
-  const padBottom = 28;
+  const height = 210;
+  const padLeft = 48;
+  const padRight = 44;
+  const padTop = 16;
+  const padBottom = 26;
   const chartW = width - padLeft - padRight;
   const chartH = height - padTop - padBottom;
 
-  // Auto-escala dinâmica baseada estritamente nos valores reais do período (sem achatar as linhas!)
   const allValues = series.flatMap((p) => [
     p.fiiValue,
     p.cdiValue,
@@ -255,11 +253,11 @@ export function PerformanceComparisonChart({
     }
     if (val >= 1000) {
       return `R$ ${(val / 1000).toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
       })}k`;
     }
-    return `R$ ${val.toFixed(1).replace('.', ',')}`;
+    return `R$ ${val.toFixed(0)}`;
   };
 
   const getX = (idx: number) =>
@@ -267,7 +265,6 @@ export function PerformanceComparisonChart({
   const getY = (val: number) =>
     padTop + chartH - ((val - minVal) / valRange) * chartH;
 
-  // Gera curva suave passando por todos os dias sequenciais
   const buildSmoothPath = (extractor: (p: DailyComparisonPoint) => number) => {
     const coords = series.map((pt, idx) => ({
       x: getX(idx),
@@ -300,7 +297,6 @@ export function PerformanceComparisonChart({
     padTop + chartH
   ).toFixed(1)} L ${getX(0).toFixed(1)} ${(padTop + chartH).toFixed(1)} Z`;
 
-  // Valores de referência no eixo Y (Topo, Meio, Valor Inicial no Dia 0)
   const midVal = (referenceAmount + rawMax) / 2;
   const yRefLevels = [
     { label: formatAxisBRL(rawMax), y: getY(rawMax) },
@@ -308,7 +304,6 @@ export function PerformanceComparisonChart({
     { label: formatAxisBRL(referenceAmount), y: getY(referenceAmount) },
   ];
 
-  // Etiquetas de % à direita com prevenção de sobreposição (mínimo 14px de distância)
   const fmtSign = (n: number) => (n >= 0 ? `+${n}%` : `${n}%`);
   const rightEndLabels = [
     {
@@ -344,44 +339,34 @@ export function PerformanceComparisonChart({
     }
   }
 
-  // Rótulos dos dias em sequência na barra horizontal (Eixo X): exatamente 3 rótulos bem espaçados
   const count = series.length;
   const lastIdx = Math.max(0, count - 1);
   const midIdx = Math.round(lastIdx / 2);
   const xTickIndices = Array.from(new Set([0, midIdx, lastIdx]));
 
   return (
-    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 shadow-lg">
-      {/* Cabeçalho: Do 1º Dia de Aporte até Hoje */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 text-zinc-300">
-            <TrendingUp className="w-4 h-4" />
-          </div>
+    <div className="pt-2 pb-4 space-y-4">
+      {/* Gráfico de Evolução vs Benchmarks */}
+      <div className="bg-[#1c1c1e] rounded-[20px] p-5 border border-white/[0.04]">
+        {/* Cabeçalho */}
+        <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <h3 className="text-sm font-bold text-white">
-              Evolução Diária desde o 1º Aporte
+            <h3 className="text-base font-bold text-white tracking-tight">
+              Rentabilidade vs CDI
             </h3>
-            <p className="text-[11px] text-zinc-400">
-              De <strong className="text-zinc-200">{startDateFormatted}</strong> até{' '}
-              <strong className="text-emerald-400">Hoje ({todayFormatted.slice(0, 5)})</strong>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              {startDateFormatted} até <strong className="text-emerald-400">Hoje</strong>
             </p>
           </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] text-[11px] font-semibold text-zinc-300 shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+            <span>{totalDays} dias</span>
+          </div>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[11px] font-semibold text-zinc-300 shrink-0">
-          <Calendar className="w-3.5 h-3.5 text-zinc-400" />
-          {totalDays} {totalDays === 1 ? 'dia' : 'dias'}
-        </div>
-      </div>
-
-      {/* Seletor do Valor de Referência Inicial */}
-      <div className="space-y-1.5 mb-3">
-        <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
-          <span>Valor de Referência</span>
-          <span className="text-white font-semibold tabular-nums">{formatBRL(referenceAmount)}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+        {/* Seletor Segmentado de Base em Estilo XP */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-black/40 border border-white/[0.04] mb-3">
           {[
             { id: 'portfolio' as const, label: 'Minha Carteira' },
             { id: '1000' as const, label: 'R$ 1 mil' },
@@ -390,10 +375,13 @@ export function PerformanceComparisonChart({
             <button
               key={opt.id}
               type="button"
-              onClick={() => setBaseMode(opt.id)}
-              className={`whitespace-nowrap text-xs font-semibold py-2 rounded-lg text-center transition-all ${
+              onClick={() => {
+                triggerHaptic('light');
+                setBaseMode(opt.id);
+              }}
+              className={`whitespace-nowrap text-xs font-semibold py-1.5 rounded-lg text-center transition-all ${
                 baseMode === opt.id
-                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  ? 'bg-[#2b2512] text-[#f5b800] font-bold shadow-sm'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
@@ -401,296 +389,284 @@ export function PerformanceComparisonChart({
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Legenda de Cores das 4 Linhas */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-2.5 px-1 text-[11px]">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-          <span className="font-semibold text-white">Sua Carteira FII</span>
+        {/* Legenda de Cores */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-2 px-1 text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+            <span className="font-semibold text-white">Sua Carteira</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block" />
+            <span className="text-zinc-300">CDI</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+            <span className="text-zinc-300">Poupança</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" />
+            <span className="text-zinc-300">IPCA</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block" />
-          <span className="text-zinc-300">CDI Líquido</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-          <span className="text-zinc-300">Poupança</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block" />
-          <span className="text-zinc-300">Inflação (IPCA)</span>
-        </div>
-      </div>
 
-      {/* Área do Gráfico Diário (1º Dia -> Dias em Sequência -> Hoje) */}
-      <div className="p-3.5 rounded-2xl bg-white/[0.025]">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-56 overflow-visible select-none"
-        >
-          <defs>
-            <linearGradient id="fiiRefFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.24" />
-              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
+        {/* SVG Curve */}
+        <div className="pt-2">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-52 overflow-visible select-none"
+          >
+            <defs>
+              <linearGradient id="fiiRefFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
 
-          {/* Linhas de Referência no Eixo Y + Valores à Esquerda */}
-          {yRefLevels.map((lvl, idx) => (
-            <g key={idx}>
-              <line
-                x1={padLeft}
-                y1={lvl.y}
-                x2={width - padRight}
-                y2={lvl.y}
-                stroke={idx === 2 ? '#3f3f46' : '#27272a'}
-                strokeDasharray={idx === 2 ? 'none' : '3 3'}
-                strokeWidth="1"
-              />
-              <text
-                x={padLeft - 5}
-                y={lvl.y + 3}
-                textAnchor="end"
-                className="fill-zinc-400 text-[8px] font-mono"
-              >
-                {lvl.label}
-              </text>
-            </g>
-          ))}
-
-          {/* Sombra sob a linha da Carteira FII */}
-          <path d={fiiAreaPath} fill="url(#fiiRefFill)" />
-
-          {/* 4. Linha Roxa: Inflação IPCA */}
-          <path
-            d={ipcaPath}
-            fill="none"
-            stroke="#c084fc"
-            strokeWidth="2"
-            strokeDasharray="4 2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* 3. Linha Âmbar: Poupança */}
-          <path
-            d={poupancaPath}
-            fill="none"
-            stroke="#fbbf24"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* 2. Linha Azul: CDI Líquido */}
-          <path
-            d={cdiPath}
-            fill="none"
-            stroke="#38bdf8"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* 1. Linha Verde Esmeralda: Sua Carteira FII */}
-          <path
-            d={fiiPath}
-            fill="none"
-            stroke="#10b981"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Pontinhos diários ao longo da linha quando há até 35 dias */}
-          {series.length <= 35 &&
-            series.map((pt, idx) => (
-              <circle
-                key={`dot-${idx}`}
-                cx={getX(idx)}
-                cy={getY(pt.fiiValue)}
-                r={idx === series.length - 1 ? 3.5 : 2}
-                fill="#10b981"
-                opacity={idx === selectedIdx ? 1 : 0.75}
-              />
+            {yRefLevels.map((lvl, idx) => (
+              <g key={idx}>
+                <line
+                  x1={padLeft}
+                  y1={lvl.y}
+                  x2={width - padRight}
+                  y2={lvl.y}
+                  stroke="#27272a"
+                  strokeDasharray={idx === 2 ? 'none' : '3 3'}
+                  strokeWidth="1"
+                />
+                <text
+                  x={padLeft - 5}
+                  y={lvl.y + 3}
+                  textAnchor="end"
+                  className="fill-zinc-500 text-[8px] font-mono"
+                >
+                  {lvl.label}
+                </text>
+              </g>
             ))}
 
-          {/* Etiquetas de ganho % à direita de cada linha */}
-          {rightEndLabels.map((lbl) => (
-            <text
-              key={lbl.id}
-              x={width - padRight + 5}
-              y={lbl.y + 3}
-              textAnchor="start"
-              fill={lbl.color}
-              className="text-[9px] font-bold font-mono"
-            >
-              {lbl.text}
-            </text>
-          ))}
+            <path d={fiiAreaPath} fill="url(#fiiRefFill)" />
 
-          {/* Linha vertical do dia selecionado */}
-          {activePoint && (
-            <line
-              x1={getX(activePoint.index)}
-              y1={padTop}
-              x2={getX(activePoint.index)}
-              y2={padTop + chartH}
-              stroke="#52525b"
-              strokeDasharray="2 2"
-              strokeWidth="1"
+            <path
+              d={ipcaPath}
+              fill="none"
+              stroke="#c084fc"
+              strokeWidth="2"
+              strokeDasharray="4 2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-          )}
+            <path
+              d={poupancaPath}
+              fill="none"
+              stroke="#fbbf24"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d={cdiPath}
+              fill="none"
+              stroke="#38bdf8"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d={fiiPath}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
 
-          {/* Marcadores circulares no dia ativo */}
-          {activePoint && (
-            <>
-              <circle
-                cx={getX(activePoint.index)}
-                cy={getY(activePoint.ipcaValue)}
-                r="3.2"
-                fill="#c084fc"
-                stroke="#09090b"
-                strokeWidth="1"
-              />
-              <circle
-                cx={getX(activePoint.index)}
-                cy={getY(activePoint.poupancaValue)}
-                r="3.5"
-                fill="#fbbf24"
-                stroke="#09090b"
-                strokeWidth="1"
-              />
-              <circle
-                cx={getX(activePoint.index)}
-                cy={getY(activePoint.cdiValue)}
-                r="3.8"
-                fill="#38bdf8"
-                stroke="#09090b"
-                strokeWidth="1"
-              />
-              <circle
-                cx={getX(activePoint.index)}
-                cy={getY(activePoint.fiiValue)}
-                r="4.8"
-                fill="#10b981"
-                stroke="#09090b"
-                strokeWidth="1.5"
-              />
-            </>
-          )}
-
-          {/* Rótulos dos dias em sequência no eixo X (1º Dia -> Dias seguintes -> Hoje) */}
-          {/* Rótulos dos 3 dias espaçados no eixo X (Início, Meio e Hoje) */}
-          {xTickIndices.map((idx) => {
-            const pt = series[idx];
-            if (!pt) return null;
-            const isFirst = idx === 0;
-            const isLast = idx === lastIdx;
-
-            return (
+            {rightEndLabels.map((lbl) => (
               <text
-                key={idx}
-                x={isFirst ? padLeft : isLast ? width - padRight : getX(idx)}
-                y={height - 6}
-                textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
-                className={`text-[9px] ${
-                  isLast
-                    ? 'fill-emerald-400 font-bold'
-                    : 'fill-zinc-400 font-medium'
-                }`}
+                key={lbl.id}
+                x={width - padRight + 5}
+                y={lbl.y + 3}
+                textAnchor="start"
+                fill={lbl.color}
+                className="text-[9px] font-bold font-mono"
               >
-                {isLast ? `Hoje (${todayFormatted.slice(0, 5)})` : pt.label}
+                {lbl.text}
               </text>
-            );
-          })}
+            ))}
 
-          {/* Áreas de toque para inspecionar cada dia individualmente */}
-          {series.map((pt, idx) => {
-            const sliceW = chartW / series.length;
-            return (
-              <rect
-                key={pt.index}
-                x={getX(idx) - sliceW / 2}
-                y={padTop}
-                width={sliceW}
-                height={chartH + padBottom}
-                fill="transparent"
-                className="cursor-pointer"
-                onClick={() => setSelectedIdx(idx)}
-                onMouseEnter={() => setSelectedIdx(idx)}
+            {activePoint && (
+              <line
+                x1={getX(activePoint.index)}
+                y1={padTop}
+                x2={getX(activePoint.index)}
+                y2={padTop + chartH}
+                stroke="#52525b"
+                strokeDasharray="2 2"
+                strokeWidth="1"
               />
-            );
-          })}
-        </svg>
+            )}
 
-        <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-2 pt-2.5 border-t border-white/[0.05] whitespace-nowrap">
-          <span className="truncate font-medium text-zinc-300">
-            {activePoint.index === lastIdx
-              ? `Hoje (${todayFormatted.slice(0, 5)})`
-              : activePoint.fullLabel}
-          </span>
-          <span className="shrink-0 pl-2">
-            Início: <strong className="text-zinc-200 tabular-nums">{formatBRL(referenceAmount)}</strong>
-          </span>
+            {xTickIndices.map((idx) => {
+              const pt = series[idx];
+              if (!pt) return null;
+              const isFirst = idx === 0;
+              const isLast = idx === lastIdx;
+
+              return (
+                <text
+                  key={idx}
+                  x={isFirst ? padLeft : isLast ? width - padRight : getX(idx)}
+                  y={height - 6}
+                  textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
+                  className={`text-[9px] ${
+                    isLast ? 'fill-emerald-400 font-bold' : 'fill-zinc-400 font-medium'
+                  }`}
+                >
+                  {isLast ? `Hoje (${todayFormatted.slice(0, 5)})` : pt.label}
+                </text>
+              );
+            })}
+
+            {series.map((pt, idx) => {
+              const sliceW = chartW / series.length;
+              return (
+                <rect
+                  key={pt.index}
+                  x={getX(idx) - sliceW / 2}
+                  y={padTop}
+                  width={sliceW}
+                  height={chartH + padBottom}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    setSelectedIdx(idx);
+                  }}
+                />
+              );
+            })}
+          </svg>
         </div>
       </div>
 
-      {/* Placar Detalhado em Lista Compacta Vertical */}
-      <div className="mt-3 divide-y divide-white/[0.06] rounded-2xl bg-white/[0.025] border border-white/[0.06] overflow-hidden">
-        {/* 1. Sua Carteira FII */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-            <span className="font-semibold text-white truncate">Sua Carteira FII</span>
+      {/* Tabela 1: Comparativo de Rentabilidade direta no fundo #0b0b0d */}
+      <div className="pt-2">
+        <h3 className="text-base font-bold text-white mb-2">Comparativo acumulado</h3>
+        <div className="divide-y divide-white/[0.08] text-sm">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+              <span className="text-zinc-300 font-medium">Sua Carteira</span>
+            </div>
+            <div className="flex items-center gap-2 tabular-nums">
+              <span className="text-white font-medium">{formatBRL(activePoint.fiiValue)}</span>
+              <span className="text-emerald-400 font-semibold text-xs">
+                {activePoint.fiiGainPercent >= 0 ? '↑' : '↓'} {activePoint.fiiGainPercent}%
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2.5 whitespace-nowrap tabular-nums shrink-0">
-            <span className="font-bold text-white">{formatBRL(activePoint.fiiValue)}</span>
-            <span className="text-[11px] font-semibold text-emerald-400">
-              {activePoint.fiiGainPercent >= 0 ? '+' : ''}{activePoint.fiiGainPercent}%
-            </span>
+
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />
+              <span className="text-zinc-400">CDI Líquido</span>
+            </div>
+            <div className="flex items-center gap-2 tabular-nums">
+              <span className="text-zinc-300 font-medium">{formatBRL(activePoint.cdiValue)}</span>
+              <span className="text-sky-400 font-semibold text-xs">
+                ↑ {activePoint.cdiGainPercent}%
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+              <span className="text-zinc-400">Poupança</span>
+            </div>
+            <div className="flex items-center gap-2 tabular-nums">
+              <span className="text-zinc-300 font-medium">{formatBRL(activePoint.poupancaValue)}</span>
+              <span className="text-amber-400 font-semibold text-xs">
+                ↑ {activePoint.poupancaGainPercent}%
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+              <span className="text-zinc-400">Inflação (IPCA)</span>
+            </div>
+            <div className="flex items-center gap-2 tabular-nums">
+              <span className="text-zinc-300 font-medium">{formatBRL(activePoint.ipcaValue)}</span>
+              <span className="text-purple-400 font-semibold text-xs">
+                ↑ {activePoint.ipcaGainPercent}%
+              </span>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* 2. CDI Líquido */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0" />
-            <span className="text-zinc-300 truncate">CDI Líquido</span>
-          </div>
-          <div className="flex items-center gap-2.5 whitespace-nowrap tabular-nums shrink-0">
-            <span className="font-medium text-zinc-300">{formatBRL(activePoint.cdiValue)}</span>
-            <span className="text-[11px] font-semibold text-sky-400">
-              +{activePoint.cdiGainPercent}%
+      {/* Tabela 2: Seção "Detalhes da evolução" direta no fundo #0b0b0d */}
+      <div className="pt-2">
+        <h3 className="text-base font-bold text-white mb-2">Detalhes da evolução</h3>
+        <div className="divide-y divide-white/[0.08] text-sm">
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Patrimônio inicial</span>
+            <span className="text-white font-medium tabular-nums">
+              {formatBRL(activePoint.baseReferenceValue)}
             </span>
           </div>
-        </div>
 
-        {/* 3. Poupança */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
-            <span className="text-zinc-300 truncate">Poupança</span>
-          </div>
-          <div className="flex items-center gap-2.5 whitespace-nowrap tabular-nums shrink-0">
-            <span className="font-medium text-zinc-300">{formatBRL(activePoint.poupancaValue)}</span>
-            <span className="text-[11px] font-semibold text-amber-400">
-              +{activePoint.poupancaGainPercent}%
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Movimentações (Aportes)</span>
+            <span className="text-emerald-400 font-medium tabular-nums">
+              ↑ {formatBRL(activePoint.baseReferenceValue)}
             </span>
           </div>
-        </div>
 
-        {/* 4. Inflação (IPCA) */}
-        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0" />
-            <span className="text-zinc-300 truncate">Inflação (IPCA)</span>
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Variação em R$</span>
+            <span
+              className={`font-medium tabular-nums ${
+                activePoint.fiiGainBRL >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {activePoint.fiiGainBRL >= 0 ? '↑' : '↓'} {formatBRL(Math.abs(activePoint.fiiGainBRL))}
+            </span>
           </div>
-          <div className="flex items-center gap-2.5 whitespace-nowrap tabular-nums shrink-0">
-            <span className="font-medium text-zinc-300">{formatBRL(activePoint.ipcaValue)}</span>
-            <span className="text-[11px] font-semibold text-purple-400">
-              +{activePoint.ipcaGainPercent}%
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Patrimônio Final</span>
+            <span className="text-white font-semibold tabular-nums">
+              {formatBRL(activePoint.fiiValue)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Variação em %</span>
+            <span
+              className={`font-medium tabular-nums ${
+                activePoint.fiiGainPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {activePoint.fiiGainPercent >= 0 ? '↑' : '↓'} {activePoint.fiiGainPercent}%
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Variação em % do CDI</span>
+            <span className="text-emerald-400 font-medium tabular-nums">
+              ↑ {cdiPercentRatio}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-3">
+            <span className="text-zinc-400">Indicadores BCB (Selic / IPCA 12m)</span>
+            <span className="text-zinc-300 font-medium tabular-nums">
+              {bcbIndicators
+                ? `${bcbIndicators.selicAnnual}% / ${bcbIndicators.ipca12m}%`
+                : '10,75% / 4,20%'}
             </span>
           </div>
         </div>

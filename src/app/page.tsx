@@ -20,6 +20,7 @@ import { SettingsModal } from '../components/SettingsModal';
 import { B3ImportModal } from '../components/B3ImportModal';
 import { IosInstallBanner } from '../components/IosInstallBanner';
 import { AddFixedIncomeModal } from '../components/AddFixedIncomeModal';
+import { AddTransactionModal } from '../components/AddTransactionModal';
 import { FixedIncomeList } from '../components/FixedIncomeList';
 import { FixedIncomeAsset } from '../types/portfolio';
 import { calculateMonthlyWrapped } from '../lib/monthlyWrapped';
@@ -106,6 +107,8 @@ export default function HomePage() {
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
   const [isFixedIncomeModalOpen, setIsFixedIncomeModalOpen] = useState<boolean>(false);
   const [editingFixedIncomeAsset, setEditingFixedIncomeAsset] = useState<FixedIncomeAsset | null>(null);
+  const [isAddTxModalOpen, setIsAddTxModalOpen] = useState<boolean>(false);
+  const [addTxTicker, setAddTxTicker] = useState<string>('');
 
   const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
 
@@ -192,27 +195,43 @@ export default function HomePage() {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center animate-pulse mb-3">
-          <div className="w-3.5 h-3.5 rounded-full bg-emerald-400" />
+      <div className="min-h-[100dvh] bg-[#0b0b0d] flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 rounded-full bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center animate-pulse mb-3">
+          <div className="w-3.5 h-3.5 rounded-full bg-[#f5b800]" />
         </div>
         <p className="text-xs font-medium text-zinc-400">Carregando FII Tracker...</p>
       </div>
     );
   }
 
-  // Apenas 4 Abas Principais na Dock Flutuante (Estilo Apple / Nubank)
+  // 4 Abas Principais na Dock Flutuante (Estilo XP Investimentos)
   const navItems: { id: MainTabType; label: string; icon: typeof Wallet }[] = [
-    { id: 'portfolio', label: 'Início', icon: Wallet },
+    { id: 'portfolio', label: 'Carteira', icon: Wallet },
     { id: 'proventos', label: 'Proventos', icon: Coins },
     { id: 'radar', label: 'Explorar', icon: Compass },
-    { id: 'goals', label: 'Troféus', icon: Trophy },
+    { id: 'goals', label: 'Rentabilidade', icon: Trophy },
   ];
 
+  const getTabTitle = (tab: MainTabType) => {
+    switch (tab) {
+      case 'portfolio':
+        return 'Carteira';
+      case 'proventos':
+        return 'Proventos';
+      case 'radar':
+        return 'Explorar';
+      case 'goals':
+        return 'Rentabilidade';
+      default:
+        return 'Carteira';
+    }
+  };
+
   return (
-    <div className="min-h-[100dvh] bg-black text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-zinc-950">
-      {/* Header Minimalista */}
+    <div className="min-h-[100dvh] bg-[#0b0b0d] text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
+      {/* Header Estilo XP */}
       <Header
+        title={getTabTitle(activeTab)}
         lastSyncTime={lastSyncTime}
         isLoadingQuotes={isLoadingQuotes}
         isCloudConnected={isCloudConnected}
@@ -261,12 +280,12 @@ export default function HomePage() {
                   triggerHaptic('trophy');
                   setIsWrappedModalOpen(true);
                 }}
-                className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-4 cursor-pointer active:scale-[0.99] transition-all group"
+                className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-4 cursor-pointer active:scale-[0.99] transition-all group"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
-                      <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <div className="w-8 h-8 rounded-xl bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center text-[#f5b800] shrink-0">
+                      <Sparkles className="w-4 h-4 text-[#f5b800]" />
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-white truncate mb-0.5">
@@ -289,15 +308,15 @@ export default function HomePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-colors shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center text-zinc-400 group-hover:text-[#f5b800] transition-colors shrink-0">
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Seletor Segmentado iOS: Meus Ativos vs Renda Fixa & Caixinhas vs Extrato */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
+            {/* Seletor Segmentado XP: Bolsa vs Caixinhas vs Extrato */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -306,11 +325,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'assets'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Layers className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Bolsa ({positions.length})</span>
               </button>
 
@@ -322,11 +341,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'fixed_income'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <PiggyBank className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <PiggyBank className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Caixinhas ({fixedIncomeAssets.length})</span>
               </button>
 
@@ -338,11 +357,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'history'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <ReceiptText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <ReceiptText className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Extrato ({transactions.length})</span>
               </button>
             </div>
@@ -363,6 +382,10 @@ export default function HomePage() {
                   isPrivacyMode={isPrivacyMode}
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                  onOpenBuyModal={(ticker) => {
+                    setAddTxTicker(ticker);
+                    setIsAddTxModalOpen(true);
+                  }}
                 />
               </div>
             ) : homeSubView === 'fixed_income' ? (
@@ -420,8 +443,8 @@ export default function HomePage() {
         {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL 100% B3 + MENTORES) */}
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado iOS: Radar vs Busca B3 vs Mentores */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
+            {/* Seletor Segmentado XP: Radar vs Busca B3 vs Mentores */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -430,11 +453,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'radar'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Compass className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Compass className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Radar</span>
               </button>
 
@@ -446,11 +469,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'universal'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Globe className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Busca B3</span>
               </button>
 
@@ -462,11 +485,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'mentors'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <GraduationCap className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <GraduationCap className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Mentores</span>
               </button>
             </div>
@@ -511,8 +534,8 @@ export default function HomePage() {
         {/* 4. ABA: TROFÉUS & METAS (PLATINA 20 METAS + BOLA DE NEVE + SIMULADOR) */}
         {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado iOS: Conquistas (20) vs Bola de Neve vs Simulador */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
+            {/* Seletor Segmentado XP: Platina (20) vs Bola de Neve vs Simulador */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -521,11 +544,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'achievements'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <Trophy className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Platina (20)</span>
               </button>
 
@@ -537,11 +560,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'targets'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Target className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Target className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Bola de Neve</span>
               </button>
 
@@ -553,11 +576,11 @@ export default function HomePage() {
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'simulator'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
                 <span className="truncate">Simulador</span>
               </button>
             </div>
@@ -613,9 +636,9 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* DOCK FLUTUANTE ESTILO APPLE iOS / NUBANK (Apenas 4 Abas Limpas) */}
+      {/* DOCK FLUTUANTE ESTILO XP iOS (Apenas 4 Abas Limpas) */}
       <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none">
-        <div className="max-w-xs mx-auto pointer-events-auto rounded-full bg-[#16161a]/90 backdrop-blur-2xl border border-white/[0.09] shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
+        <div className="max-w-xs mx-auto pointer-events-auto rounded-full bg-[#1c1c1e]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -628,13 +651,13 @@ export default function HomePage() {
                 }}
                 className={`flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
                   isActive
-                    ? 'bg-white/[0.11] text-white'
+                    ? 'bg-white/[0.1] text-white'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <Icon
                   className={`w-4 h-4 mb-0.5 transition-colors ${
-                    isActive ? 'text-emerald-400' : ''
+                    isActive ? 'text-[#f5b800]' : ''
                   }`}
                 />
                 <span
@@ -651,6 +674,18 @@ export default function HomePage() {
       </nav>
 
       {/* Modais */}
+      <AddTransactionModal
+        isOpen={isAddTxModalOpen}
+        initialTicker={addTxTicker}
+        monthlyTarget={goals.monthlyTarget}
+        currentMonthInvested={summary.currentMonthInvested}
+        onClose={() => {
+          setIsAddTxModalOpen(false);
+          setAddTxTicker('');
+        }}
+        onAddTransaction={addTransaction}
+      />
+
       <B3ImportModal
         isOpen={isB3ModalOpen}
         existingTransactions={transactions}

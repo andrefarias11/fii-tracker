@@ -1,9 +1,10 @@
 'use client';
 
-import { RefreshCw, SlidersHorizontal, Cloud, CloudOff, Eye, EyeOff } from 'lucide-react';
+import { RefreshCw, SlidersHorizontal, Cloud, CloudOff, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { APP_VERSION } from '../lib/version';
 
 interface HeaderProps {
+  title?: string;
   lastSyncTime: Date | null;
   isLoadingQuotes: boolean;
   isCloudConnected: boolean;
@@ -12,9 +13,11 @@ interface HeaderProps {
   onTogglePrivacy?: () => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
+  onOpenWrapped?: () => void;
 }
 
 export function Header({
+  title = 'Carteira',
   lastSyncTime,
   isLoadingQuotes,
   isCloudConnected,
@@ -23,6 +26,7 @@ export function Header({
   onTogglePrivacy,
   onRefresh,
   onOpenSettings,
+  onOpenWrapped,
 }: HeaderProps) {
   const formatTime = (date: Date | null) => {
     if (!date) return 'Offline';
@@ -30,44 +34,52 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-black/80 backdrop-blur-2xl border-b border-white/[0.05] px-4 pb-3 pt-safe-header ios-sticky-fix">
+    <header className="sticky top-0 z-30 bg-[#0b0b0d]/95 backdrop-blur-2xl border-b border-white/[0.04] px-4 pb-3 pt-safe-header ios-sticky-fix">
       <div className="max-w-md mx-auto flex items-center justify-between">
-        {/* Identidade Minimalista estilo Apple / Nubank */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
+        {/* Título da Aba Ativa Estilo XP */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-semibold text-white tracking-tight">
+              {title}
+            </h1>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title={`FII Tracker v${APP_VERSION}`}
+              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#1c1c1e] text-zinc-400 hover:text-[#f5b800] transition-colors border border-white/[0.04]"
+            >
+              v{APP_VERSION}
+            </button>
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-[15px] font-bold tracking-tight text-white">
-                FII Tracker
-              </h1>
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                title="Ver versão e novidades"
-                className="text-[10px] font-medium px-1.5 py-0.2 rounded-full bg-white/[0.06] text-zinc-400 hover:text-white transition-colors"
-              >
-                v{APP_VERSION}
-              </button>
-            </div>
-            <p className="text-[10px] text-zinc-500 font-medium leading-tight">
-              {isLoadingQuotes ? 'Atualizando B3...' : `B3 • ${formatTime(lastSyncTime)}`}
-            </p>
-          </div>
+          <p className="text-[10px] text-zinc-500 font-medium leading-tight mt-0.5">
+            {isLoadingQuotes ? 'Atualizando B3...' : `B3 • ${formatTime(lastSyncTime)}`}
+          </p>
         </div>
 
-        {/* Botões Circulares Minimalistas estilo Nubank */}
-        <div className="flex items-center gap-1.5">
+        {/* Botões Circulares XP: bg-[#1c1c1e] w-10 h-10 rounded-full text-zinc-200 */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {onOpenWrapped && (
+            <button
+              type="button"
+              onClick={onOpenWrapped}
+              title="Retrospectiva B3"
+              aria-label="Retrospectiva B3"
+              className="w-10 h-10 rounded-full bg-[#1c1c1e] text-zinc-200 hover:text-[#f5b800] flex items-center justify-center active:scale-95 transition-all border border-white/[0.04]"
+            >
+              <Sparkles className="w-4 h-4 text-[#f5b800]" />
+            </button>
+          )}
+
           {onTogglePrivacy && (
             <button
+              type="button"
               onClick={onTogglePrivacy}
               aria-label={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
               title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+              className={`w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center transition-all active:scale-95 border border-white/[0.04] ${
                 isPrivacyMode
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-white/[0.06] text-zinc-300 hover:bg-white/[0.1] hover:text-white'
+                  ? 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/30'
+                  : 'text-zinc-200 hover:text-white'
               }`}
             >
               {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -75,12 +87,13 @@ export function Header({
           )}
 
           <button
+            type="button"
             onClick={onOpenSettings}
             title={isCloudConnected ? 'Nuvem Sincronizada' : 'Nuvem Offline'}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+            className={`w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center transition-all active:scale-95 border border-white/[0.04] ${
               isCloudConnected
-                ? 'bg-emerald-500/15 text-emerald-400'
-                : 'bg-white/[0.06] text-zinc-400 hover:bg-white/[0.1] hover:text-white'
+                ? 'text-[#f5b800]'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             {isCloudConnected ? (
@@ -91,18 +104,20 @@ export function Header({
           </button>
 
           <button
+            type="button"
             onClick={onRefresh}
             disabled={isLoadingQuotes}
             aria-label="Atualizar Cotações"
-            className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center active:scale-95 transition-all disabled:opacity-40"
+            className="w-10 h-10 rounded-full bg-[#1c1c1e] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.04] disabled:opacity-40"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingQuotes ? 'animate-spin text-emerald-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoadingQuotes ? 'animate-spin text-[#f5b800]' : ''}`} />
           </button>
 
           <button
+            type="button"
             onClick={onOpenSettings}
             aria-label="Configurações"
-            className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center active:scale-95 transition-all"
+            className="w-10 h-10 rounded-full bg-[#1c1c1e] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.04]"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
