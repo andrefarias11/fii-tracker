@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '2.7.1';
-export const APP_UPDATED_AT = '13/10/2026';
+export const APP_VERSION = '2.8.0';
+export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '2.8.0',
+    date: '14/10/2026',
+    highlights: [
+      'Correção do Bug de Split (portfolioEngine.ts): normalização de desdobramento restrita exclusivamente aos tickers mapeados em HISTORICAL_SPLIT_FACTORS com cotação pré-split (eliminando splits indevidos em FIIs genéricos fora do catálogo)',
+      'Distinção Rigorosa de Proventos Reais vs Estimados (portfolioEngine.ts): eliminação de dividendos mensais fictícios para Ações (assetClass === "ACAO") em meses passados sem registro de evento DIVIDEND e flag isOfficialB3 estrita para proventos 100% oficiais B3',
+      'Evolução do Schema Supabase (schema.sql & supabase.ts): coluna nativa type (BUY, SELL, DIVIDEND) na tabela transactions e criação da tabela fixed_income_assets com políticas de RLS e suporte a maturity_date',
+      'Segurança Aprimorada de Web Push (api/push): remoção da chave privada hardcoded, exigindo VAPID_PRIVATE_KEY via variável de ambiente com retorno HTTP 500 no servidor caso não configurada',
+    ],
+  },
   {
     version: '2.7.1',
     date: '13/10/2026',

@@ -93,9 +93,12 @@ function mapTransactionToDbRow(tx: Transaction) {
     notesValue = `[PROVENTO B3] ${notesValue || 'Rendimento Oficial B3'}`;
   }
 
+  const transactionType = tx.type || (isDividend ? 'DIVIDEND' : isSell ? 'SELL' : 'BUY');
+
   return {
     id: tx.id,
     ticker: tx.ticker.toUpperCase().trim(),
+    type: transactionType,
     date: tx.date,
     shares: signedShares,
     price: Math.abs(tx.price),
@@ -122,9 +125,10 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
       const rawShares = Number(item.shares);
       const notesStr = String(item.notes || '');
       const idStr = String(item.id || '');
+      const dbType = item.type as 'BUY' | 'SELL' | 'DIVIDEND' | undefined;
       const isDividend =
-        idStr.startsWith('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
-      const isSell = !isDividend && rawShares < 0;
+        dbType === 'DIVIDEND' || idStr.startsWith('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
+      const isSell = dbType === 'SELL' || (!isDividend && rawShares < 0);
       const absShares = Math.abs(rawShares);
       const absPrice = Math.abs(Number(item.price));
       const absTotal = Math.abs(Number(item.total));
@@ -132,7 +136,13 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
       return {
         id: item.id,
         ticker: String(item.ticker || '').toUpperCase().trim(),
-        type: isDividend ? 'DIVIDEND' : isSell ? 'SELL' : 'BUY',
+        type: (dbType === 'BUY' || dbType === 'SELL' || dbType === 'DIVIDEND')
+          ? dbType
+          : isDividend
+          ? 'DIVIDEND'
+          : isSell
+          ? 'SELL'
+          : 'BUY',
         date: item.date,
         shares: absShares,
         price: absPrice,
@@ -289,6 +299,7 @@ export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | nul
       rateType: row.rate_type || 'CDI',
       ratePercent: Number(row.rate_percent || 100),
       isExempt: Boolean(row.is_exempt),
+      maturityDate: row.maturity_date || undefined,
       notes: row.notes || undefined,
       updatedAt: row.updated_at || new Date().toISOString().slice(0, 10),
     }));
@@ -312,6 +323,7 @@ export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<
       rate_type: asset.rateType,
       rate_percent: asset.ratePercent,
       is_exempt: asset.isExempt,
+      maturity_date: asset.maturityDate || null,
       notes: asset.notes || null,
       updated_at: asset.updatedAt,
     });

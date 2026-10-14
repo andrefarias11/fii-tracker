@@ -52,16 +52,17 @@ export function normalizeTransactionForSplit(tx: Transaction): {
   const absPrice = Math.abs(Number(tx.price));
   const absTotal = Math.abs(Number(tx.total)) || Number((absShares * absPrice).toFixed(2));
 
-  // Se o FII hoje é Base 10 (VP <= 25) mas a compra na planilha da B3 foi feita no preço antigo pré-split (ex: R$ 95,00)
+  // Aplica o fator de desdobramento APENAS se cleanTicker existir explicitamente como chave
+  // dentro do dicionário HISTORICAL_SPLIT_FACTORS e absPrice >= info.vp * 4.5.
+  // Nunca aplica split automático para tickers genéricos fora de HISTORICAL_SPLIT_FACTORS.
+  const splitFactor = HISTORICAL_SPLIT_FACTORS[cleanTicker];
   if (
+    splitFactor !== undefined &&
     info.assetClass !== 'ACAO' &&
-    info.base === 10 &&
-    info.vp <= 25 &&
     absPrice >= info.vp * 4.5
   ) {
-    const factor = HISTORICAL_SPLIT_FACTORS[cleanTicker] || 10;
-    const adjustedShares = Math.round(absShares * factor);
-    const adjustedPrice = Number((absPrice / factor).toFixed(2));
+    const adjustedShares = Math.round(absShares * splitFactor);
+    const adjustedPrice = Number((absPrice / splitFactor).toFixed(2));
     return {
       shares: adjustedShares,
       price: adjustedPrice,
@@ -289,8 +290,9 @@ export function calculatePortfolioPositions(
       const realPaidInMonth = tickerRealDivMap?.get(ym) || 0;
       if (realPaidInMonth > 0) {
         accumulatedPayback += realPaidInMonth;
-      } else {
-        // Reconstrói quantas cotas o investidor possuía até o final daquele mês
+      } else if (!isStock) {
+        // Para FIIs, que pagam proventos mensalmente por regra, projeta com base nas cotas daquele mês.
+        // Para AÇÕES (assetClass === 'ACAO'), não projeta dividendos mensais fictícios nos meses passados sem registro DIVIDEND.
         let sharesInMonth = 0;
         for (const tx of chronologicalTxs) {
           if (tx.type === 'DIVIDEND') continue;
@@ -436,18 +438,23 @@ export function calculateDividendStaircase(
           isRealB3: true,
         });
       } else if (sharesAtMonthEnd > 0) {
-        const divPerShare =
-          positionDivMap.get(ticker) ?? findFiiInfo(ticker).estimatedMonthlyDividend;
-        const amt = Number((sharesAtMonthEnd * divPerShare).toFixed(2));
-        if (amt > 0) {
-          totalDividends += amt;
-          estimatedDividends += amt;
-          breakdown.push({
-            ticker,
-            shares: sharesAtMonthEnd,
-            amount: amt,
-            isRealB3: false,
-          });
+        const info = findFiiInfo(ticker);
+        const isStock = info.assetClass === 'ACAO';
+        // Para AÇÕES (assetClass === 'ACAO'), não projeta dividendos mensais fictícios nos meses passados sem registro DIVIDEND
+        if (!isStock) {
+          const divPerShare =
+            positionDivMap.get(ticker) ?? info.estimatedMonthlyDividend;
+          const amt = Number((sharesAtMonthEnd * divPerShare).toFixed(2));
+          if (amt > 0) {
+            totalDividends += amt;
+            estimatedDividends += amt;
+            breakdown.push({
+              ticker,
+              shares: sharesAtMonthEnd,
+              amount: amt,
+              isRealB3: false,
+            });
+          }
         }
       }
     }
@@ -461,7 +468,7 @@ export function calculateDividendStaircase(
       totalDividends: Number(totalDividends.toFixed(2)),
       realB3Dividends: Number(realB3Dividends.toFixed(2)),
       estimatedDividends: Number(estimatedDividends.toFixed(2)),
-      isOfficialB3: realB3Dividends > 0,
+      isOfficialB3: realB3Dividends > 0 && estimatedDividends === 0,
       activeAssetsCount: breakdown.length,
       totalSharesHeld,
       breakdown,

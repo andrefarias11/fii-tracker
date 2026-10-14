@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 
-// Chave VAPID P-256 padrão do projeto (pode ser sobrescrita via .env.local com NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY)
+// Chave VAPID P-256 padrão pública (pode ser sobrescrita via .env.local com NEXT_PUBLIC_VAPID_PUBLIC_KEY)
 const DEFAULT_VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
   'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-const DEFAULT_VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY ||
-  'UUxI4O8-FbRouAevSmBQ6o18hgE4nSG3qwvJTfKc-ls';
 const DEFAULT_VAPID_SUBJECT =
   process.env.VAPID_SUBJECT || 'mailto:alertas@fiitracker.app';
 
@@ -112,6 +109,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    if (!vapidPrivateKey) {
+      return NextResponse.json(
+        { error: 'VAPID_PRIVATE_KEY não configurada no servidor.' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { subscription, payload, delaySeconds } = body;
 
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
       audience,
       DEFAULT_VAPID_SUBJECT,
       DEFAULT_VAPID_PUBLIC_KEY,
-      DEFAULT_VAPID_PRIVATE_KEY
+      vapidPrivateKey
     );
 
     const payloadString = JSON.stringify(

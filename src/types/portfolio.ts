@@ -127,6 +127,7 @@ export interface FixedIncomeAsset {
   rateType: 'CDI' | 'IPCA' | 'PREFIXADO';
   ratePercent: number; // Ex: 100 (% do CDI) ou 6.5 (IPCA + 6.5%) ou 12.0 (% Prefixado)
   isExempt: boolean; // Se é isento de IR (LCI/LCA = true)
+  maturityDate?: string; // YYYY-MM-DD (Data de vencimento opcional)
   notes?: string;
   updatedAt: string; // YYYY-MM-DD
 }
