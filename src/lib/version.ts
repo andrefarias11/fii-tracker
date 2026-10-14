@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '3.0.0';
+export const APP_VERSION = '3.1.0';
 export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,18 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '3.1.0',
+    date: '14/10/2026',
+    highlights: [
+      'Redesign Estrutural para iPhone 17 (v3.1.0): resolução de sobreposições visuais, quebras de linha em botões e listas isoladas identificadas em testes em tela real (393px-402px)',
+      'Performance vs CDI (PerformanceComparisonChart.tsx): seletor de valor de referência reestruturado em Segmented Control de largura total (grid grid-cols-3) com whitespace-nowrap; eixo X do gráfico SVG otimizado com exatamente 3 pontos espaçados (Início, Meio, Hoje) eliminando sobreposição da data final; rodapé simplificado e substituição da grade 2x2 por lista compacta vertical unificada (divide-y)',
+      'Calendário e Proventos (DividendFlow.tsx): hero card simplificado com 3 colunas limpas em divide-x sem caixas individuais; agrupamento de todos os eventos de proventos em lista contínua em container único (divide-y) estilo Apple Wallet; remoção do badge redundante "Toque p/ status"',
+      'Busca B3 Desaninhada (UniversalB3Explorer.tsx): barra de pesquisa posicionada diretamente no topo sem contêineres aninhados; filtros com rolagem horizontal e whitespace-nowrap; lista contínua de ativos em contêiner único (divide-y) com px-4 py-3.5',
+      'Resumo da Carteira & Retrospectiva (PortfolioSummary.tsx & monthlyWrapped.ts): botões de ação enxutos ("Importar B3" e "+ Caixinha / RF"); remoção do badge "Ao vivo" e simplificação do resumo da retrospectiva; cálculo de crescimento da Bola de Neve corrigido para evitar distorções percentuais astronômicas; rodapé do Banco Central convertido em barra horizontal minimalista de 1 linha',
+      'Controles e Listas Otimizados (page.tsx & PositionList.tsx): nome da aba padronizado para "Busca B3"; inclusão de whitespace-nowrap e truncate em todos os segmented controls das abas e sub-abas; blindagem contra quebra de linha em tags, badges, P/VP e valores monetários nas posições',
+    ],
+  },
   {
     version: '3.0.0',
     date: '14/10/2026',

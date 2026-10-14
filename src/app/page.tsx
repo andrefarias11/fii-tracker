@@ -261,57 +261,50 @@ export default function HomePage() {
                   triggerHaptic('trophy');
                   setIsWrappedModalOpen(true);
                 }}
-                className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 cursor-pointer active:scale-[0.99] transition-all group"
+                className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-4 cursor-pointer active:scale-[0.99] transition-all group"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
                       <Sparkles className="w-4 h-4 text-emerald-400" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-                          Retrospectiva B3 • {monthlyWrapped.monthName}
-                        </span>
-                        {monthlyWrapped.isCurrentMonth && (
-                          <span className="text-[10px] font-semibold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full border border-white/[0.06]">
-                            Ao vivo
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-zinc-300 leading-snug">
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate mb-0.5">
+                        Retrospectiva B3 • {monthlyWrapped.monthName}
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 truncate leading-snug">
                         Recebeu{' '}
-                        <strong className="text-emerald-400 font-bold tabular-nums">
+                        <strong className="text-emerald-400 font-semibold tabular-nums">
                           {isPrivacyMode ? 'R$ ••••' : formatBRL(monthlyWrapped.totalDividends)}
-                        </strong>{' '}
-                        em proventos, aportou em{' '}
-                        <strong className="text-white font-bold tabular-nums">
+                        </strong>
+                        , comprou{' '}
+                        <strong className="text-zinc-200 font-semibold tabular-nums">
                           {monthlyWrapped.totalSharesBought} cotas
                         </strong>{' '}
-                        e sua bola de neve avançou{' '}
-                        <strong className="text-emerald-400 font-bold tabular-nums">
+                        (avanço de{' '}
+                        <strong className="text-emerald-400 font-semibold tabular-nums">
                           +{monthlyWrapped.snowballGrowthPercent}%
                         </strong>
-                        .
+                        )
                       </p>
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-colors shrink-0">
-                    <ChevronRight className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-colors shrink-0">
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
             )}
 
             {/* Seletor Segmentado iOS: Meus Ativos vs Renda Fixa & Caixinhas vs Extrato */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic('light');
                   setHomeSubView('assets');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'assets'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
@@ -327,7 +320,7 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setHomeSubView('fixed_income');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'fixed_income'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
@@ -343,7 +336,7 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setHomeSubView('history');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   homeSubView === 'history'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
@@ -427,22 +420,22 @@ export default function HomePage() {
         {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL 100% B3 + MENTORES) */}
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado iOS: Radar vs Busca B3 (100%) vs Mentores */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            {/* Seletor Segmentado iOS: Radar vs Busca B3 vs Mentores */}
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic('light');
                   setExploreSubView('radar');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'radar'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Compass className="w-3.5 h-3.5 text-emerald-400" />
-                Radar
+                <Compass className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Radar</span>
               </button>
 
               <button
@@ -451,14 +444,14 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setExploreSubView('universal');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'universal'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                Busca B3 (100%)
+                <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Busca B3</span>
               </button>
 
               <button
@@ -467,14 +460,14 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setExploreSubView('mentors');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   exploreSubView === 'mentors'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                Mentores
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Mentores</span>
               </button>
             </div>
 
@@ -519,21 +512,21 @@ export default function HomePage() {
         {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Seletor Segmentado iOS: Conquistas (20) vs Bola de Neve vs Simulador */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06]">
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic('light');
                   setGoalsSubView('achievements');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'achievements'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Trophy className="w-3.5 h-3.5 text-cyan-400" />
-                Platina (20)
+                <Trophy className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="truncate">Platina (20)</span>
               </button>
 
               <button
@@ -542,14 +535,14 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setGoalsSubView('targets');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'targets'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Target className="w-3.5 h-3.5 text-emerald-400" />
-                Bola de Neve
+                <Target className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Bola de Neve</span>
               </button>
 
               <button
@@ -558,14 +551,14 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setGoalsSubView('simulator');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
                   goalsSubView === 'simulator'
                     ? 'bg-white/[0.1] text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                Simulador
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Simulador</span>
               </button>
             </div>
 

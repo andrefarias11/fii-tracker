@@ -98,47 +98,47 @@ export function DividendFlow({
         <button
           type="button"
           onClick={() => setSubView('calendar')}
-          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'calendar'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
           <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="truncate">Calendário</span>
+          <span>Calendário</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubView('staircase')}
-          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'staircase'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="truncate">Escadinha</span>
+          <span>Escadinha</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubView('chart')}
-          className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all min-w-0 ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'chart'
               ? 'bg-white/[0.1] text-white shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="truncate">vs CDI</span>
+          <span>vs CDI</span>
         </button>
       </div>
 
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
-          {/* HERO CARD DE PROVENTOS ESTILO NUBANK */}
-          <div className="rounded-[28px] bg-[#121215] border border-white/[0.07] p-5 sm:p-6">
+          {/* HERO CARD DE PROVENTOS */}
+          <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-zinc-400 font-medium truncate">
                 Proventos • {capitalizedMonth}
@@ -148,63 +148,63 @@ export function DividendFlow({
               </span>
             </div>
 
-            <div className="text-[28px] sm:text-[32px] font-extrabold text-white tracking-tight mb-4 truncate">
+            <div className="text-[28px] sm:text-[32px] font-extrabold text-white tracking-tight mb-2 truncate tabular-nums">
               {formatBRL(summary.totalExpected)}
             </div>
 
-            {/* 3 Pílulas de Status Limpas */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            {/* 3 Colunas Limpas Separadas por Divisória */}
+            <div className="grid grid-cols-3 divide-x divide-white/[0.06] pt-4 mt-4 border-t border-white/[0.06]">
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
-                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
-                  filterStatus === 'PAID'
-                    ? 'bg-emerald-500/15 border-emerald-500/40'
-                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                className={`pr-2 text-left transition-all cursor-pointer ${
+                  filterStatus === 'PAID' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-emerald-400 mb-0.5 truncate">
-                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Pago</span>
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mb-0.5 whitespace-nowrap">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>Pago</span>
                 </div>
-                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalReceived)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
+                  {formatBRL(summary.totalReceived)}
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
-                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
-                  filterStatus === 'CONFIRMED'
-                    ? 'bg-amber-500/15 border-amber-500/40'
-                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                className={`px-2 text-left transition-all cursor-pointer ${
+                  filterStatus === 'CONFIRMED' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-amber-400 mb-0.5 truncate">
-                  <Clock className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Confirmado</span>
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400 mb-0.5 whitespace-nowrap">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Confirmado</span>
                 </div>
-                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalConfirmed)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
+                  {formatBRL(summary.totalConfirmed)}
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
-                className={`p-2 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
-                  filterStatus === 'ESTIMATED'
-                    ? 'bg-sky-500/15 border-sky-500/40'
-                    : 'bg-white/[0.03] border-white/[0.05] hover:border-white/[0.1]'
+                className={`pl-2 text-left transition-all cursor-pointer ${
+                  filterStatus === 'ESTIMATED' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
                 }`}
               >
-                <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-medium text-sky-400 mb-0.5 truncate">
-                  <HelpCircle className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Previsto</span>
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-400 mb-0.5 whitespace-nowrap">
+                  <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Previsto</span>
                 </div>
-                <div className="text-xs sm:text-sm font-bold text-white truncate">{formatBRL(summary.totalEstimated)}</div>
+                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
+                  {formatBRL(summary.totalEstimated)}
+                </div>
               </button>
             </div>
           </div>
 
-          {/* LISTA MINIMALISTA DE PAGAMENTOS */}
+          {/* LISTA UNIFICADA ESTILO APPLE WALLET / NUBANK */}
           <div className="space-y-2">
             {filterStatus !== 'ALL' && (
               <div className="flex justify-end px-1">
@@ -217,62 +217,63 @@ export function DividendFlow({
               </div>
             )}
 
-            {filteredEvents.map((ev) => {
-              const isPaid = ev.status === 'PAID';
-              const isConfirmed = ev.status === 'CONFIRMED';
+            <div className="rounded-2xl bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
+              {filteredEvents.map((ev) => {
+                const isPaid = ev.status === 'PAID';
+                const isConfirmed = ev.status === 'CONFIRMED';
 
-              return (
-                <div
-                  key={ev.id}
-                  onClick={() => handleToggleStatus(ev.ticker, ev.status)}
-                  className="rounded-[22px] bg-[#121215] border border-white/[0.06] hover:border-white/[0.12] p-4 flex items-center justify-between gap-3 cursor-pointer transition-all"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center shrink-0 ${
-                        isPaid
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : isConfirmed
-                          ? 'bg-amber-500/15 text-amber-400'
-                          : 'bg-white/[0.05] text-zinc-400'
-                      }`}
-                    >
-                      <span className="text-[9px] uppercase font-bold leading-none">Dia</span>
-                      <span className="text-xs font-extrabold leading-tight">{ev.paymentDay}</span>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">{ev.ticker}</span>
-                        <span
-                          className={`text-[9px] font-semibold px-2 py-0.2 rounded-full ${
-                            isPaid
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : isConfirmed
-                              ? 'bg-amber-500/10 text-amber-400'
-                              : 'bg-white/[0.06] text-zinc-400'
-                          }`}
-                        >
-                          {isPaid ? 'Pago' : isConfirmed ? 'Confirmado' : 'Previsto'}
-                        </span>
+                return (
+                  <div
+                    key={ev.id}
+                    onClick={() => handleToggleStatus(ev.ticker, ev.status)}
+                    className="p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                          isPaid
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : isConfirmed
+                            ? 'bg-amber-500/15 text-amber-400'
+                            : 'bg-white/[0.05] text-zinc-400'
+                        }`}
+                      >
+                        <span className="text-[8px] uppercase font-bold leading-none">Dia</span>
+                        <span className="text-xs font-bold leading-tight tabular-nums">{ev.paymentDay}</span>
                       </div>
 
-                      <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
-                        {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(ev.dividendPerShare)}
-                        {ev.announcementDate ? ` • Data-Com ${ev.announcementDate.slice(0, 5)}` : ''}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-white whitespace-nowrap">{ev.ticker}</span>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              isPaid
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : isConfirmed
+                                ? 'bg-amber-500/10 text-amber-400'
+                                : 'bg-white/[0.06] text-zinc-400'
+                            }`}
+                          >
+                            {isPaid ? 'Pago' : isConfirmed ? 'Confirmado' : 'Previsto'}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-zinc-500 mt-0.5 truncate tabular-nums">
+                          {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(ev.dividendPerShare)}
+                          {ev.announcementDate ? ` • Com ${ev.announcementDate.slice(0, 5)}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-emerald-400 tabular-nums whitespace-nowrap">
+                        +{formatBRL(ev.totalValue)}
                       </div>
                     </div>
                   </div>
-
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-bold text-emerald-400">
-                      +{formatBRL(ev.totalValue)}
-                    </div>
-                    <span className="text-[9px] text-zinc-600">Toque p/ status</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       ) : subView === 'staircase' ? (

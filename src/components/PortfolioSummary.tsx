@@ -192,16 +192,16 @@ export function PortfolioSummary({
           </span>
         </div>
 
-        {/* Fileira de Ações Rápidas Estilo Nubank */}
-        <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-white/[0.06]">
+        {/* Fileira de Ações Rápidas */}
+        <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/[0.06]">
           {onOpenB3Modal && (
             <button
               type="button"
               onClick={onOpenB3Modal}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs active:scale-95 transition-all"
+              className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs sm:text-sm whitespace-nowrap active:scale-95 transition-all shadow-sm"
             >
-              <FileSpreadsheet className="w-4 h-4 stroke-[2.2]" />
-              Importar Planilha B3
+              <FileSpreadsheet className="w-4 h-4 stroke-[2.2] shrink-0" />
+              <span>Importar B3</span>
             </button>
           )}
 
@@ -209,19 +209,19 @@ export function PortfolioSummary({
             <button
               type="button"
               onClick={onNavigateToFixedIncome}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 font-semibold text-xs active:scale-95 transition-all border border-white/[0.06]"
+              className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 font-semibold text-xs sm:text-sm whitespace-nowrap active:scale-95 transition-all border border-white/[0.06]"
             >
-              <PiggyBank className="w-4 h-4 text-zinc-400" />
-              {hasFixedIncome ? `Caixinhas (${fixedIncomeCount})` : '+ Caixinhas / RF'}
+              <PiggyBank className="w-4 h-4 text-zinc-400 shrink-0" />
+              <span>{hasFixedIncome ? `Caixinhas (${fixedIncomeCount})` : '+ Caixinha / RF'}</span>
             </button>
           ) : onOpenExtrato ? (
             <button
               type="button"
               onClick={onOpenExtrato}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 font-semibold text-xs active:scale-95 transition-all border border-white/[0.06]"
+              className="flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 font-semibold text-xs sm:text-sm whitespace-nowrap active:scale-95 transition-all border border-white/[0.06]"
             >
-              <ReceiptText className="w-3.5 h-3.5 text-zinc-400" />
-              Extrato B3
+              <ReceiptText className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+              <span>Extrato B3</span>
             </button>
           ) : null}
         </div>
@@ -297,14 +297,14 @@ export function PortfolioSummary({
         </div>
       </div>
 
-      {/* Pílula Discreta de Referência Banco Central */}
+      {/* Linha Minimalista de Referência Banco Central */}
       {bcbIndicators && (
-        <div className="px-3.5 sm:px-4 py-2 rounded-2xl bg-[#121215] border border-white/[0.05] flex items-center justify-between gap-2 flex-wrap text-[11px] text-zinc-500">
-          <span className="shrink-0 font-medium">Banco Central Hoje</span>
-          <div className="flex items-center gap-1.5 sm:gap-2.5 text-zinc-400 font-medium flex-wrap tabular-nums">
+        <div className="px-3 py-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500">
+          <span className="shrink-0 font-medium">Banco Central</span>
+          <div className="flex items-center gap-2 text-zinc-400 font-medium whitespace-nowrap tabular-nums">
             <span>Selic {bcbIndicators.selicAnnual}%</span>
             <span>•</span>
-            <span>CDI Líq. {bcbIndicators.cdiNetAnnual}%</span>
+            <span>CDI {bcbIndicators.cdiNetAnnual}%</span>
             <span>•</span>
             <span>IPCA {bcbIndicators.ipca12m}%</span>
           </div>

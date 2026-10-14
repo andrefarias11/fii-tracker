@@ -118,7 +118,7 @@ export function PositionList({
     <div className="space-y-2.5">
       {/* Pílula Seletora Minimalista (Exibida quando há FIIs e Ações na carteira) */}
       {hasBothClasses && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
           {[
             { id: 'ALL', label: `Todos (${positions.length})` },
             { id: 'FII', label: `FIIs (${fiisCount})` },
@@ -128,7 +128,7 @@ export function PositionList({
               key={pill.id}
               type="button"
               onClick={() => setAssetFilter(pill.id as 'ALL' | 'FII' | 'ACAO')}
-              className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all ${
+              className={`px-3 py-1 rounded-xl text-[11px] font-semibold transition-all whitespace-nowrap ${
                 assetFilter === pill.id
                   ? 'bg-emerald-500 text-zinc-950 font-bold'
                   : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-zinc-200'
@@ -185,21 +185,21 @@ export function PositionList({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[15px] font-bold text-white tracking-tight">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[15px] font-bold text-white tracking-tight whitespace-nowrap">
                       {pos.ticker}
                     </span>
-                    <span className="text-[11px] font-medium px-2 py-0.2 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06]">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06] whitespace-nowrap">
                       {formatShortSegment(pos.segment)}
                     </span>
                     {pos.pvp < 1 && (
-                      <span className="text-[11px] font-medium px-2 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 tabular-nums">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 tabular-nums whitespace-nowrap">
                         P/VP {pos.pvp}
                       </span>
                     )}
                   </div>
 
-                  <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5">
+                  <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5 whitespace-nowrap truncate">
                     <span className="tabular-nums">
                       {isPrivacyMode
                         ? `•• ${isStock ? 'ações' : 'cotas'}`
@@ -215,11 +215,11 @@ export function PositionList({
 
               <div className="flex items-center gap-2.5 shrink-0">
                 <div className="text-right">
-                  <div className="text-[15px] font-bold text-white tracking-tight tabular-nums">
+                  <div className="text-[15px] font-bold text-white tracking-tight tabular-nums whitespace-nowrap">
                     {formatBRL(pos.currentTotal)}
                   </div>
                   <div
-                    className={`text-[11px] font-semibold tabular-nums ${
+                    className={`text-[11px] font-semibold tabular-nums whitespace-nowrap ${
                       isProfitable ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
@@ -229,7 +229,7 @@ export function PositionList({
                 </div>
 
                 <ChevronDown
-                  className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${
+                  className={`w-4 h-4 text-zinc-500 transition-transform duration-200 shrink-0 ${
                     isExpanded ? 'rotate-180 text-white' : ''
                   }`}
                 />
@@ -241,17 +241,17 @@ export function PositionList({
               <div className="px-4 pb-4 pt-2 border-t border-white/[0.05] space-y-3 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between text-[11px] text-zinc-400 gap-2">
                   <span className="flex-1 min-w-0 truncate">{pos.name}</span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums">
+                  <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums whitespace-nowrap">
                       P/VP {pos.pvp}
                     </span>
                     {isStock && (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums whitespace-nowrap">
                         Teto Barsi {formatBRL(pos.ceilingPrice, true)}
                       </span>
                     )}
                     {isBelowAverage && (
-                      <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 whitespace-nowrap">
                         Abaixo do PM
                       </span>
                     )}
@@ -261,7 +261,7 @@ export function PositionList({
                 <div className="grid grid-cols-2 gap-2.5 p-3.5 rounded-2xl bg-white/[0.025] text-xs">
                   <div>
                     <span className="text-zinc-500 block text-[11px] mb-0.5">Cotação B3</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
                       <span className="text-white font-bold tabular-nums">
                         {formatBRL(pos.currentPrice, true)}
                       </span>
@@ -280,7 +280,7 @@ export function PositionList({
 
                   <div className="text-right">
                     <span className="text-zinc-500 block text-[11px] mb-0.5">Preço Médio</span>
-                    <span className="text-zinc-200 font-semibold block mt-0.5 tabular-nums">
+                    <span className="text-zinc-200 font-semibold block mt-0.5 tabular-nums whitespace-nowrap">
                       {formatBRL(pos.averagePrice, true)}
                     </span>
                   </div>
@@ -288,7 +288,7 @@ export function PositionList({
                   <div className="pt-2 border-t border-white/[0.05]">
                     <span className="text-zinc-500 block text-[11px] mb-0.5">Resultado</span>
                     <span
-                      className={`font-semibold block mt-0.5 tabular-nums ${
+                      className={`font-semibold block mt-0.5 tabular-nums whitespace-nowrap ${
                         isProfitable ? 'text-emerald-400' : 'text-rose-400'
                       }`}
                     >
@@ -299,7 +299,7 @@ export function PositionList({
 
                   <div className="pt-2 border-t border-white/[0.05] text-right">
                     <span className="text-zinc-500 block text-[11px] mb-0.5">Valor Investido</span>
-                    <span className="text-zinc-300 font-medium block mt-0.5 tabular-nums">
+                    <span className="text-zinc-300 font-medium block mt-0.5 tabular-nums whitespace-nowrap">
                       {formatBRL(pos.totalInvested)}
                     </span>
                   </div>
@@ -308,7 +308,7 @@ export function PositionList({
                 {/* Payback do Ativo (Quanto já voltou em dividendos) */}
                 {(pos.paybackReceived !== undefined && pos.paybackReceived > 0) && (
                   <div className="px-3.5 py-3 rounded-2xl bg-white/[0.025] space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center justify-between text-[11px] whitespace-nowrap">
                       <span className="text-zinc-400 font-medium">
                         Payback acumulado em proventos
                       </span>
@@ -327,8 +327,8 @@ export function PositionList({
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-1 gap-2">
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between pt-1 gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <span className="text-[11px] text-zinc-500">
                       {isStock ? 'Média/mês:' : 'Div/cota:'}
                     </span>
@@ -364,10 +364,10 @@ export function PositionList({
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <strong className="text-xs font-semibold text-emerald-400 tabular-nums">
+                        <strong className="text-xs font-semibold text-emerald-400 tabular-nums whitespace-nowrap">
                           {formatBRL(pos.monthlyDividendPerShare, true)}
                         </strong>
-                        <span className="text-[11px] text-zinc-500 tabular-nums">
+                        <span className="text-[11px] text-zinc-500 tabular-nums whitespace-nowrap">
                           (YoC {pos.yieldOnCostPercent}%)
                         </span>
                         <button
@@ -381,8 +381,8 @@ export function PositionList({
                     )}
                   </div>
 
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-zinc-400 text-[11px] font-medium shrink-0 tabular-nums">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-zinc-400 text-[11px] font-medium shrink-0 tabular-nums whitespace-nowrap">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
                     Nº Mágico: {pos.magicProgressPercent}% ({pos.totalShares}/{pos.magicNumber})
                   </span>
                 </div>

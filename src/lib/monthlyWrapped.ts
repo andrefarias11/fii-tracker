@@ -235,11 +235,17 @@ export function calculateMonthlyWrapped(
   }
 
   // Avanço da Bola de Neve no mês:
-  // Se comprou cotas do líder ou se dividendos cresceram
-  const snowballGrowthPercent = Math.max(
-    0,
-    dividendGrowthPercent > 0 ? dividendGrowthPercent : Math.round((totalSharesBought / 10) * 10)
-  );
+  // Calcula o avanço real de novas cotas adicionadas ou crescimento de proventos (sempre limitado a 100% para evitar distorções)
+  const totalPortfolioShares = positions.reduce((acc, p) => acc + p.totalShares, 0);
+  let calculatedGrowth = 0;
+  if (totalPortfolioShares > 0 && totalSharesBought > 0) {
+    calculatedGrowth = Math.min(100, Number(((totalSharesBought / totalPortfolioShares) * 100).toFixed(1)));
+  } else if (dividendGrowthPercent > 0) {
+    calculatedGrowth = Math.min(100, Number(dividendGrowthPercent.toFixed(1)));
+  } else {
+    calculatedGrowth = 0;
+  }
+  const snowballGrowthPercent = Math.max(0, calculatedGrowth);
 
   // 4. Metáforas da Vida Real
   const coffeeCupsPaid = Math.floor(totalDividends / 7.5);

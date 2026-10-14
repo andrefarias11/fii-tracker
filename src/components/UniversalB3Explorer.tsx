@@ -375,33 +375,10 @@ export function UniversalB3Explorer({
 
   return (
     <div className="space-y-4">
-      {/* BARRA DE PESQUISA UNIVERSAL DA B3 */}
-      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 space-y-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-              <Globe className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
-                Explorador Universal da B3
-              </h2>
-              <p className="text-[11px] text-zinc-400">
-                Pesquise qualquer FII ou Ação listada na Bolsa brasileira
-              </p>
-            </div>
-          </div>
-
-          {totalDirectoryCount > 0 && (
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06] tabular-nums">
-              {totalDirectoryCount}+ ativos B3
-            </span>
-          )}
-        </div>
-
-        {/* Input de Busca Instantânea */}
+      {/* Barra de Busca Desencaixotada Direto no Topo */}
+      <div className="space-y-2.5">
         <div className="relative">
-          <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={query}
@@ -411,8 +388,8 @@ export function UniversalB3Explorer({
                 handleInspectAsset(query);
               }
             }}
-            placeholder="Digite qualquer ticker ou empresa (ex: WEGE3, PRIO3, RZTR11...)"
-            className="w-full pl-10 pr-20 py-3 rounded-2xl bg-white/[0.03] border border-white/[0.08] focus:border-emerald-500/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all"
+            placeholder="Buscar FII ou Ação na B3 (ex: HGLG11, ITUB4...)"
+            className="w-full pl-10 pr-20 py-3 rounded-2xl bg-[#121215] border border-white/[0.08] focus:border-emerald-500/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all shadow-sm"
           />
           {query && (
             <button
@@ -425,9 +402,9 @@ export function UniversalB3Explorer({
           )}
         </div>
 
-        {/* Pílulas de Filtro Rápido */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
+        {/* Pílulas de Filtro Rápido com whitespace-nowrap */}
+        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {[
               { id: 'ALL', label: 'Todos da B3' },
               { id: 'FII', label: 'FIIs & Fiagros' },
@@ -437,10 +414,10 @@ export function UniversalB3Explorer({
                 key={pill.id}
                 type="button"
                 onClick={() => setAssetFilter(pill.id as 'ALL' | 'FII' | 'ACAO')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                   assetFilter === pill.id
                     ? 'bg-emerald-500 text-zinc-950 font-bold'
-                    : 'bg-white/[0.04] border border-white/[0.06] text-zinc-400 hover:text-white'
+                    : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
                 }`}
               >
                 {pill.label}
@@ -452,7 +429,7 @@ export function UniversalB3Explorer({
             <button
               type="button"
               onClick={() => handleInspectAsset(query)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all whitespace-nowrap shrink-0"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Raio-X de &ldquo;{query.trim().toUpperCase()}&rdquo;
@@ -496,30 +473,29 @@ export function UniversalB3Explorer({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
             {items.map((item) => {
               const isStock = item.assetClass === 'ACAO';
               const isSelected = selectedTicker === item.ticker;
               const isUp = (item.changePercent || 0) >= 0;
 
               return (
-                <button
+                <div
                   key={item.ticker}
-                  type="button"
                   onClick={() => handleInspectAsset(item.ticker)}
-                  className={`p-3.5 rounded-[20px] border text-left flex items-center justify-between gap-3 transition-all ${
+                  className={`px-4 py-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-white/[0.06] border-emerald-500/50 shadow-lg'
-                      : 'bg-[#121215] border-white/[0.06] hover:border-white/[0.12]'
+                      ? 'bg-white/[0.05]'
+                      : 'hover:bg-white/[0.02]'
                   }`}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex flex-col items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] flex flex-col items-center justify-center shrink-0">
                       <span className="text-[11px] font-bold text-white leading-none">
                         {item.ticker.slice(0, 4)}
                       </span>
                       <span
-                        className={`text-[10px] font-semibold mt-0.5 leading-none ${
+                        className={`text-[9px] font-semibold mt-0.5 leading-none ${
                           isStock ? 'text-zinc-400' : 'text-emerald-400'
                         }`}
                       >
@@ -528,11 +504,11 @@ export function UniversalB3Explorer({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-white">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white whitespace-nowrap">
                           {item.ticker}
                         </span>
-                        <span className="text-[11px] font-medium px-1.5 py-0.2 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06]">
+                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06] whitespace-nowrap">
                           {isStock ? 'Ação' : 'FII'}
                         </span>
                       </div>
@@ -545,12 +521,12 @@ export function UniversalB3Explorer({
                   <div className="text-right shrink-0">
                     {item.price ? (
                       <>
-                        <div className="text-xs font-bold text-white tabular-nums">
+                        <div className="text-xs font-bold text-white tabular-nums whitespace-nowrap">
                           {formatBRL(item.price)}
                         </div>
                         {item.changePercent !== undefined && (
                           <div
-                            className={`text-[11px] font-semibold tabular-nums ${
+                            className={`text-[11px] font-semibold tabular-nums whitespace-nowrap ${
                               isUp ? 'text-emerald-400' : 'text-rose-400'
                             }`}
                           >
@@ -560,13 +536,13 @@ export function UniversalB3Explorer({
                         )}
                       </>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 whitespace-nowrap">
                         Raio-X
                         <ArrowUpRight className="w-3 h-3" />
                       </span>
                     )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
