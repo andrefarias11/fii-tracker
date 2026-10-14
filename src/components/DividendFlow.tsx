@@ -93,18 +93,18 @@ export function DividendFlow({
 
   return (
     <div className="space-y-4">
-      {/* Seletor Segmentado 3-em-1 Estilo Apple iOS */}
-      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
+      {/* Seletor Segmentado 3-em-1 Estilo XP Investimentos */}
+      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
         <button
           type="button"
           onClick={() => setSubView('calendar')}
           className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'calendar'
-              ? 'bg-white/[0.1] text-white shadow-sm'
+              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <Calendar className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
           <span>Calendário</span>
         </button>
 
@@ -113,12 +113,12 @@ export function DividendFlow({
           onClick={() => setSubView('staircase')}
           className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'staircase'
-              ? 'bg-white/[0.1] text-white shadow-sm'
+              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <BarChart3 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Escadinha</span>
+          <BarChart3 className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
+          <span>Evolução</span>
         </button>
 
         <button
@@ -126,11 +126,11 @@ export function DividendFlow({
           onClick={() => setSubView('chart')}
           className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
             subView === 'chart'
-              ? 'bg-white/[0.1] text-white shadow-sm'
+              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <TrendingUp className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
           <span>vs CDI</span>
         </button>
       </div>
@@ -138,12 +138,12 @@ export function DividendFlow({
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
           {/* HERO CARD DE PROVENTOS */}
-          <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5">
+          <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-zinc-400 font-medium truncate">
                 Proventos • {capitalizedMonth}
               </span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 shrink-0">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800] border border-[#f5b800]/30 shrink-0">
                 Isento de IR
               </span>
             </div>
@@ -204,20 +204,20 @@ export function DividendFlow({
             </div>
           </div>
 
-          {/* LISTA UNIFICADA ESTILO APPLE WALLET / NUBANK */}
+          {/* LISTA UNIFICADA ESTILO XP */}
           <div className="space-y-2">
             {filterStatus !== 'ALL' && (
               <div className="flex justify-end px-1">
                 <button
                   onClick={() => setFilterStatus('ALL')}
-                  className="text-xs text-emerald-400 font-semibold"
+                  className="text-xs text-[#f5b800] font-semibold"
                 >
                   Mostrar todos ({events.length})
                 </button>
               </div>
             )}
 
-            <div className="rounded-2xl bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
+            <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] divide-y divide-white/[0.06] overflow-hidden">
               {filteredEvents.map((ev) => {
                 const isPaid = ev.status === 'PAID';
                 const isConfirmed = ev.status === 'CONFIRMED';

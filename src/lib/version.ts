@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '3.2.0';
+export const APP_VERSION = '4.0.0';
 export const APP_UPDATED_AT = '14/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.0.0',
+    date: '14/10/2026',
+    highlights: [
+      'Redesign XP Investimentos iOS (Parte 2): reconstrução visual da tela "Evolução e Rentabilidade patrimonial" e simplificação da tela Carteira',
+      'Gráfico de Barras Fino Estilo XP (DividendStaircaseChart.tsx): gráfico de 12 colunas ("J F M A M J J A S O N D") com pílulas verticais w-2.5, meses futuros em cinza-escuro h-5 e meses com valor em degradê prateado ou amarelo ouro quando selecionado; seletor discreto "No ano (YYYY) ⌄" e tabela corrida "Detalhes da evolução" direta no fundo #0b0b0d sem card delimitador',
+      'Rentabilidade vs CDI no Padrão XP (PerformanceComparisonChart.tsx): curva interativa suavizada com seletor de base em Amarelo Ouro e substituição dos blocos inferiores por duas tabelas corridas idênticas à XP (Comparativo acumulado e Detalhes da evolução com Variação em % do CDI e indicadores BCB)',
+      'Simplificação da Carteira e Proventos (page.tsx & DividendFlow.tsx): remoção de excesso de blocos na tela Início deixando o resumo solto no topo + barra de alocação + Meus Ativos; atalho para a Retrospectiva B3 via botão Sparkles circular no Header; segmented controls em estilo XP dark (Calendário, Evolução, vs CDI)',
+    ],
+  },
   {
     version: '3.2.0',
     date: '14/10/2026',

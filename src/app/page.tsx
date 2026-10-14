@@ -240,6 +240,11 @@ export default function HomePage() {
         onTogglePrivacy={handleTogglePrivacy}
         onRefresh={fetchLiveQuotes}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenWrapped={
+          monthlyWrapped && monthlyWrapped.hasActivity
+            ? () => setIsWrappedModalOpen(true)
+            : undefined
+        }
       />
 
       {/* Conteúdo Principal com Respiro Estilo iOS */}
@@ -272,48 +277,6 @@ export default function HomePage() {
               onNavigateToFixedIncome={() => setHomeSubView('fixed_income')}
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
-
-            {/* CARD RETROSPECTIVA MENSAL */}
-            {monthlyWrapped && monthlyWrapped.hasActivity && (
-              <div
-                onClick={() => {
-                  triggerHaptic('trophy');
-                  setIsWrappedModalOpen(true);
-                }}
-                className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-4 cursor-pointer active:scale-[0.99] transition-all group"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center text-[#f5b800] shrink-0">
-                      <Sparkles className="w-4 h-4 text-[#f5b800]" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-white truncate mb-0.5">
-                        Retrospectiva B3 • {monthlyWrapped.monthName}
-                      </h4>
-                      <p className="text-[11px] text-zinc-400 truncate leading-snug">
-                        Recebeu{' '}
-                        <strong className="text-emerald-400 font-semibold tabular-nums">
-                          {isPrivacyMode ? 'R$ ••••' : formatBRL(monthlyWrapped.totalDividends)}
-                        </strong>
-                        , comprou{' '}
-                        <strong className="text-zinc-200 font-semibold tabular-nums">
-                          {monthlyWrapped.totalSharesBought} cotas
-                        </strong>{' '}
-                        (avanço de{' '}
-                        <strong className="text-emerald-400 font-semibold tabular-nums">
-                          +{monthlyWrapped.snowballGrowthPercent}%
-                        </strong>
-                        )
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-7 h-7 rounded-lg bg-white/[0.04] flex items-center justify-center text-zinc-400 group-hover:text-[#f5b800] transition-colors shrink-0">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Seletor Segmentado XP: Bolsa vs Caixinhas vs Extrato */}
             <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
