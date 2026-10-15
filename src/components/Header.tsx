@@ -1,7 +1,18 @@
 'use client';
 
-import { RefreshCw, SlidersHorizontal, Cloud, CloudOff, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import {
+  RefreshCw,
+  SlidersHorizontal,
+  Cloud,
+  CloudOff,
+  Eye,
+  EyeOff,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { APP_VERSION } from '../lib/version';
+import { SavedAccountSession } from '../lib/authManager';
 
 interface HeaderProps {
   title?: string;
@@ -14,6 +25,8 @@ interface HeaderProps {
   onRefresh: () => void;
   onOpenSettings: () => void;
   onOpenWrapped?: () => void;
+  onOpenAccountSwitcher?: () => void;
+  activeAccount?: SavedAccountSession | null;
 }
 
 export function Header({
@@ -27,7 +40,21 @@ export function Header({
   onRefresh,
   onOpenSettings,
   onOpenWrapped,
+  onOpenAccountSwitcher,
+  activeAccount,
 }: HeaderProps) {
+  const [avatarError, setAvatarError] = useState(false);
+
+  const getInitials = (nameOrEmail?: string) => {
+    if (!nameOrEmail) return 'U';
+    const clean = nameOrEmail.trim();
+    const parts = clean.split(/[\s@._-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
+  };
+
   const formatTime = (date: Date | null) => {
     if (!date) return 'Offline';
     return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -112,6 +139,35 @@ export function Header({
           >
             <RefreshCw className={`w-4 h-4 ${isLoadingQuotes ? 'animate-spin text-[#f5b800]' : ''}`} />
           </button>
+
+          {onOpenAccountSwitcher && (
+            <button
+              type="button"
+              onClick={onOpenAccountSwitcher}
+              title={
+                activeAccount
+                  ? `Conta ativa: ${activeAccount.displayName} (${activeAccount.email}) • Alternar`
+                  : 'Alternar / Conectar Conta'
+              }
+              aria-label="Perfil e Contas"
+              className="w-10 h-10 rounded-full bg-[#1c1c1e] text-zinc-200 hover:text-white flex items-center justify-center active:scale-95 transition-all border border-white/[0.04] shrink-0 overflow-hidden"
+            >
+              {activeAccount?.avatarUrl && !avatarError ? (
+                <img
+                  src={activeAccount.avatarUrl}
+                  alt={activeAccount.displayName}
+                  onError={() => setAvatarError(true)}
+                  className="w-8 h-8 rounded-full object-cover border border-white/[0.1]"
+                />
+              ) : activeAccount ? (
+                <span className="w-8 h-8 rounded-full bg-[#f5b800] text-zinc-950 font-bold flex items-center justify-center text-xs uppercase tracking-tighter shadow-sm">
+                  {getInitials(activeAccount.displayName || activeAccount.email)}
+                </span>
+              ) : (
+                <User className="w-4 h-4 text-zinc-300" />
+              )}
+            </button>
+          )}
 
           <button
             type="button"

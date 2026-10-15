@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.2.1';
+export const APP_VERSION = '4.3.0';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.3.0',
+    date: '15/10/2026',
+    highlights: [
+      'Login com Conta Google Oficial (OAuth via Supabase): suporte nativo a autenticação com Google (prompt: select_account e acesso offline) permitindo cadastrar e alternar múltiplas contas Google no mesmo aparelho',
+      'Seletor de Múltiplas Contas Estilo Instagram (AccountSwitcherModal.tsx): alternância instantânea entre contas salvas em 1 toque, suporte a foto oficial de perfil do Google (avatarUrl) com fallback elegante em Amarelo Ouro (#f5b800)',
+      'Cofre Local de Contas (authManager.ts): gerenciamento persistente de sessões (fii_tracker_saved_accounts_v1) com salvamento automático nos eventos de autenticação e suporte a adicionar/remover contas',
+      'Header com Foto Real do Usuário (Header.tsx): botão de perfil circular destacando a foto do Google com fallback para iniciais e gatilho direto para o alternador de contas',
+    ],
+  },
   {
     version: '4.2.1',
     date: '15/10/2026',

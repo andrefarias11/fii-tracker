@@ -22,6 +22,13 @@ import { AddFixedIncomeModal } from '../components/AddFixedIncomeModal';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { FixedIncomeList } from '../components/FixedIncomeList';
 import { FixedIncomeAsset } from '../types/portfolio';
+import { AccountSwitcherModal } from '../components/AccountSwitcherModal';
+import {
+  initAuthVaultListener,
+  getActiveAccount,
+  subscribeAuthAccounts,
+  SavedAccountSession,
+} from '../lib/authManager';
 import { calculateMonthlyWrapped } from '../lib/monthlyWrapped';
 import { triggerHaptic } from '../lib/haptic';
 import {
@@ -102,12 +109,26 @@ export default function HomePage() {
   );
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
+  const [activeAccount, setActiveAccount] = useState<SavedAccountSession | null>(null);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
   const [isFixedIncomeModalOpen, setIsFixedIncomeModalOpen] = useState<boolean>(false);
   const [editingFixedIncomeAsset, setEditingFixedIncomeAsset] = useState<FixedIncomeAsset | null>(null);
   const [isAddTxModalOpen, setIsAddTxModalOpen] = useState<boolean>(false);
   const [addTxTicker, setAddTxTicker] = useState<string>('');
+
+  useEffect(() => {
+    // Inicializa listener do cofre de sessões (OAuth redirect Google, SIGNED_IN e INITIAL_SESSION)
+    initAuthVaultListener();
+    setActiveAccount(getActiveAccount());
+
+    const unsubscribe = subscribeAuthAccounts((_, active) => {
+      setActiveAccount(active);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
 
@@ -239,6 +260,8 @@ export default function HomePage() {
         onTogglePrivacy={handleTogglePrivacy}
         onRefresh={fetchLiveQuotes}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenAccountSwitcher={() => setIsAccountSwitcherOpen(true)}
+        activeAccount={activeAccount}
         onOpenWrapped={
           monthlyWrapped && monthlyWrapped.hasActivity
             ? () => setIsWrappedModalOpen(true)
@@ -673,6 +696,14 @@ export default function HomePage() {
         onResetDemo={resetDemo}
         onClearAll={clearAllTransactions}
         onSyncCloud={syncWithCloud}
+      />
+
+      <AccountSwitcherModal
+        isOpen={isAccountSwitcherOpen}
+        onClose={() => setIsAccountSwitcherOpen(false)}
+        onAccountChanged={() => {
+          syncWithCloud();
+        }}
       />
     </div>
   );
