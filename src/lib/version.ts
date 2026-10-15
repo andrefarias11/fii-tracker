@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.4.0';
+export const APP_VERSION = '4.4.1';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.4.1',
+    date: '15/10/2026',
+    highlights: [
+      'Proteção e Autenticação de Acesso ao Admin (/admin e /api/admin): tela de login restrita com usuário e senha (padrão admin / admin123, configurável via variáveis de ambiente)',
+      'Segurança de Tokens com HMAC-SHA256 (adminAuth.ts): geração e verificação de sessão protegida com cookies HTTP-Only e suporte a header Bearer',
+      'Bloqueio Estrito no Endpoint (/api/admin): rejeição imediata com HTTP 401 Unauthorized para qualquer requisição não autenticada',
+      'Encerramento Seguro de Sessão: botão "Sair" no cabeçalho administrativo com revogação instantânea de cookies e retorno à tela de login',
+    ],
+  },
   {
     version: '4.4.0',
     date: '15/10/2026',

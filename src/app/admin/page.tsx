@@ -26,6 +26,10 @@ import {
   Sparkles,
   ArrowRight,
   Loader2,
+  Lock,
+  User,
+  LogOut,
+  AlertCircle,
 } from 'lucide-react';
 import { AdminAccountOverview, AdminDashboardData } from '../api/admin/route';
 import {
@@ -75,6 +79,13 @@ function getInitials(nameOrEmail?: string): string {
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [loginUsername, setLoginUsername] = useState<string>('admin');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState<boolean>(false);
+
   const [cloudData, setCloudData] = useState<AdminDashboardData | null>(null);
   const [localAccounts, setLocalAccounts] = useState<SavedAccountSession[]>([]);
   const [activeAccount, setActiveAccount] = useState<SavedAccountSession | null>(null);
@@ -115,13 +126,36 @@ export default function AdminDashboardPage() {
     [isPrivacyMode]
   );
 
+  const checkAuth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/auth', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          return true;
+        }
+      }
+      setIsAuthenticated(false);
+      return false;
+    } catch {
+      setIsAuthenticated(false);
+      return false;
+    }
+  }, []);
+
   const fetchAdminData = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const res = await fetch('/api/admin', { cache: 'no-store' });
+      if (res.status === 401) {
+        setIsAuthenticated(false);
+        return;
+      }
       if (res.ok) {
         const data: AdminDashboardData = await res.json();
         setCloudData(data);
+        setIsAuthenticated(true);
       }
     } catch (err) {
       console.error('Falha ao buscar dados administrativos:', err);
@@ -134,8 +168,62 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     setLocalAccounts(getSavedAccounts());
     setActiveAccount(getActiveAccount());
-    fetchAdminData();
-  }, [fetchAdminData]);
+    checkAuth().then((authed) => {
+      if (authed) {
+        fetchAdminData();
+      } else {
+        setIsLoading(false);
+      }
+    });
+  }, [checkAuth, fetchAdminData]);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginUsername || !loginPassword) {
+      setLoginError('Informe usuário e senha.');
+      return;
+    }
+
+    triggerHaptic('light');
+    setIsSubmittingLogin(true);
+    setLoginError(null);
+
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: loginUsername.trim(),
+          password: loginPassword.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        triggerHaptic('success');
+        setIsAuthenticated(true);
+        fetchAdminData();
+      } else {
+        triggerHaptic('error');
+        setLoginError(data.error || 'Credenciais inválidas.');
+      }
+    } catch {
+      triggerHaptic('error');
+      setLoginError('Falha ao comunicar com o servidor de autenticação.');
+    } finally {
+      setIsSubmittingLogin(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    triggerHaptic('light');
+    try {
+      await fetch('/api/admin/auth', { method: 'DELETE' });
+    } catch {}
+    setIsAuthenticated(false);
+    setCloudData(null);
+    setLoginPassword('');
+  };
 
   // Unificação Inteligente: Contas da Nuvem (Supabase) + Contas do Aparelho Local (Cofre)
   const unifiedAccounts: AdminAccountOverview[] = useMemo(() => {
@@ -292,6 +380,123 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 1. Tela de Carregamento Inicial de Sessão
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 text-[#f5b800] animate-spin mb-3" />
+        <p className="text-xs text-zinc-400 font-medium tracking-wide">
+          Verificando credenciais de acesso...
+        </p>
+      </div>
+    );
+  }
+
+  // 2. Tela de Login Administrativo (XP Dark Gate)
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col items-center justify-center p-4 antialiased relative overflow-hidden">
+        {/* Glow de fundo sutil */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#f5b800]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-[24px] p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
+          {/* Topo do Card de Login */}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center text-[#f5b800] shadow-md shadow-[#f5b800]/10 mb-1">
+              <ShieldCheck className="w-7 h-7" />
+            </div>
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              Acesso Restrito • Painel Admin
+            </h1>
+            <p className="text-xs text-zinc-400 max-w-xs">
+              Digite as credenciais de administrador para visualizar a custódia geral da plataforma.
+            </p>
+          </div>
+
+          {/* Formulário */}
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-300">
+                Usuário Administrador
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="admin"
+                  required
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#f5b800]/50 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-300">
+                Senha de Acesso
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showLoginPassword ? 'text' : 'password'}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#f5b800]/50 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmittingLogin}
+              className="w-full bg-[#f5b800] hover:bg-[#e5ac00] text-zinc-950 font-bold rounded-full py-3.5 px-4 flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-lg shadow-[#f5b800]/10 text-sm mt-2 disabled:opacity-50"
+            >
+              {isSubmittingLogin ? (
+                <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+              ) : (
+                <ShieldCheck className="w-4 h-4" />
+              )}
+              <span>Entrar no Painel Admin</span>
+            </button>
+          </form>
+
+          {/* Rodapé do Login */}
+          <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-500">
+            <Link
+              href="/"
+              onClick={() => triggerHaptic('light')}
+              className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Voltar ao Início</span>
+            </Link>
+
+            <span className="text-[11px] text-zinc-600">
+              Padrão: admin / admin123
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800]/20 selection:text-[#f5b800] pb-20">
       {/* 1. Header Administrativo XP Dark */}
@@ -351,6 +556,16 @@ export default function AdminDashboardPage() {
                 className={`w-3.5 h-3.5 text-[#f5b800] ${isRefreshing ? 'animate-spin' : ''}`}
               />
               <span className="hidden sm:inline">Atualizar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all active:scale-95"
+              title="Encerrar sessão de administrador"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>

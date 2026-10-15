@@ -12,6 +12,10 @@ import {
 } from '../../../domain/portfolioEngine';
 import { normalizeB3Ticker } from '../../../lib/b3Parser';
 import { getSupabaseConfig } from '../../../lib/supabase';
+import {
+  verifyAdminToken,
+  extractAdminTokenFromRequest,
+} from '../../../lib/adminAuth';
 
 export interface AdminAccountOverview {
   userId: string;
@@ -58,6 +62,15 @@ export interface AdminDashboardData {
 
 export async function GET(request: Request) {
   try {
+    // 0. Proteção Estrita: Verifica autenticação administrativa
+    const token = extractAdminTokenFromRequest(request);
+    if (!verifyAdminToken(token)) {
+      return NextResponse.json(
+        { error: 'Acesso não autorizado. Faça login com usuário e senha de administrador.' },
+        { status: 401 }
+      );
+    }
+
     const { origin } = new URL(request.url);
     const { url, key } = getSupabaseConfig();
 
