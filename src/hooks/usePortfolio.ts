@@ -102,7 +102,7 @@ export function usePortfolio() {
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Sincronizar com o Supabase (Batch SQL)
+  // Sincronizar com o Supabase (Bidirecional / Two-Way Smart Merge)
   const syncWithCloud = useCallback(async () => {
     const config = getSupabaseConfig();
     if (!config.url || !config.key) {
@@ -123,32 +123,101 @@ export function usePortfolio() {
           fetchRemoteFixedIncome(),
         ]);
 
+        // 1. Metas
         if (remoteGoals) {
           setGoals(remoteGoals);
           localStorage.setItem(STORAGE_KEY_GOALS, JSON.stringify(remoteGoals));
         }
 
+        // 2. Dividendos customizados
         if (remoteDivs) {
           setCustomDividends(remoteDivs);
           localStorage.setItem(STORAGE_KEY_DIVIDENDS, JSON.stringify(remoteDivs));
         }
 
-        if (remoteTxs && remoteTxs.length > 0) {
-          setTransactions(remoteTxs);
-          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(remoteTxs));
-        } else if (remoteTxs && remoteTxs.length === 0) {
-          const localTxsStr = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
-          if (localTxsStr) {
-            const localTxs: Transaction[] = JSON.parse(localTxsStr);
-            if (localTxs.length > 0) {
-              await upsertRemoteTransactionsBatch(localTxs);
+        // 3. Transações (Smart Merge Bidirecional)
+        if (remoteTxs !== null) {
+          let currentLocalTxs: Transaction[] = [];
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
+            if (raw) currentLocalTxs = JSON.parse(raw);
+          } catch {
+            currentLocalTxs = [];
+          }
+
+          const remoteIds = new Set(remoteTxs.map((t) => t.id));
+          const missingInRemote: Transaction[] = [];
+
+          for (const localTx of currentLocalTxs) {
+            // Ignora transações de demo se houver transações reais
+            if (localTx.id.startsWith('demo-')) continue;
+
+            if (!remoteIds.has(localTx.id)) {
+              // Verifica se não há registro equivalente com mesmo ticker, data, shares e total
+              const existsEquiv = remoteTxs.some(
+                (r) =>
+                  r.ticker === localTx.ticker &&
+                  r.date === localTx.date &&
+                  Math.abs(r.shares) === Math.abs(localTx.shares) &&
+                  Math.abs(r.total) === Math.abs(localTx.total)
+              );
+              if (!existsEquiv) {
+                missingInRemote.push(localTx);
+              }
             }
           }
+
+          // Se este dispositivo tem transações locais que ainda não estão no Supabase, envie-as!
+          if (missingInRemote.length > 0) {
+            await upsertRemoteTransactionsBatch(missingInRemote);
+          }
+
+          // A lista consolidada final é a união de remotas + locais enviadas
+          const finalTxs = [...remoteTxs, ...missingInRemote].sort(
+            (a, b) => b.date.localeCompare(a.date)
+          );
+
+          setTransactions(finalTxs);
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(finalTxs));
         }
 
-        if (remoteFixedIncome && remoteFixedIncome.length > 0) {
-          setFixedIncomeAssets(remoteFixedIncome);
-          localStorage.setItem(STORAGE_KEY_FIXED_INCOME, JSON.stringify(remoteFixedIncome));
+        // 4. Renda Fixa & Caixinhas (Smart Merge Bidirecional)
+        if (remoteFixedIncome !== null) {
+          let currentLocalFi: FixedIncomeAsset[] = [];
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY_FIXED_INCOME);
+            if (raw) currentLocalFi = JSON.parse(raw);
+          } catch {
+            currentLocalFi = [];
+          }
+
+          const remoteFiIds = new Set(remoteFixedIncome.map((f) => f.id));
+          const missingInRemoteFi: FixedIncomeAsset[] = [];
+
+          for (const localAsset of currentLocalFi) {
+            if (localAsset.id.startsWith('demo-fi-')) continue;
+
+            if (!remoteFiIds.has(localAsset.id)) {
+              const existsEquiv = remoteFixedIncome.some(
+                (r) =>
+                  r.name.trim().toLowerCase() === localAsset.name.trim().toLowerCase() &&
+                  r.institution.trim().toLowerCase() === localAsset.institution.trim().toLowerCase()
+              );
+              if (!existsEquiv) {
+                missingInRemoteFi.push(localAsset);
+              }
+            }
+          }
+
+          if (missingInRemoteFi.length > 0) {
+            for (const asset of missingInRemoteFi) {
+              await upsertRemoteFixedIncome(asset);
+            }
+          }
+
+          const finalFi = [...remoteFixedIncome, ...missingInRemoteFi];
+          setFixedIncomeAssets(finalFi);
+          localStorage.setItem(STORAGE_KEY_FIXED_INCOME, JSON.stringify(finalFi));
         }
       }
     } catch (err) {
@@ -289,9 +358,9 @@ export function usePortfolio() {
     const updated = [newTx, ...transactions];
     persistTransactions(updated);
 
-    if (isCloudConnected) {
-      await upsertRemoteTransaction(newTx);
-    }
+    upsertRemoteTransaction(newTx).catch((err) => {
+      console.warn('Tentativa de sincronização imediata falhou, sincronizará no próximo ciclo:', err);
+    });
 
     return newTx;
   };
@@ -327,9 +396,9 @@ export function usePortfolio() {
     const updatedList = transactions.map((t) => (t.id === id ? updatedTx : t));
     persistTransactions(updatedList);
 
-    if (isCloudConnected) {
-      await upsertRemoteTransaction(updatedTx);
-    }
+    upsertRemoteTransaction(updatedTx).catch((err) => {
+      console.warn('Falha ao atualizar no Supabase:', err);
+    });
 
     return updatedTx;
   };
@@ -339,26 +408,24 @@ export function usePortfolio() {
     const updated = transactions.filter((t) => t.id !== id);
     persistTransactions(updated);
 
-    if (isCloudConnected) {
-      await deleteRemoteTransaction(id);
-    }
+    deleteRemoteTransaction(id).catch((err) => {
+      console.warn('Falha ao deletar no Supabase:', err);
+    });
   };
 
   // Limpar tudo em 1 único Batch Delete no Supabase
   const clearAllTransactions = async () => {
     const existingIds = transactions.map((t) => t.id);
     persistTransactions([]);
-    if (isCloudConnected && existingIds.length > 0) {
-      await deleteRemoteTransactionsBatch(existingIds);
+    if (existingIds.length > 0) {
+      deleteRemoteTransactionsBatch(existingIds).catch(() => {});
     }
   };
 
   // Recarregar dados de exemplo em 1 único Batch Upsert
   const resetDemo = async () => {
     persistTransactions(DEMO_TRANSACTIONS);
-    if (isCloudConnected) {
-      await upsertRemoteTransactionsBatch(DEMO_TRANSACTIONS);
-    }
+    upsertRemoteTransactionsBatch(DEMO_TRANSACTIONS).catch(() => {});
   };
 
   // Importar transações vindas da planilha da B3 (Batch Upsert & Batch Delete no Supabase)
@@ -371,13 +438,13 @@ export function usePortfolio() {
 
     if (replaceAll) {
       const allExistingIds = transactions.map((t) => t.id);
-      if (isCloudConnected && allExistingIds.length > 0) {
-        await deleteRemoteTransactionsBatch(allExistingIds);
+      if (allExistingIds.length > 0) {
+        deleteRemoteTransactionsBatch(allExistingIds).catch(() => {});
       }
       finalTransactions = newTxs;
     } else {
-      if (isCloudConnected && demoIds.length > 0) {
-        await deleteRemoteTransactionsBatch(demoIds);
+      if (demoIds.length > 0) {
+        deleteRemoteTransactionsBatch(demoIds).catch(() => {});
       }
       const { uniqueTransactions } = deduplicateB3Transactions(newTxs, realExistingTxs);
       txsToUpsert = uniqueTransactions;
@@ -386,8 +453,9 @@ export function usePortfolio() {
 
     persistTransactions(finalTransactions);
 
-    if (isCloudConnected && txsToUpsert.length > 0) {
+    if (txsToUpsert.length > 0) {
       await upsertRemoteTransactionsBatch(txsToUpsert);
+      setIsCloudConnected(true);
     }
   };
 
@@ -472,9 +540,9 @@ export function usePortfolio() {
     const updated = [newAsset, ...fixedIncomeAssets];
     persistFixedIncome(updated);
 
-    if (isCloudConnected) {
-      await upsertRemoteFixedIncome(newAsset);
-    }
+    upsertRemoteFixedIncome(newAsset).catch((err) => {
+      console.warn('Falha ao salvar renda fixa no Supabase:', err);
+    });
     return newAsset;
   };
 
@@ -493,8 +561,10 @@ export function usePortfolio() {
     persistFixedIncome(updatedList);
 
     const updatedAsset = updatedList.find((a) => a.id === id);
-    if (isCloudConnected && updatedAsset) {
-      await upsertRemoteFixedIncome(updatedAsset);
+    if (updatedAsset) {
+      upsertRemoteFixedIncome(updatedAsset).catch((err) => {
+        console.warn('Falha ao atualizar renda fixa no Supabase:', err);
+      });
     }
     return updatedAsset;
   };
@@ -503,15 +573,15 @@ export function usePortfolio() {
     const updated = fixedIncomeAssets.filter((a) => a.id !== id);
     persistFixedIncome(updated);
 
-    if (isCloudConnected) {
-      await deleteRemoteFixedIncome(id);
-    }
+    deleteRemoteFixedIncome(id).catch((err) => {
+      console.warn('Falha ao deletar renda fixa no Supabase:', err);
+    });
   };
 
   const resetFixedIncomeDemo = async () => {
     persistFixedIncome(DEMO_FIXED_INCOME);
-    if (isCloudConnected && DEMO_FIXED_INCOME[0]) {
-      await upsertRemoteFixedIncome(DEMO_FIXED_INCOME[0]);
+    if (DEMO_FIXED_INCOME[0]) {
+      upsertRemoteFixedIncome(DEMO_FIXED_INCOME[0]).catch(() => {});
     }
   };
 

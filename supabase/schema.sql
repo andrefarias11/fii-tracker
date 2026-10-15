@@ -67,28 +67,46 @@ CREATE INDEX IF NOT EXISTS idx_fixed_income_type ON public.fixed_income_assets (
 CREATE INDEX IF NOT EXISTS idx_fixed_income_created_at ON public.fixed_income_assets (created_at);
 
 -- 5. Habilitar Row Level Security (RLS) permitindo leitura e escrita pública para uso pessoal
+-- 5. Habilitar Row Level Security (RLS) permitindo leitura e escrita para uso pessoal (anon e authenticated)
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_dividends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fixed_income_assets ENABLE ROW LEVEL SECURITY;
 
--- Políticas de acesso anônimo (Anon Key) para transactions
-CREATE POLICY "Permitir leitura anonima de transactions" ON public.transactions FOR SELECT USING (true);
-CREATE POLICY "Permitir insercao anonima de transactions" ON public.transactions FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir atualizacao anonima de transactions" ON public.transactions FOR UPDATE USING (true);
-CREATE POLICY "Permitir delecao anonima de transactions" ON public.transactions FOR DELETE USING (true);
+-- Políticas de acesso para transactions (anon e authenticated)
+DROP POLICY IF EXISTS "Permitir leitura anonima de transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Permitir insercao anonima de transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Permitir atualizacao anonima de transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Permitir delecao anonima de transactions" ON public.transactions;
+
+CREATE POLICY "Permitir leitura de transactions" ON public.transactions FOR SELECT TO authenticated, anon USING (true);
+CREATE POLICY "Permitir insercao de transactions" ON public.transactions FOR INSERT TO authenticated, anon WITH CHECK (true);
+CREATE POLICY "Permitir atualizacao de transactions" ON public.transactions FOR UPDATE TO authenticated, anon USING (true);
+CREATE POLICY "Permitir delecao de transactions" ON public.transactions FOR DELETE TO authenticated, anon USING (true);
 
 -- Políticas de acesso para portfolio_goals
-CREATE POLICY "Permitir leitura de goals" ON public.portfolio_goals FOR SELECT USING (true);
-CREATE POLICY "Permitir insercao de goals" ON public.portfolio_goals FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir atualizacao de goals" ON public.portfolio_goals FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Permitir leitura de goals" ON public.portfolio_goals;
+DROP POLICY IF EXISTS "Permitir insercao de goals" ON public.portfolio_goals;
+DROP POLICY IF EXISTS "Permitir atualizacao de goals" ON public.portfolio_goals;
+
+CREATE POLICY "Permitir leitura de goals" ON public.portfolio_goals FOR SELECT TO authenticated, anon USING (true);
+CREATE POLICY "Permitir insercao de goals" ON public.portfolio_goals FOR INSERT TO authenticated, anon WITH CHECK (true);
+CREATE POLICY "Permitir atualizacao de goals" ON public.portfolio_goals FOR UPDATE TO authenticated, anon USING (true);
 
 -- Políticas de acesso para custom_dividends
-CREATE POLICY "Permitir leitura de custom_dividends" ON public.custom_dividends FOR SELECT USING (true);
-CREATE POLICY "Permitir insercao/update de custom_dividends" ON public.custom_dividends FOR ALL USING (true);
+DROP POLICY IF EXISTS "Permitir leitura de custom_dividends" ON public.custom_dividends;
+DROP POLICY IF EXISTS "Permitir insercao/update de custom_dividends" ON public.custom_dividends;
 
--- Políticas de acesso anônimo para fixed_income_assets
-CREATE POLICY "Permitir leitura anonima de fixed_income_assets" ON public.fixed_income_assets FOR SELECT USING (true);
-CREATE POLICY "Permitir insercao anonima de fixed_income_assets" ON public.fixed_income_assets FOR INSERT WITH CHECK (true);
-CREATE POLICY "Permitir atualizacao anonima de fixed_income_assets" ON public.fixed_income_assets FOR UPDATE USING (true);
-CREATE POLICY "Permitir delecao anonima de fixed_income_assets" ON public.fixed_income_assets FOR DELETE USING (true);
+CREATE POLICY "Permitir leitura de custom_dividends" ON public.custom_dividends FOR SELECT TO authenticated, anon USING (true);
+CREATE POLICY "Permitir insercao/update de custom_dividends" ON public.custom_dividends FOR ALL TO authenticated, anon USING (true);
+
+-- Políticas de acesso para fixed_income_assets
+DROP POLICY IF EXISTS "Permitir leitura anonima de fixed_income_assets" ON public.fixed_income_assets;
+DROP POLICY IF EXISTS "Permitir insercao anonima de fixed_income_assets" ON public.fixed_income_assets;
+DROP POLICY IF EXISTS "Permitir atualizacao anonima de fixed_income_assets" ON public.fixed_income_assets;
+DROP POLICY IF EXISTS "Permitir delecao anonima de fixed_income_assets" ON public.fixed_income_assets;
+
+CREATE POLICY "Permitir leitura de fixed_income_assets" ON public.fixed_income_assets FOR SELECT TO authenticated, anon USING (true);
+CREATE POLICY "Permitir insercao de fixed_income_assets" ON public.fixed_income_assets FOR INSERT TO authenticated, anon WITH CHECK (true);
+CREATE POLICY "Permitir atualizacao de fixed_income_assets" ON public.fixed_income_assets FOR UPDATE TO authenticated, anon USING (true);
+CREATE POLICY "Permitir delecao de fixed_income_assets" ON public.fixed_income_assets FOR DELETE TO authenticated, anon USING (true);

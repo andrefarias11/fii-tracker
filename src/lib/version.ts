@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.3.0';
+export const APP_VERSION = '4.3.1';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,16 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.3.1',
+    date: '15/10/2026',
+    highlights: [
+      'Sincronização Inteligente Bidirecional (Smart Merge em usePortfolio.ts): unificação automática de transações B3 e Caixinhas/Renda Fixa entre Celular e Web (itens locais pendentes sobem para o Supabase e itens remotos são baixados simultaneamente sem perdas)',
+      'Sincronização Automática por Foco e Sessão (page.tsx): acionamento instantâneo do sync ao reabrir o app no celular (PWA / iOS), ao focar a aba no navegador e após login ou troca de contas no alternador',
+      'Ações Rápidas no Cabeçalho (Header.tsx): botão da Nuvem com sincronização direta em 1 toque (ícone animado) e botão Atualizar unificado (cotações ao vivo B3 + sincronização na nuvem)',
+      'Blindagem de Conexão e RLS (supabase.ts & schema.sql): suporte transparente a usuários autenticados Google OAuth com fallback resiliente para garantir leitura e escrita contínuas no banco',
+    ],
+  },
   {
     version: '4.3.0',
     date: '15/10/2026',

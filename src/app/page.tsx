@@ -125,10 +125,31 @@ export default function HomePage() {
 
     const unsubscribe = subscribeAuthAccounts((_, active) => {
       setActiveAccount(active);
+      // Ao autenticar, retornar de redirect OAuth ou alternar contas, sincroniza imediatamente com a nuvem
+      syncWithCloud();
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [syncWithCloud]);
+
+  // Sincronização automática em segundo plano ao focar a aba ou retornar ao app no celular (PWA / iOS / Web)
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const handleFocusOrVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncWithCloud();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+    };
+  }, [isInitialized, syncWithCloud]);
 
   const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
 
@@ -258,7 +279,14 @@ export default function HomePage() {
         isSyncingCloud={isSyncing}
         isPrivacyMode={isPrivacyMode}
         onTogglePrivacy={handleTogglePrivacy}
-        onRefresh={fetchLiveQuotes}
+        onRefresh={async () => {
+          triggerHaptic('medium');
+          await Promise.all([fetchLiveQuotes(), syncWithCloud()]);
+        }}
+        onSyncCloud={async () => {
+          triggerHaptic('light');
+          await syncWithCloud();
+        }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenAccountSwitcher={() => setIsAccountSwitcherOpen(true)}
         activeAccount={activeAccount}

@@ -11,24 +11,20 @@ const DEFAULT_SUPABASE_URL = 'https://quvbxequiyjdymgnvnpm.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dmJ4ZXF1aXlqZHltZ252bnBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDYxOTksImV4cCI6MjEwNzEyMjE5OX0.P8ghV_HeWc6lRcy1EImeIKoh1sKQ0akIiRFOg19fPsk';
 
 export function getSupabaseConfig(): { url: string; key: string } {
-  // Prioridade 1: Variáveis de ambiente (.env.local) ou fallback direto do projeto
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
-
-  if (envUrl && envKey) {
-    return { url: envUrl, key: envKey };
-  }
-
-  // Prioridade 2: Armazenamento local customizado (se o usuário trocar na UI)
+  // Prioridade 1: Armazenamento local customizado (se o usuário trocar na UI)
   if (typeof window !== 'undefined') {
-    const localUrl = localStorage.getItem(STORAGE_KEY_SUPABASE_URL) || DEFAULT_SUPABASE_URL;
-    const localKey = localStorage.getItem(STORAGE_KEY_SUPABASE_KEY) || DEFAULT_SUPABASE_KEY;
+    const localUrl = localStorage.getItem(STORAGE_KEY_SUPABASE_URL);
+    const localKey = localStorage.getItem(STORAGE_KEY_SUPABASE_KEY);
     if (localUrl && localKey) {
-      return { url: localUrl, key: localKey };
+      return { url: localUrl.trim(), key: localKey.trim() };
     }
   }
 
-  return { url: DEFAULT_SUPABASE_URL, key: DEFAULT_SUPABASE_KEY };
+  // Prioridade 2: Variáveis de ambiente (.env.local) ou fallback oficial do projeto
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+
+  return { url: envUrl.trim(), key: envKey.trim() };
 }
 
 export function saveSupabaseConfig(url: string, key: string) {
@@ -44,6 +40,33 @@ export function clearSupabaseConfig() {
     localStorage.removeItem(STORAGE_KEY_SUPABASE_URL);
     localStorage.removeItem(STORAGE_KEY_SUPABASE_KEY);
     cachedClient = null;
+  }
+}
+
+let cachedAnonClient: SupabaseClient | null = null;
+let cachedAnonConfigKey = '';
+
+export function getAnonClient(): SupabaseClient | null {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) return null;
+
+  const currentKey = `${url}__${key}`;
+  if (cachedAnonClient && cachedAnonConfigKey === currentKey) {
+    return cachedAnonClient;
+  }
+
+  try {
+    cachedAnonClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+    cachedAnonConfigKey = currentKey;
+    return cachedAnonClient;
+  } catch (err) {
+    console.error('Falha ao inicializar cliente Supabase anônimo:', err);
+    return null;
   }
 }
 
@@ -72,12 +95,49 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 }
 
-export async function checkSupabaseConnection(): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
+async function withDataFallback<T = any>(
+  operation: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>
+): Promise<{ data: T | null; error: any }> {
+  const authClient = getSupabaseClient();
+  const anonClient = getAnonClient();
 
+  if (!authClient && !anonClient) {
+    return { data: null, error: new Error('Cliente Supabase indisponível') };
+  }
+
+  if (authClient) {
+    try {
+      const res = await operation(authClient);
+      if (!res.error) return res;
+
+      const errMsg = (res.error?.message || '').toLowerCase();
+      const errCode = String(res.error?.code || '');
+      // Se der restrição de RLS com token de usuário autenticado, faz fallback transparente com anonClient
+      if (
+        anonClient &&
+        (errCode === '42501' ||
+          errMsg.includes('security') ||
+          errMsg.includes('permission') ||
+          errMsg.includes('denied'))
+      ) {
+        console.warn('Fallback para cliente Supabase anônimo após restrição de RLS...');
+        return await operation(anonClient);
+      }
+      return res;
+    } catch {
+      if (anonClient) return await operation(anonClient);
+    }
+  }
+
+  return await operation(anonClient!);
+}
+
+export async function checkSupabaseConnection(): Promise<boolean> {
   try {
-    const { error } = await client.from('portfolio_goals').select('id').limit(1);
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('portfolio_goals').select('id').limit(1);
+      return { data: res.data, error: res.error };
+    });
     return !error;
   } catch {
     return false;
@@ -113,19 +173,19 @@ function mapTransactionToDbRow(tx: Transaction) {
 }
 
 export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
   try {
-    const { data, error } = await client
-      .from('transactions')
-      .select('*')
-      .order('date', { ascending: false });
+    const { data, error } = await withDataFallback<any[]>(async (client) => {
+      const res = await client.from('transactions').select('*').order('date', { ascending: false });
+      return { data: res.data, error: res.error };
+    });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao buscar transações no Supabase:', error);
+      return null;
+    }
     if (!data) return [];
 
-    return data.map((item) => {
+    return data.map((item: any) => {
       const rawShares = Number(item.shares);
       const notesStr = String(item.notes || '');
       const idStr = String(item.id || '');
@@ -167,13 +227,17 @@ export async function upsertRemoteTransaction(tx: Transaction): Promise<boolean>
 
 export async function upsertRemoteTransactionsBatch(txs: Transaction[]): Promise<boolean> {
   if (txs.length === 0) return true;
-  const client = getSupabaseClient();
-  if (!client) return false;
 
   try {
     const rows = txs.map(mapTransactionToDbRow);
-    const { error } = await client.from('transactions').upsert(rows);
-    if (error) throw error;
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('transactions').upsert(rows);
+      return { data: res.data, error: res.error };
+    });
+    if (error) {
+      console.error('Erro no batch upsert de transações no Supabase:', error);
+      return false;
+    }
     return true;
   } catch (err) {
     console.error('Erro no batch upsert de transações no Supabase:', err);
@@ -187,12 +251,16 @@ export async function deleteRemoteTransaction(id: string): Promise<boolean> {
 
 export async function deleteRemoteTransactionsBatch(ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
-  const client = getSupabaseClient();
-  if (!client) return false;
 
   try {
-    const { error } = await client.from('transactions').delete().in('id', ids);
-    if (error) throw error;
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('transactions').delete().in('id', ids);
+      return { data: res.data, error: res.error };
+    });
+    if (error) {
+      console.error('Erro no batch delete de transações no Supabase:', error);
+      return false;
+    }
     return true;
   } catch (err) {
     console.error('Erro no batch delete de transações no Supabase:', err);
@@ -203,18 +271,13 @@ export async function deleteRemoteTransactionsBatch(ids: string[]): Promise<bool
 // ----------------- Operações de Metas -----------------
 
 export async function fetchRemoteGoals(): Promise<PortfolioGoals | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
   try {
-    const { data, error } = await client
-      .from('portfolio_goals')
-      .select('*')
-      .eq('id', 'default_goals')
-      .single();
+    const { data, error } = await withDataFallback<any>(async (client) => {
+      const res = await client.from('portfolio_goals').select('*').eq('id', 'default_goals').single();
+      return { data: res.data, error: res.error };
+    });
 
-    if (error) return null;
-    if (!data) return null;
+    if (error || !data) return null;
 
     return {
       monthlyTarget: Number(data.monthly_target),
@@ -227,16 +290,16 @@ export async function fetchRemoteGoals(): Promise<PortfolioGoals | null> {
 }
 
 export async function upsertRemoteGoals(goals: PortfolioGoals): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
   try {
-    const { error } = await client.from('portfolio_goals').upsert({
-      id: 'default_goals',
-      monthly_target: goals.monthlyTarget,
-      milestone_equity_target: goals.milestoneEquityTarget,
-      monthly_income_target: goals.monthlyIncomeTarget,
-      updated_at: new Date().toISOString(),
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('portfolio_goals').upsert({
+        id: 'default_goals',
+        monthly_target: goals.monthlyTarget,
+        milestone_equity_target: goals.milestoneEquityTarget,
+        monthly_income_target: goals.monthlyIncomeTarget,
+        updated_at: new Date().toISOString(),
+      });
+      return { data: res.data, error: res.error };
     });
     return !error;
   } catch {
@@ -247,11 +310,11 @@ export async function upsertRemoteGoals(goals: PortfolioGoals): Promise<boolean>
 // ----------------- Operações de Dividendos -----------------
 
 export async function fetchRemoteDividends(): Promise<Record<string, number> | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
   try {
-    const { data, error } = await client.from('custom_dividends').select('ticker, dividend');
+    const { data, error } = await withDataFallback<any[]>(async (client) => {
+      const res = await client.from('custom_dividends').select('ticker, dividend');
+      return { data: res.data, error: res.error };
+    });
     if (error || !data) return null;
 
     const map: Record<string, number> = {};
@@ -265,31 +328,29 @@ export async function fetchRemoteDividends(): Promise<Record<string, number> | n
 }
 
 export async function upsertRemoteDividend(ticker: string, dividend: number): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
   try {
-    const { error } = await client.from('custom_dividends').upsert({
-      ticker: ticker.toUpperCase(),
-      dividend,
-      updated_at: new Date().toISOString(),
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('custom_dividends').upsert({
+        ticker: ticker.toUpperCase(),
+        dividend,
+        updated_at: new Date().toISOString(),
+      });
+      return { data: res.data, error: res.error };
     });
     return !error;
   } catch {
     return false;
   }
 }
+
 // ----------------- Operações de Renda Fixa & Caixinhas -----------------
 
 export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
   try {
-    const { data, error } = await client
-      .from('fixed_income_assets')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await withDataFallback<any[]>(async (client) => {
+      const res = await client.from('fixed_income_assets').select('*').order('created_at', { ascending: false });
+      return { data: res.data, error: res.error };
+    });
 
     if (error || !data) return null;
 
@@ -313,23 +374,23 @@ export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | nul
 }
 
 export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
   try {
-    const { error } = await client.from('fixed_income_assets').upsert({
-      id: asset.id,
-      name: asset.name,
-      type: asset.type,
-      institution: asset.institution,
-      invested_amount: asset.investedAmount,
-      current_balance: asset.currentBalance,
-      rate_type: asset.rateType,
-      rate_percent: asset.ratePercent,
-      is_exempt: asset.isExempt,
-      maturity_date: asset.maturityDate || null,
-      notes: asset.notes || null,
-      updated_at: asset.updatedAt,
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('fixed_income_assets').upsert({
+        id: asset.id,
+        name: asset.name,
+        type: asset.type,
+        institution: asset.institution,
+        invested_amount: asset.investedAmount,
+        current_balance: asset.currentBalance,
+        rate_type: asset.rateType,
+        rate_percent: asset.ratePercent,
+        is_exempt: asset.isExempt,
+        maturity_date: asset.maturityDate || null,
+        notes: asset.notes || null,
+        updated_at: asset.updatedAt,
+      });
+      return { data: res.data, error: res.error };
     });
     return !error;
   } catch {
@@ -338,11 +399,11 @@ export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<
 }
 
 export async function deleteRemoteFixedIncome(id: string): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
   try {
-    const { error } = await client.from('fixed_income_assets').delete().eq('id', id);
+    const { error } = await withDataFallback(async (client) => {
+      const res = await client.from('fixed_income_assets').delete().eq('id', id);
+      return { data: res.data, error: res.error };
+    });
     return !error;
   } catch {
     return false;

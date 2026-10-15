@@ -23,6 +23,7 @@ interface HeaderProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   onRefresh: () => void;
+  onSyncCloud?: () => void;
   onOpenSettings: () => void;
   onOpenWrapped?: () => void;
   onOpenAccountSwitcher?: () => void;
@@ -38,6 +39,7 @@ export function Header({
   isPrivacyMode = false,
   onTogglePrivacy,
   onRefresh,
+  onSyncCloud,
   onOpenSettings,
   onOpenWrapped,
   onOpenAccountSwitcher,
@@ -115,8 +117,15 @@ export function Header({
 
           <button
             type="button"
-            onClick={onOpenSettings}
-            title={isCloudConnected ? 'Nuvem Sincronizada' : 'Nuvem Offline'}
+            onClick={onSyncCloud || onOpenSettings}
+            title={
+              isCloudConnected
+                ? isSyncingCloud
+                  ? 'Sincronizando com a Nuvem...'
+                  : 'Nuvem Conectada • Toque para Sincronizar'
+                : 'Nuvem Offline • Toque para Configurar'
+            }
+            aria-label="Sincronizar Nuvem"
             className={`w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center transition-all active:scale-95 border border-white/[0.04] ${
               isCloudConnected
                 ? 'text-[#f5b800]'
@@ -124,7 +133,7 @@ export function Header({
             }`}
           >
             {isCloudConnected ? (
-              <Cloud className={`w-4 h-4 ${isSyncingCloud ? 'animate-pulse' : ''}`} />
+              <Cloud className={`w-4 h-4 ${isSyncingCloud ? 'animate-spin text-[#f5b800]' : ''}`} />
             ) : (
               <CloudOff className="w-4 h-4" />
             )}
