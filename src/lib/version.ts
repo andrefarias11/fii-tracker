@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.0.0';
-export const APP_UPDATED_AT = '14/10/2026';
+export const APP_VERSION = '4.1.1';
+export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,24 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.1.1',
+    date: '15/10/2026',
+    highlights: [
+      'Compatibilidade Multi-Plataforma Linux/Vercel Serverless (/api/quote): detecção dinâmica do executável curl (curl.exe no Windows e /usr/bin/curl / PATH no Linux da Vercel)',
+      'Fallback Oficial Brapi com dividends=true: suporte nativo a proventos oficiais da B3 via API da Brapi (caso configurado BRAPI_TOKEN) como camada intermediária entre StatusInvest e Yahoo Finance',
+    ],
+  },
+  {
+    version: '4.1.0',
+    date: '15/10/2026',
+    highlights: [
+      'Sincronização 100% Fiel de Proventos Reais B3 / StatusInvest: eliminação da confirmação artificial por dia do calendário fixo em fiiDividendCalendar.ts (status "CONFIRMED" ou "PAID" agora exige comprovação de anúncio real do ciclo atual ou inserção manual)',
+      'Consulta Ao Vivo de Comunicados Oficiais (/api/quote): integração com a rota JSON pública do StatusInvest (assetEarningsModels) com validação estrita de Data-Com (ed) e Data de Pagamento (pd) no mês/ano vigente (America/Sao_Paulo)',
+      'Status Estimado Confiável: fundos ou ações sem comunicado oficial divulgado para o mês corrente permanecem estritamente como "ESTIMATED" (Previsto), utilizando o provento pago anterior apenas como base de cálculo sem antecipar confirmação indevida',
+      'Blindagem de Fallback com Detecção de Ciclo: remoção da janela deslizante arbitrária de 32 dias no Yahoo Finance, validando o ciclo com precisão contra falsos positivos e suporte a fallback de conexão TLS no servidor',
+    ],
+  },
   {
     version: '4.0.0',
     date: '14/10/2026',

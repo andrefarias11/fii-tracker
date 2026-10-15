@@ -51,15 +51,46 @@ export function calculateMonthDividends(
         ? pos.dividendPaymentDay
         : schedule.paymentDay;
 
-    // Determinar Status Automático (100% sincronizado com comunicado da B3/StatusInvest + calendário)
+    // Determinar Status Automático (100% sincronizado com comunicados reais da B3 / StatusInvest)
     let status: DividendStatus = 'ESTIMATED';
 
-    if (currentDay >= paymentDay) {
-      status = 'PAID'; // Já chegou ou passou do dia de pagamento -> Pago na conta
-    } else if (pos.isCurrentMonthAnnounced || currentDay >= schedule.announcementDay) {
-      status = 'CONFIRMED'; // Comunicado oficial do mês já divulgado -> Confirmado a receber
+    if (pos.isCurrentMonthAnnounced) {
+      // Comunicado oficial do mês vigente divulgado pela gestora na B3
+      let isPaymentDateReached = currentDay >= paymentDay;
+
+      if (pos.dividendPaymentDate && pos.dividendPaymentDate.includes('/')) {
+        const parts = pos.dividendPaymentDate.split('/');
+        if (parts.length === 3) {
+          const pDay = parseInt(parts[0], 10);
+          const pMonth = parseInt(parts[1], 10);
+          const pYear = parseInt(parts[2], 10);
+          if (!isNaN(pDay) && !isNaN(pMonth) && !isNaN(pYear)) {
+            if (pYear === currentYear && pMonth === Number(currentMonth)) {
+              isPaymentDateReached = currentDay >= pDay;
+            } else {
+              const payTimestamp = new Date(pYear, pMonth - 1, pDay, 23, 59, 59).getTime();
+              isPaymentDateReached = currentDate.getTime() >= payTimestamp;
+            }
+          }
+        }
+      }
+
+      if (isPaymentDateReached) {
+        status = 'PAID'; // Data oficial de pagamento do mês já chegou ou passou -> Pago na conta
+      } else {
+        status = 'CONFIRMED'; // Comunicado oficial divulgado aguardando a data de pagamento -> Confirmado
+      }
+    } else if (pos.dividendSource === 'MANUAL') {
+      // Provento definido ou ajustado manualmente pelo investidor
+      if (currentDay >= paymentDay) {
+        status = 'PAID';
+      } else {
+        status = 'CONFIRMED';
+      }
     } else {
-      status = 'ESTIMATED'; // Aguardando anúncio oficial da gestora neste mês
+      // Ainda não há comunicado oficial divulgado pela gestora para o mês corrente na B3.
+      // OBRIGATORIAMENTE ESTIMATED, mesmo que o calendário típico já tenha passado do dia de anúncio ou pagamento.
+      status = 'ESTIMATED';
     }
 
     // Respeitar override manual se o usuário tiver alterado o status
@@ -73,8 +104,9 @@ export function calculateMonthDividends(
         : `${String(paymentDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
 
     const announcementDate =
-      pos.dividendExDate ||
-      `${String(schedule.announcementDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
+      pos.isCurrentMonthAnnounced && pos.dividendExDate
+        ? pos.dividendExDate
+        : `${String(schedule.announcementDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
 
     events.push({
       id: `div-${pos.ticker}-${currentYear}-${currentMonth}`,

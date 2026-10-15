@@ -69,26 +69,111 @@ function parseDateBrToTimestamp(dateBr?: string): number | null {
   return new Date(y, m, d).getTime();
 }
 
-function isDateInCurrentCycle(dateBr?: string): boolean {
-  if (!dateBr || !dateBr.includes('/')) return false;
+function getSaoPauloDate(date: Date = new Date()): { day: number; month: number; year: number } {
+  try {
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+    });
+    const parts = formatter.formatToParts(date);
+    const day = parseInt(parts.find((p) => p.type === 'day')?.value || '1', 10);
+    const month = parseInt(parts.find((p) => p.type === 'month')?.value || '1', 10);
+    const year = parseInt(parts.find((p) => p.type === 'year')?.value || '2026', 10);
+    return { day, month, year };
+  } catch {
+    return {
+      day: date.getDate(),
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+    };
+  }
+}
+
+function isDateInMonthYear(
+  dateBr: string | undefined,
+  targetMonth: number,
+  targetYear: number
+): boolean {
+  if (!dateBr || typeof dateBr !== 'string' || !dateBr.includes('/')) return false;
   const parts = dateBr.split('/');
   if (parts.length !== 3) return false;
-  const month = parseInt(parts[1], 10);
-  const year = parseInt(parts[2], 10);
+  const d = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const y = parseInt(parts[2], 10);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return false;
+  return m === targetMonth && y === targetYear;
+}
 
-  const now = new Date();
-  const curMonth = now.getMonth() + 1;
-  const curYear = now.getFullYear();
+async function fetchStatusInvestJson(
+  url: string,
+  timeoutMs = 3500
+): Promise<StatusInvestProventsResponse | null> {
+  // 1. Tentar com fetch nativo primeiro
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (year === curYear && month === curMonth) return true;
+    const res = await fetch(url, {
+      headers: BROWSER_HEADERS,
+      signal: controller.signal,
+      next: { revalidate: 300 }, // Cache de 5 minutos para comunicados de proventos
+    });
 
-  // Anúncio no final do mês anterior (ex: dia 28-31) que paga no mês atual
-  const prevMonth = curMonth === 1 ? 12 : curMonth - 1;
-  const prevYear = curMonth === 1 ? curYear - 1 : curYear;
-  const day = parseInt(parts[0], 10);
-  if (year === prevYear && month === prevMonth && day >= 25) return true;
+    clearTimeout(timeoutId);
 
-  return false;
+    if (res.ok) {
+      const data: StatusInvestProventsResponse = await res.json();
+      if (Array.isArray(data?.assetEarningsModels) && data.assetEarningsModels.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+    // Continua para o fallback de curl caso fetch sofra timeout ou bloqueio de TLS/Cloudflare
+  }
+
+  try {
+    const { execFile } = await import('child_process');
+    const { existsSync } = await import('fs');
+    const curlBin =
+      process.platform === 'win32'
+        ? 'curl.exe'
+        : existsSync('/usr/bin/curl')
+        ? '/usr/bin/curl'
+        : 'curl';
+
+    const stdout = await new Promise<string | null>((resolve) => {
+      execFile(
+        curlBin,
+        [
+          '-s',
+          url,
+          '-H',
+          `User-Agent: ${BROWSER_HEADERS['User-Agent']}`,
+          '-H',
+          'Accept: application/json',
+          '--max-time',
+          String(Math.ceil(timeoutMs / 1000)),
+        ],
+        (error, out) => {
+          if (error || !out) resolve(null);
+          else resolve(out);
+        }
+      );
+    });
+
+    if (stdout) {
+      const data: StatusInvestProventsResponse = JSON.parse(stdout);
+      if (Array.isArray(data?.assetEarningsModels) && data.assetEarningsModels.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+    // Silencioso se curl não estiver disponível no runtime
+  }
+
+  return null;
 }
 
 async function fetchStatusInvestDividend(
@@ -98,47 +183,63 @@ async function fetchStatusInvestDividend(
 ): Promise<OfficialDividendData | null> {
   const endpoints = isStock
     ? [
-        `https://statusinvest.com.br/acoes/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
+        `https://statusinvest.com.br/acao/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=0`,
+        `https://statusinvest.com.br/acoes/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=0`,
       ]
     : isFiagro
     ? [
-        `https://statusinvest.com.br/fiagro/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
-        `https://statusinvest.com.br/fii/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
+        `https://statusinvest.com.br/fii/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=0`,
+        `https://statusinvest.com.br/fiagro/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=0`,
       ]
     : [
-        `https://statusinvest.com.br/fii/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=1`,
+        `https://statusinvest.com.br/fii/companytickerprovents?ticker=${encodeURIComponent(ticker)}&chartProventsType=0`,
       ];
 
   for (const url of endpoints) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3200);
-
-      const res = await fetch(url, {
-        headers: BROWSER_HEADERS,
-        signal: controller.signal,
-        next: { revalidate: 300 }, // Cache de 5 minutos para comunicados de proventos
-      });
-
-      clearTimeout(timeoutId);
-      if (!res.ok) continue;
-
-      const data: StatusInvestProventsResponse = await res.json();
+      const data = await fetchStatusInvestJson(url, 3500);
       const list = data?.assetEarningsModels;
       if (!Array.isArray(list) || list.length === 0) continue;
 
-      // Ordenar para pegar os comunicados com valor válido
+      // Filtrar apenas proventos com valor numérico positivo válido
       const valid = list.filter((item) => typeof item.v === 'number' && item.v > 0);
       if (valid.length === 0) continue;
 
-      const latest = valid[0];
-      const exDate = latest.ed && latest.ed !== '-' ? latest.ed : undefined;
-      const payDate = latest.pd && latest.pd !== '-' ? latest.pd : undefined;
+      // Ordenar do mais recente para o mais antigo por data de pagamento ou data-com
+      valid.sort((a, b) => {
+        const tsA = parseDateBrToTimestamp(a.pd) || parseDateBrToTimestamp(a.ed) || 0;
+        const tsB = parseDateBrToTimestamp(b.pd) || parseDateBrToTimestamp(b.ed) || 0;
+        return tsB - tsA;
+      });
 
-      // Para Ações (dividendos trimestrais/semestrais/JCP), calcula o acumulado de 12 meses dividido por 12 (média mensal equivalente)
-      let amount = Number((latest.v || 0).toFixed(4));
+      const { month: curMonth, year: curYear } = getSaoPauloDate();
+
+      // Procurar se há algum provento na lista cujo pd (Data de Pagamento) ou ed (Data-Com) pertença ao mês/ano vigente no fuso America/Sao_Paulo
+      const currentMonthProvent = valid.find(
+        (item) =>
+          isDateInMonthYear(item.pd, curMonth, curYear) ||
+          isDateInMonthYear(item.ed, curMonth, curYear)
+      );
+
+      const isCurrentMonthAnnounced = Boolean(currentMonthProvent);
+      // Se existir comunicado para o mês vigente, usa ele; senão usa o último pago como referência de estimativa
+      const targetItem = currentMonthProvent || valid[0];
+
+      const exDate = targetItem.ed && targetItem.ed !== '-' ? targetItem.ed : undefined;
+      const payDate = targetItem.pd && targetItem.pd !== '-' ? targetItem.pd : undefined;
+
+      let paymentDay: number | undefined = undefined;
+      if (payDate && payDate.includes('/')) {
+        const dayNum = parseInt(payDate.slice(0, 2), 10);
+        if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
+          paymentDay = dayNum;
+        }
+      }
+
+      let amount = Number((targetItem.v || 0).toFixed(4));
       let annualDividend12m = Number((amount * 12).toFixed(4));
 
+      // Para Ações (dividendos trimestrais/semestrais/JCP), calcula o acumulado de 12 meses dividido por 12 (média mensal equivalente)
       if (isStock) {
         const oneYearAgoMs = Date.now() - 370 * 24 * 60 * 60 * 1000;
         const sum12m = valid.reduce((acc, item) => {
@@ -155,17 +256,6 @@ async function fetchStatusInvestDividend(
         }
       }
 
-      let paymentDay: number | undefined = undefined;
-      if (payDate && payDate.includes('/')) {
-        const dayNum = parseInt(payDate.split('/')[0], 10);
-        if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
-          paymentDay = dayNum;
-        }
-      }
-
-      const isCurrentMonthAnnounced =
-        isDateInCurrentCycle(payDate) || isDateInCurrentCycle(exDate);
-
       return {
         lastDividend: amount,
         annualDividend12m,
@@ -176,11 +266,136 @@ async function fetchStatusInvestDividend(
         dividendSource: 'B3_OFICIAL',
       };
     } catch {
-      // Silencioso: faz fallback para o Yahoo Finance se houver timeout/bloqueio
+      // Silencioso: tenta próximo endpoint ou cai no fallback do Yahoo Finance
     }
   }
 
   return null;
+}
+
+interface BrapiCashDividend {
+  assetIssued?: string;
+  paymentDate?: string;
+  rate?: number;
+  relatedTo?: string;
+  approvedOn?: string;
+  lastDatePrior?: string;
+}
+
+interface BrapiDividendResponse {
+  results?: Array<{
+    symbol?: string;
+    dividendsData?: {
+      cashDividends?: BrapiCashDividend[];
+    };
+  }>;
+}
+
+async function fetchBrapiDividend(
+  ticker: string,
+  isStock: boolean
+): Promise<OfficialDividendData | null> {
+  const token = process.env.BRAPI_TOKEN || process.env.NEXT_PUBLIC_BRAPI_TOKEN;
+  if (!token) return null;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const url = `https://brapi.dev/api/quote/${encodeURIComponent(ticker)}?dividends=true&token=${encodeURIComponent(token)}`;
+    const res = await fetch(url, {
+      headers: BROWSER_HEADERS,
+      signal: controller.signal,
+      next: { revalidate: 300 },
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return null;
+    const json: BrapiDividendResponse = await res.json();
+    const result = json?.results?.[0];
+    const cashDividends = result?.dividendsData?.cashDividends;
+    if (!Array.isArray(cashDividends) || cashDividends.length === 0) return null;
+
+    const valid = cashDividends.filter(
+      (d): d is BrapiCashDividend & { rate: number } => typeof d.rate === 'number' && d.rate > 0
+    );
+    if (valid.length === 0) return null;
+
+    valid.sort((a, b) => {
+      const tsA = new Date(a.paymentDate || a.lastDatePrior || 0).getTime();
+      const tsB = new Date(b.paymentDate || b.lastDatePrior || 0).getTime();
+      return tsB - tsA;
+    });
+
+    const { month: curMonth, year: curYear } = getSaoPauloDate();
+
+    const currentMonthItem = valid.find((item) => {
+      if (item.paymentDate) {
+        const d = new Date(item.paymentDate);
+        if (!isNaN(d.getTime())) {
+          const { month, year } = getSaoPauloDate(d);
+          if (month === curMonth && year === curYear) return true;
+        }
+      }
+      if (item.lastDatePrior) {
+        const d = new Date(item.lastDatePrior);
+        if (!isNaN(d.getTime())) {
+          const { month, year } = getSaoPauloDate(d);
+          if (month === curMonth && year === curYear) return true;
+        }
+      }
+      return false;
+    });
+
+    const isCurrentMonthAnnounced = Boolean(currentMonthItem);
+    const targetItem = currentMonthItem || valid[0];
+
+    const formatIsoToBr = (iso?: string) => {
+      if (!iso) return undefined;
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return undefined;
+      const { day, month, year } = getSaoPauloDate(d);
+      return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+    };
+
+    const exDate = formatIsoToBr(targetItem.lastDatePrior || targetItem.approvedOn);
+    const payDate = formatIsoToBr(targetItem.paymentDate);
+    let paymentDay: number | undefined = undefined;
+    if (payDate) {
+      const p = parseInt(payDate.slice(0, 2), 10);
+      if (!isNaN(p) && p >= 1 && p <= 31) paymentDay = p;
+    }
+
+    let amount = Number(targetItem.rate.toFixed(4));
+    let annualDividend12m = Number((amount * 12).toFixed(4));
+
+    if (isStock) {
+      const oneYearAgoMs = Date.now() - 370 * 24 * 60 * 60 * 1000;
+      const sum12m = valid.reduce((acc, item) => {
+        const ts = new Date(item.paymentDate || item.lastDatePrior || 0).getTime();
+        if (ts && ts >= oneYearAgoMs) {
+          return acc + (item.rate || 0);
+        }
+        return acc;
+      }, 0);
+      if (sum12m > 0) {
+        annualDividend12m = Number(sum12m.toFixed(4));
+        amount = Number((sum12m / 12).toFixed(4));
+      }
+    }
+
+    return {
+      lastDividend: amount,
+      annualDividend12m,
+      dividendExDate: exDate,
+      dividendPaymentDate: payDate,
+      dividendPaymentDay: paymentDay,
+      isCurrentMonthAnnounced,
+      dividendSource: 'B3_OFICIAL',
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function fetchTickerQuote(ticker: string) {
@@ -194,7 +409,7 @@ async function fetchTickerQuote(ticker: string) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4500);
 
-    // Busca em paralelo: Cotação em tempo real (Yahoo) + Comunicados oficiais de dividendos (StatusInvest/B3)
+    // Busca em paralelo: Cotação em tempo real (Yahoo) + Comunicados oficiais de dividendos (StatusInvest/Brapi/B3)
     const [yahooRes, officialDiv] = await Promise.all([
       fetch(
         `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=1y&events=div`,
@@ -204,7 +419,11 @@ async function fetchTickerQuote(ticker: string) {
           next: { revalidate: 60 },
         }
       ).catch(() => null),
-      fetchStatusInvestDividend(clean, isFiagro, isStock),
+      fetchStatusInvestDividend(clean, isFiagro, isStock).then(async (statusInvestRes) => {
+        if (statusInvestRes) return statusInvestRes;
+        // Fallback para API da Brapi caso StatusInvest sofra bloqueio ou timeout no ambiente Linux/Vercel
+        return fetchBrapiDividend(clean, isStock);
+      }),
     ]);
 
     clearTimeout(timeoutId);
@@ -264,14 +483,23 @@ async function fetchTickerQuote(ticker: string) {
           }
 
           const exDateObj = new Date(latestYahooDiv.date * 1000);
-          const dd = String(exDateObj.getDate()).padStart(2, '0');
-          const mm = String(exDateObj.getMonth() + 1).padStart(2, '0');
-          const yyyy = exDateObj.getFullYear();
+          const { day: exDay, month: exMonth, year: exYear } = getSaoPauloDate(exDateObj);
+          const dd = String(exDay).padStart(2, '0');
+          const mm = String(exMonth).padStart(2, '0');
+          const yyyy = exYear;
           dividendExDate = `${dd}/${mm}/${yyyy}`;
 
-          // Calcula se o último evento anunciado pertence ao ciclo atual (últimos 32 dias)
-          const daysDiff = (Date.now() - exDateObj.getTime()) / (1000 * 60 * 60 * 24);
-          isCurrentMonthAnnounced = daysDiff <= 32;
+          const { month: curMonth, year: curYear } = getSaoPauloDate();
+          const prevMonth = curMonth === 1 ? 12 : curMonth - 1;
+          const prevYear = curMonth === 1 ? curYear - 1 : curYear;
+
+          // Validação rigorosa de ciclo atual (sem falsos positivos por janela deslizante):
+          // 1) Data-Com dentro do mês/ano vigente no fuso America/Sao_Paulo (ex: 01/10/2026 ou 14/10/2026)
+          // 2) OU Data-Com no final do mês imediatamente anterior (>= dia 25) cujo pagamento ocorre no mês atual
+          const isExInCurMonth = exYear === curYear && exMonth === curMonth;
+          const isExInPrevMonthEnd = exYear === prevYear && exMonth === prevMonth && exDay >= 25;
+
+          isCurrentMonthAnnounced = isExInCurMonth || isExInPrevMonthEnd;
           dividendPaymentDay = catalogInfo.paymentDay ?? 15;
           dividendSource = 'MERCADO';
         }
