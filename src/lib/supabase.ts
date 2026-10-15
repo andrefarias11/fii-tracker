@@ -144,6 +144,96 @@ export async function checkSupabaseConnection(): Promise<boolean> {
   }
 }
 
+// ----------------- Helpers de Isolamento Multiusuário e Escopo de ID -----------------
+
+function getLocalSavedAccounts(): { id: string }[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('fii_tracker_saved_accounts_v1');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function resolveUserId(targetUserId?: string | null): string | null {
+  if (targetUserId !== undefined) return targetUserId;
+  if (typeof window !== 'undefined') {
+    const activeId = localStorage.getItem('fii_tracker_active_account_id_v1');
+    if (activeId) return activeId;
+    const accounts = getLocalSavedAccounts();
+    if (accounts[0]?.id) return accounts[0].id;
+  }
+  return null;
+}
+
+export function scopeIdWithUser(id: string, userId?: string | null): string {
+  if (!userId) return id;
+  const prefix = `${userId.slice(0, 8)}_`;
+  if (id.startsWith(prefix)) return id;
+  return `${prefix}${id}`;
+}
+
+export function unscopeIdFromUser(id: string, userId?: string | null): string {
+  if (!userId) return id;
+  const prefix = `${userId.slice(0, 8)}_`;
+  if (id.startsWith(prefix)) return id.slice(prefix.length);
+  return id;
+}
+
+let hasMigratedOrphans = false;
+
+async function migrateOrphanRowsToPrimaryIfNeeded(userId: string): Promise<void> {
+  if (!userId || hasMigratedOrphans) return;
+  if (typeof window === 'undefined') return;
+
+  try {
+    const saved = getLocalSavedAccounts();
+    // A migração de dados órfãos só pode acontecer para a PRIMEIRA conta logada no aparelho
+    const isPrimaryAccount = saved.length > 0 && saved[0]?.id === userId;
+    if (!isPrimaryAccount) {
+      hasMigratedOrphans = true;
+      return;
+    }
+
+    await withDataFallback(async (client) => {
+      // Verifica se já existem registros no banco com user_id preenchido
+      const { count: nonOrphanCount, error: countErr } = await client
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .not('user_id', 'is', null);
+
+      if (countErr || (nonOrphanCount && nonOrphanCount > 0)) {
+        hasMigratedOrphans = true;
+        return { data: null, error: null };
+      }
+
+      // Verifica se existem registros órfãos (user_id IS NULL)
+      const { count: orphanCount } = await client
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .is('user_id', null);
+
+      if (orphanCount && orphanCount > 0) {
+        console.log(`[Supabase] Vinculando ${orphanCount} transações órfãs exclusivamente à conta principal (${userId})...`);
+        await client.from('transactions').update({ user_id: userId }).is('user_id', null);
+        await client.from('fixed_income_assets').update({ user_id: userId }).is('user_id', null);
+        await client.from('custom_dividends').update({ user_id: userId }).is('user_id', null);
+        await client.from('portfolio_goals').update({ 
+          id: `goals_${userId.slice(0, 8)}`,
+          user_id: userId 
+        }).is('user_id', null);
+      }
+
+      hasMigratedOrphans = true;
+      return { data: null, error: null };
+    });
+  } catch (err) {
+    console.warn('[Supabase] Erro ao verificar migração de órfãos:', err);
+    hasMigratedOrphans = true;
+  }
+}
+
 // ----------------- Operações de Transações (Single & Batch SQL) -----------------
 
 function mapTransactionToDbRow(tx: Transaction) {
@@ -172,10 +262,22 @@ function mapTransactionToDbRow(tx: Transaction) {
   };
 }
 
-export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
+export async function fetchRemoteTransactions(targetUserId?: string | null): Promise<Transaction[] | null> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) {
+    // Usuário não autenticado / guest não lê dados da nuvem
+    return [];
+  }
+
+  await migrateOrphanRowsToPrimaryIfNeeded(userId);
+
   try {
     const { data, error } = await withDataFallback<any[]>(async (client) => {
-      const res = await client.from('transactions').select('*').order('date', { ascending: false });
+      const res = await client
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
       return { data: res.data, error: res.error };
     });
 
@@ -191,14 +293,14 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
       const idStr = String(item.id || '');
       const dbType = item.type as 'BUY' | 'SELL' | 'DIVIDEND' | undefined;
       const isDividend =
-        dbType === 'DIVIDEND' || idStr.startsWith('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
+        dbType === 'DIVIDEND' || idStr.includes('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
       const isSell = dbType === 'SELL' || (!isDividend && rawShares < 0);
       const absShares = Math.abs(rawShares);
       const absPrice = Math.abs(Number(item.price));
       const absTotal = Math.abs(Number(item.total));
 
       return {
-        id: item.id,
+        id: unscopeIdFromUser(item.id, userId),
         ticker: String(item.ticker || '').toUpperCase().trim(),
         type: (dbType === 'BUY' || dbType === 'SELL' || dbType === 'DIVIDEND')
           ? dbType
@@ -221,15 +323,21 @@ export async function fetchRemoteTransactions(): Promise<Transaction[] | null> {
   }
 }
 
-export async function upsertRemoteTransaction(tx: Transaction): Promise<boolean> {
-  return upsertRemoteTransactionsBatch([tx]);
-}
-
-export async function upsertRemoteTransactionsBatch(txs: Transaction[]): Promise<boolean> {
+export async function syncTransactionsBatchToCloud(
+  txs: Transaction[],
+  targetUserId?: string | null
+): Promise<boolean> {
   if (txs.length === 0) return true;
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
 
   try {
-    const rows = txs.map(mapTransactionToDbRow);
+    const rows = txs.map((tx) => ({
+      ...mapTransactionToDbRow(tx),
+      id: scopeIdWithUser(tx.id, userId),
+      user_id: userId,
+    }));
+
     const { error } = await withDataFallback(async (client) => {
       const res = await client.from('transactions').upsert(rows);
       return { data: res.data, error: res.error };
@@ -245,16 +353,32 @@ export async function upsertRemoteTransactionsBatch(txs: Transaction[]): Promise
   }
 }
 
-export async function deleteRemoteTransaction(id: string): Promise<boolean> {
-  return deleteRemoteTransactionsBatch([id]);
+export async function syncTransactionToCloud(
+  tx: Transaction,
+  targetUserId?: string | null
+): Promise<boolean> {
+  return syncTransactionsBatchToCloud([tx], targetUserId);
 }
 
-export async function deleteRemoteTransactionsBatch(ids: string[]): Promise<boolean> {
+export const upsertRemoteTransaction = syncTransactionToCloud;
+export const upsertRemoteTransactionsBatch = syncTransactionsBatchToCloud;
+
+export async function deleteRemoteTransactionsBatch(
+  ids: string[],
+  targetUserId?: string | null
+): Promise<boolean> {
   if (ids.length === 0) return true;
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
 
   try {
+    const candidateIds = Array.from(new Set([...ids, ...ids.map((id) => scopeIdWithUser(id, userId))]));
     const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('transactions').delete().in('id', ids);
+      const res = await client
+        .from('transactions')
+        .delete()
+        .in('id', candidateIds)
+        .eq('user_id', userId);
       return { data: res.data, error: res.error };
     });
     if (error) {
@@ -268,12 +392,28 @@ export async function deleteRemoteTransactionsBatch(ids: string[]): Promise<bool
   }
 }
 
+export async function deleteRemoteTransaction(
+  id: string,
+  targetUserId?: string | null
+): Promise<boolean> {
+  return deleteRemoteTransactionsBatch([id], targetUserId);
+}
+
 // ----------------- Operações de Metas -----------------
 
-export async function fetchRemoteGoals(): Promise<PortfolioGoals | null> {
+export async function fetchRemoteGoals(targetUserId?: string | null): Promise<PortfolioGoals | null> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return null;
+
+  await migrateOrphanRowsToPrimaryIfNeeded(userId);
+
   try {
     const { data, error } = await withDataFallback<any>(async (client) => {
-      const res = await client.from('portfolio_goals').select('*').eq('id', 'default_goals').single();
+      const res = await client
+        .from('portfolio_goals')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
       return { data: res.data, error: res.error };
     });
 
@@ -289,11 +429,18 @@ export async function fetchRemoteGoals(): Promise<PortfolioGoals | null> {
   }
 }
 
-export async function upsertRemoteGoals(goals: PortfolioGoals): Promise<boolean> {
+export async function syncGoalsToCloud(
+  goals: PortfolioGoals,
+  targetUserId?: string | null
+): Promise<boolean> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
+
   try {
     const { error } = await withDataFallback(async (client) => {
       const res = await client.from('portfolio_goals').upsert({
-        id: 'default_goals',
+        id: `goals_${userId.slice(0, 8)}`,
+        user_id: userId,
         monthly_target: goals.monthlyTarget,
         milestone_equity_target: goals.milestoneEquityTarget,
         monthly_income_target: goals.monthlyIncomeTarget,
@@ -307,12 +454,22 @@ export async function upsertRemoteGoals(goals: PortfolioGoals): Promise<boolean>
   }
 }
 
+export const upsertRemoteGoals = syncGoalsToCloud;
+
 // ----------------- Operações de Dividendos -----------------
 
-export async function fetchRemoteDividends(): Promise<Record<string, number> | null> {
+export async function fetchRemoteDividends(
+  targetUserId?: string | null
+): Promise<Record<string, number> | null> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return null;
+
   try {
     const { data, error } = await withDataFallback<any[]>(async (client) => {
-      const res = await client.from('custom_dividends').select('ticker, dividend');
+      const res = await client
+        .from('custom_dividends')
+        .select('ticker, dividend')
+        .eq('user_id', userId);
       return { data: res.data, error: res.error };
     });
     if (error || !data) return null;
@@ -327,12 +484,20 @@ export async function fetchRemoteDividends(): Promise<Record<string, number> | n
   }
 }
 
-export async function upsertRemoteDividend(ticker: string, dividend: number): Promise<boolean> {
+export async function syncDividendToCloud(
+  ticker: string,
+  dividend: number,
+  targetUserId?: string | null
+): Promise<boolean> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
+
   try {
     const { error } = await withDataFallback(async (client) => {
       const res = await client.from('custom_dividends').upsert({
         ticker: ticker.toUpperCase(),
         dividend,
+        user_id: userId,
         updated_at: new Date().toISOString(),
       });
       return { data: res.data, error: res.error };
@@ -343,19 +508,32 @@ export async function upsertRemoteDividend(ticker: string, dividend: number): Pr
   }
 }
 
+export const upsertRemoteDividend = syncDividendToCloud;
+
 // ----------------- Operações de Renda Fixa & Caixinhas -----------------
 
-export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | null> {
+export async function fetchRemoteFixedIncome(
+  targetUserId?: string | null
+): Promise<FixedIncomeAsset[] | null> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return [];
+
+  await migrateOrphanRowsToPrimaryIfNeeded(userId);
+
   try {
     const { data, error } = await withDataFallback<any[]>(async (client) => {
-      const res = await client.from('fixed_income_assets').select('*').order('created_at', { ascending: false });
+      const res = await client
+        .from('fixed_income_assets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
       return { data: res.data, error: res.error };
     });
 
-    if (error || !data) return null;
+    if (error || !data) return [];
 
     return data.map((row: any) => ({
-      id: row.id,
+      id: unscopeIdFromUser(row.id, userId),
       name: row.name,
       type: row.type,
       institution: row.institution,
@@ -373,11 +551,18 @@ export async function fetchRemoteFixedIncome(): Promise<FixedIncomeAsset[] | nul
   }
 }
 
-export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<boolean> {
+export async function syncFixedIncomeToCloud(
+  asset: FixedIncomeAsset,
+  targetUserId?: string | null
+): Promise<boolean> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
+
   try {
     const { error } = await withDataFallback(async (client) => {
       const res = await client.from('fixed_income_assets').upsert({
-        id: asset.id,
+        id: scopeIdWithUser(asset.id, userId),
+        user_id: userId,
         name: asset.name,
         type: asset.type,
         institution: asset.institution,
@@ -398,10 +583,23 @@ export async function upsertRemoteFixedIncome(asset: FixedIncomeAsset): Promise<
   }
 }
 
-export async function deleteRemoteFixedIncome(id: string): Promise<boolean> {
+export const upsertRemoteFixedIncome = syncFixedIncomeToCloud;
+
+export async function deleteRemoteFixedIncome(
+  id: string,
+  targetUserId?: string | null
+): Promise<boolean> {
+  const userId = resolveUserId(targetUserId);
+  if (!userId) return true;
+
   try {
+    const candidateIds = Array.from(new Set([id, scopeIdWithUser(id, userId)]));
     const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('fixed_income_assets').delete().eq('id', id);
+      const res = await client
+        .from('fixed_income_assets')
+        .delete()
+        .in('id', candidateIds)
+        .eq('user_id', userId);
       return { data: res.data, error: res.error };
     });
     return !error;
@@ -409,3 +607,4 @@ export async function deleteRemoteFixedIncome(id: string): Promise<boolean> {
     return false;
   }
 }
+

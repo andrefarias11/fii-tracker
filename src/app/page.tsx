@@ -49,6 +49,11 @@ import {
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
 
 export default function HomePage() {
+  const [activeAccount, setActiveAccount] = useState<SavedAccountSession | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return getActiveAccount();
+  });
+
   const {
     isInitialized,
     transactions,
@@ -79,7 +84,7 @@ export default function HomePage() {
     exportBackup,
     importBackup,
     importTransactionsFromB3,
-  } = usePortfolio();
+  } = usePortfolio(activeAccount?.id);
 
   const [activeTab, setActiveTab] = useState<MainTabType>(() => {
     if (typeof window === 'undefined') return 'portfolio';
@@ -110,7 +115,6 @@ export default function HomePage() {
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
-  const [activeAccount, setActiveAccount] = useState<SavedAccountSession | null>(null);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
   const [isFixedIncomeModalOpen, setIsFixedIncomeModalOpen] = useState<boolean>(false);
@@ -125,12 +129,10 @@ export default function HomePage() {
 
     const unsubscribe = subscribeAuthAccounts((_, active) => {
       setActiveAccount(active);
-      // Ao autenticar, retornar de redirect OAuth ou alternar contas, sincroniza imediatamente com a nuvem
-      syncWithCloud();
     });
 
     return () => unsubscribe();
-  }, [syncWithCloud]);
+  }, []);
 
   // Sincronização automática em segundo plano ao focar a aba ou retornar ao app no celular (PWA / iOS / Web)
   useEffect(() => {

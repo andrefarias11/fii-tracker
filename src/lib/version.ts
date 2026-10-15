@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.3.1';
+export const APP_VERSION = '4.3.2';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,17 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.3.2',
+    date: '15/10/2026',
+    highlights: [
+      'Isolamento Estrito de Dados Multiconta (Zero Data Leakage): consultas no Supabase (transactions, caixinhas, metas e dividendos) agora filtram obrigatoriamente por user_id (.eq(\'user_id\', userId)) sem risco de exibir dados de outras contas',
+      'Escopo de Chaves no LocalStorage por Usuário: cada conta logada possui seu próprio armazenamento local independente (fii_tracker_transactions_v1_${userId}), impedindo compartilhamento de cache com contas novas de teste',
+      'Proteção contra Contaminação no Smart Merge (usePortfolio.ts): limpeza instantânea de estado em memória (setTransactions([]), setFixedIncomeAssets([])) ao alternar contas e verificação com useRef (currentSyncUserId) durante o ciclo assíncrono',
+      'Migração Segura de Registros Órfãos: registros legados no banco (user_id IS NULL) são vinculados exclusivamente à conta principal inicial e nunca compartilhados com contas secundárias recém-adicionadas',
+      'Prefixação de Primary Key por Usuário: chaves primárias salvas no banco são prefixadas com o identificador do usuário para eliminar colisões entre investidores independentes',
+    ],
+  },
   {
     version: '4.3.1',
     date: '15/10/2026',
