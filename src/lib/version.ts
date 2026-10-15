@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.2.0';
+export const APP_VERSION = '4.2.1';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.2.1',
+    date: '15/10/2026',
+    highlights: [
+      'Documentação Oficial Completa (README.md): atualização abrangente cobrindo o Redesign XP Investimentos Dark, nova regra de sincronização 100% oficial de proventos B3/StatusInvest, Patrimônio Unificado com Caixinhas e comandos de desenvolvimento',
+    ],
+  },
   {
     version: '4.2.0',
     date: '15/10/2026',

@@ -1,96 +1,151 @@
-# 🏢 FII Tracker — Carteira Oficial B3, Proventos & Troféu Platina (PWA)
+# 🏢 FII Tracker — Carteira Oficial B3, Proventos & Patrimônio Global (XP Dark iOS)
 
-Aplicativo **PWA (Progressive Web App)** com visual minimalista inspirado no **Nubank e Apple iOS**, desenvolvido para o acompanhamento profissional e gamificado de **Fundos de Investimento Imobiliário (FIIs)** na B3.
+[![Version](https://img.shields.io/badge/version-4.2.1-f5b800.svg)](https://github.com)
+[![Next.js](https://img.shields.io/badge/Next.js-16.4-black?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.3-61dafb?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
+[![PWA](https://img.shields.io/badge/PWA-iOS%20Standalone-purple)](https://developer.apple.com/)
 
-Conta com **alimentação 100% auditada via planilha oficial da B3**, **Linha do Tempo de 20 Conquistas rumo ao Troféu Platina 🏆**, **sincronização em tempo real com a B3 e Banco Central (Selic, CDI e IPCA)**, **Análise de Mentores (Barsi, Buffett, Graham e Baroni)**, **Web Push Notifications** e **Widget para Tela de Bloqueio/Início do iPhone**.
+Aplicativo **PWA (Progressive Web App)** construído no padrão visual **XP Investimentos Dark (iOS)**, desenvolvido para investidores acompanharem **Fundos Imobiliários (FIIs)**, **Fiagros**, **Ações de Dividendos da B3** e **Renda Fixa / Caixinhas Nubank** de forma auditada, com sincronização em tempo real de proventos e gamificação de conquistas financeiras.
 
 ---
 
 ## ✨ Principais Funcionalidades
 
-### 1. 🎨 Visual Minimalista 2.0 (Estilo Nubank & Apple iOS)
-- **Preto OLED (`#000000`)** com cards de alto contraste (`#121215`), tipografia limpa e **Modo Privacidade (Olhinho)** para ocultar valores em público.
-- **Dock Flutuante Translúcida com 4 Abas Principais**:
-  1. **Início**: Patrimônio consolidado, ganho real acima do IPCA, barra de meta mensal, **Meus Ativos** (com *Progressive Disclosure* ao tocar) e **Extrato B3** agrupado por mês.
-  2. **Proventos**: Mapa mensal de dividendos (Data-Com e Data de Pagamento) e **Gráfico Diário Comparativo**.
-  3. **Explorar**: **Radar de Oportunidades B3** e **Mentores (Barsi & Cia)**.
-  4. **Troféus**: **Linha do Tempo de Conquistas (Platina 20/20)**, **Efeito Bola de Neve (Número Mágico)** e **Simulador de Futuro**.
+### 1. 🎨 Design System XP Investimentos Dark (iOS)
+- **Fundo Deep Dark (`#0b0b0d`)** com cards em `#1c1c1e` (`rounded-[20px]`), tipografia financeira com `tabular-nums` e destaques em **Amarelo Ouro XP (`#f5b800`)**.
+- **PortfolioSummary 100% Solto no Topo**: patrimônio em destaque (`text-[32px]`), resultado acumulado com indicadores dinâmicos ▲/▼, proventos do mês com Yield on Cost (YoC), valor aplicado e botões de ação rápida (*Importar B3* e *+ Caixinha / RF*).
+- **Lista Meus Ativos XP**:
+  - Cabeçalho limpo com contagem de ativos e botão de alternância cíclica de ordenação **"Ordenar ↓↑"** (Posição, Resultado e Proventos).
+  - Cards individuais de ativos com tabela Key-Value de 6 linhas (Preço Médio, Cotação Atual, Quantidade, Saldo Total, Resultado e Dividendo Mensal).
+  - Botões pílula de ação: **"Detalhes"** expansíveis (*P/VP, Preço-Teto, Número Mágico e Payback de Proventos*) e **"Aportar"** integrado diretamente ao modal de compras.
+- **Ergonomia Nativa para iPhone 17 (393px–402px)**: fontes mínimas de 16px em campos de formulário para evitar auto-zoom no Safari iOS, modais inferiores (*Bottom Sheets*) com safe area (`pb-safe-modal`), feedback tátil háptico (*Taptic Engine*) e dock flutuante translúcida.
 
 ---
 
-### 2. 🔒 Modo 100% Oficial B3 & Super-Parser Anti-Duplicidade
-- **Sem inserção manual artificial**: a carteira é alimentada exclusivamente pela planilha oficial exportada do Portal do Investidor da B3 (`.xlsx`, `.xls` ou `.csv`), garantindo que todas as métricas e conquistas sejam 100% reais.
-- **Normalização Canônica de Tickers (`normalizeB3Ticker`)**:
-  - Limpa descrições longas de abas de Movimentação (ex: `"MXRF11 - MAXI RENDA FDO INV IMOB"` $\rightarrow$ `"MXRF11"`).
-  - Converte lotes fracionários (`"MXRF11F"` $\rightarrow$ `"MXRF11"`).
-  - Filtra automaticamente linhas de proventos (`Rendimento`, `Dividendo`, `JCP`, `Fração`) e bloqueia ETFs/Units terminados em 11 (`BOVA11`, `IVVB11`, `TAEE11`, `SANB11`, `KLBN11`, etc.).
-- **Importação Acumulada Inteligente (Ex: Planilha Outubro + Novembro)**:
-  - Você pode subir a planilha do ano inteiro sem medo: o detector de assinatura digital (`Ticker + Data + Cotas + Preço + Tipo`) **ignora automaticamente** os aportes de meses que já estão no sistema e **importa apenas os novos**, somando as novas cotas aos FIIs existentes e recalculando o Preço Médio.
+### 2. ⚡ Sincronização 100% Fiel de Proventos Reais (B3 & StatusInvest)
+- **Eliminação da Confirmação Artificial**: ativos nunca mudam de status apenas por passar o dia do mês no calendário.
+  - **`PAID` (Pago)**: marcado apenas se o fundo comprovadamente anunciou na B3 **E** a data de pagamento oficial já chegou ou passou.
+  - **`CONFIRMED` (Confirmado)**: comunicado oficial divulgado pela gestora no ciclo do mês corrente, aguardando a data de pagamento.
+  - **`ESTIMATED` (Previsto)**: se a gestora ainda não divulgou o fato relevante na B3 para o mês vigente, o provento permanece estritamente como previsto (utilizando o último dividendo pago como referência de cálculo).
+- **Multi-Fonte Resiliente (`/api/quote`)**:
+  - **StatusInvest JSON Público**: consulta em tempo real `companytickerprovents` extraindo Data-Com (`ed`), Data de Pagamento (`pd`) e Valor por Cota (`v`).
+  - **Validação de Ciclo no Fuso `America/Sao_Paulo`**: compara rigorosamente se `pd` ou `ed` pertencem ao mês e ano vigentes.
+  - **Compatibilidade Linux / Vercel Serverless**: resolução dinâmica do binário `curl` (`curl.exe` no Windows e `/usr/bin/curl` no Linux da Vercel).
+  - **Fallback Oficial Brapi (`dividends=true`)**: suporte nativo a token da Brapi (`BRAPI_TOKEN`) como camada intermediária.
+  - **Fallback Yahoo Finance**: validação estrita sem janelas deslizantes arbitrárias de 32 dias.
 
 ---
 
-### 3. 🏆 Linha do Tempo de Conquistas (20 Troféus + Platina)
-Sistema gamificado completo para motivar a evolução constante da carteira:
-- **Progresso do Troféu Platina (0 a 20/20)** com sistema de **XP** e **Patentes de Investidor** (*Iniciante na B3* $\rightarrow$ *Cotista Oficial B3* $\rightarrow$ *Investidor Consistente* $\rightarrow$ *Construtor de Bola de Neve* $\rightarrow$ *Viver de Renda* $\rightarrow$ *Lenda Platina dos FIIs 🏆*).
-- **Card "Próximo Troféu na Mira"**: destaca automaticamente a conquista mais próxima de ser concluída.
-- **Data Histórica Real**: reconstrói a linha do tempo cronológica da B3 e exibe a data exata em que cada conquista foi desbloqueada (`Conquistado em DD/MM/AAAA`).
-- **Os 20 Troféus (Bronze, Prata, Ouro e Platina)**:
-  - **Bronze**: *#01 Batismo na B3* (1ª planilha), *#02 Dezena de Tijolos* (10 cotas), *#03 Café Pago pelos FIIs* (R\$ 5/mês), *#04 Trindade Imobiliária* (3 FIIs), *#05 Primeiros R\$ 500*.
-  - **Prata**: *#06 Meio Centenário* (50 cotas), *#07 Fábrica de Moedas* (R\$ 10/mês), *#08 Clube dos 4 Dígitos* (R\$ 1.000), *#09 Escudo Híbrido* (Papel + Tijolo/Agro), *#10 Hábito Inabalável* (3 meses de aporte), *#11 Centurião das Cotas* (100 cotas).
-  - **Ouro**: *#12 Streaming Pago* (R\$ 25/mês), *#13 Carteira Blindada* (5 FIIs), *#14 Reserva de Valor* (R\$ 2.500), *#15 Engrenagem Girando* (50% do Número Mágico), *#16 Conta de Luz/Internet* (R\$ 50/mês), *#17 Patrimônio de R\$ 5.000*.
-  - **Platina**: *#18 Bola de Neve Ativada* (100% do Número Mágico em 1 FII), *#19 Barão das Cotas* (500 cotas), *#20 Clube dos 5 Dígitos* (R\$ 10.000 de patrimônio).
+### 3. 💼 Carteira B3 Completa: FIIs, Fiagros e Ações
+- **Alimentação Auditada via Planilha da B3**: importe a planilha oficial do Portal do Investidor da B3 (`.xlsx`, `.xls` ou `.csv`).
+- **Super-Parser B3 Anti-Duplicidade**:
+  - Normaliza códigos longos de movimentação (ex: `"MXRF11 - MAXI RENDA"` $\rightarrow$ `"MXRF11"`, `"ITSA4F"` $\rightarrow$ `"ITSA4"`).
+  - Normalização histórica de **Splits / Desdobramentos** (Base 100 $\rightarrow$ Base 10).
+  - Filtra proventos e eventos de custódia sem duplicar ativos.
+  - **Importação Acumulada**: detector de assinatura digital que ignora compras antigas já cadastradas e adiciona apenas as novas cotas.
+- **Scanner BESST para Ações de Dividendos**:
+  - Cobertura de Ações dos setores perenes (Bancos, Energia, Saneamento, Seguros, Telecom e Commodities).
+  - Cálculo automático de **Preço-Teto de Luiz Barsi (6% a.a.)** e média mensal equivalente (dividendos dos últimos 12 meses ÷ 12).
+- **Explorador Universal da B3 (`/api/market`)**: busque e inspecione qualquer ação ou FII negociado na bolsa brasileira com cotação ao vivo, P/VP e cálculo instantâneo de Preço-Teto e Número Mágico.
 
 ---
 
-### 4. 📈 Gráfico Diário Comparativo & API do Banco Central
-- **Curva Diária Real**: começa exatamente no **1º dia em que você começou a investir** e avança dia após dia na horizontal até **Hoje**, com auto-escala vertical (zoom automático) para destacar cada variação.
-- **Comparativo ao Vivo**: compara o retorno acumulado da **Sua Carteira FII** contra **CDI Líquido (85%)**, **Poupança** e **Inflação (IPCA)** puxados diretamente da API Oficial do Banco Central do Brasil (`/api/bcb`).
+### 4. 🏦 Patrimônio Unificado: Caixinhas Nubank & Renda Fixa
+- **Gestão Consolidada**: acompanhe reservas de emergência e renda fixa junto aos ativos da bolsa.
+- **Presets de 1 Toque**: Caixinha Nubank (100% CDI), CDB Liquidez Diária (102% CDI), Tesouro Selic 2029, Tesouro IPCA+ e LCI/LCA (com isenção fiscal automática).
+- **Rendimento Mensal Líquido em Tempo Real**: integrado às taxas diárias oficiais do Banco Central (`/api/bcb`), calculando exatamente quantos reais rendem por mês na caixinha.
+- **Sugestão de "Troco do Aporte"**: ao calcular aportes na bolsa, o saldo que sobra da meta mensal sugere automaticamente guardar na caixinha rendendo juros diários.
 
 ---
 
-### 5. 🧭 Radar de Oportunidades B3 & Mentores (Barsi, Buffett, Graham e Baroni)
-- **Alocação Inteligente do Mês**: sugere a cesta ideal de compra para o saldo restante da sua meta mensal (com opção de somar os dividendos do mês) em dois modos: **Equilibrar Carteira** ou **Turbo Bola de Neve**.
-- **Visão dos Grandes Investidores**: analisa os FIIs da B3 em tempo real segundo os critérios matemáticos de:
-  - 👑 **Luiz Barsi** (*Rei dos Dividendos & Preço-Teto*)
-  - 🏛️ **Warren Buffett** (*Fosso Competitivo & Qualidade de Tijolo*)
-  - 🛡️ **Benjamin Graham** (*Margem de Segurança & Desconto P/VP*)
-  - 🎓 **Prof. Baroni** (*Equilíbrio 60/40 Tijolo + Papel & Renda Recorrente*)
-- **Consenso Hoje**: destaca os FIIs aprovados simultaneamente por 2 ou mais mentores nas cotações atuais da B3.
+### 5. 📊 Rentabilidade vs CDI & Escadinha de Dividendos XP
+- **Gráfico de Barras Fino Estilo XP (`DividendStaircaseChart`)**:
+  - 12 colunas estilizadas (`J F M A M J J A S O N D`) com meses futuros em cinza-escuro e meses com valor em degradê prateado ou amarelo ouro quando selecionado.
+  - Seletor anual discreto (`No ano (YYYY) ⌄`) e tabela corrida **"Detalhes da evolução"** integrada ao fundo.
+- **Rentabilidade vs CDI no Padrão XP (`PerformanceComparisonChart`)**:
+  - Curva de retorno suavizada com seletor de base (Minha Carteira, R\$ 1 mil, R\$ 10 mil).
+  - Duas tabelas corridas idênticas ao app da XP: **Comparativo acumulado** (Carteira vs CDI Líquido vs Poupança vs IPCA) e **Detalhes da evolução** com variação em % do CDI e taxas oficiais BCB.
 
 ---
 
-### 6. 📲 Widget para iPhone (Scriptable) & Web Push Inteligente
-- **Widget iOS (`/api/widget`)**: gerador integrado nas Configurações para adicionar um widget nativo na **Tela Inicial** ou **Tela de Bloqueio** do iPhone via app gratuito *Scriptable*, exibindo patrimônio, dividendos do mês e progresso da meta com atualização automática a cada 15 minutos e cache offline.
-- **Notificações Web Push com Trava Tripla Anti-Spam**: alertas nativos no iPhone (iOS 16.4+) sobre FIIs descontados abaixo do seu Preço Médio, proximidade de Data-Com, Consenso dos Mentores e pagamento de proventos — com bloqueio diário síncrono para nunca disparar notificações repetidas ao abrir o app.
-- **Sincronização Híbrida (Supabase + LocalStorage + Backup JSON)**: funciona 100% offline no dispositivo e sincroniza automaticamente com o banco em nuvem no Supabase quando configurado.
+### 6. 🏆 Linha do Tempo de Conquistas (20 Troféus rumo à Platina)
+- **Gamificação Financeira**: sistema de XP e níveis de investidor (*Iniciante* $\rightarrow$ *Cotista Oficial* $\rightarrow$ *Investidor Consistente* $\rightarrow$ *Construtor de Bola de Neve* $\rightarrow$ *Lenda Platina dos FIIs 🏆*).
+- **Data Histórica Real**: calcula as datas exatas de desbloqueio com base na evolução cronológica das suas transações na B3.
+- **Troféus Abrangentes**: 20 conquistas cobrindo primeiro aporte, diversificação, reinvestimento, 50% e 100% do Número Mágico e metas de patrimônio (R\$ 1 mil, R\$ 5 mil e R\$ 10 mil).
 
 ---
 
-## 📱 Como Instalar no iPhone (PWA + Widget)
+### 7. 🧭 Radar de Oportunidades & Análise de Mentores
+- **Cesta de Aportes Inteligente**: calcula a divisão exata do dinheiro do aporte do mês nos modos **Equilibrar Carteira** ou **Acelerar Bola de Neve**.
+- **Consenso dos Grandes Investidores**:
+  - 👑 **Luiz Barsi**: Preço-Teto (mínimo 6% a.a.) e foco em setores perenes (BESST).
+  - 🏛️ **Warren Buffett**: Margem de segurança, fosso competitivo e solidez patrimonial.
+  - 🛡️ **Benjamin Graham**: Desconto por P/VP e valor intrínseco.
+  - 🎓 **Prof. Baroni**: Equilíbrio estrutural de FIIs de Tijolo e Papel com yield consistente.
+- **Painel Consenso Hoje**: destaca ativos aprovados simultaneamente por múltiplos mentores na cotação do pregão.
 
-1. Acesse a URL do projeto publicado na Vercel pelo **Safari** no iPhone.
-2. Toque em **Compartilhar** (ícone do quadrado com seta para cima ⬆️) $\rightarrow$ **"Adicionar à Tela de Início"**.
-3. Abra o **FII Tracker** pela Tela de Início, toque no ícone de **Configurações (⚙️)** no topo:
-   - Ative as **Notificações Push** para receber alertas da B3.
-   - Na seção **Widget na Tela do iPhone**, toque em **Copiar Código do Widget (Scriptable)** e cole no app gratuito *Scriptable* da App Store.
+---
+
+### 8. 📲 Widget para iPhone (Scriptable) & Web Push Anti-Spam
+- **Widget iOS (`/api/widget`)**: script pronto para o app *Scriptable* com layout nativo para a **Tela Inicial** e **Tela de Bloqueio** do iPhone, exibindo patrimônio total, proventos do mês e próximo evento de pagamento com atualização automática.
+- **Notificações Web Push com Trava Tripla Anti-Spam**: alertas no iPhone (iOS 16.4+) sobre anúncios reais de dividendos, proximidade de Data-Com e ativos em queda abaixo do seu Preço Médio, com bloqueio síncrono diário contra notificações repetidas.
+- **Retrospectiva Mensal ("Spotify Wrapped")**: resumo comemorativo mensal de proventos recebidos, cotas acumuladas e avanço da bola de neve com compartilhamento em 1 toque no WhatsApp.
+
+---
+
+## 📱 Instalação no iPhone (PWA + Widget)
+
+1. Abra a URL do app no **Safari** do iPhone.
+2. Toque no botão de **Compartilhar** (ícone do quadrado com seta para cima ⬆️) e selecione **"Adicionar à Tela de Início"**.
+3. Abra o app pela Tela de Início:
+   - Toque no ícone de **Configurações (⚙️)** no topo para ativar as **Notificações Push**.
+   - Na seção **Widget no iPhone**, toque em **"Copiar Código do Widget (Scriptable)"** e cole em um novo script no app gratuito *Scriptable* da App Store.
 
 ---
 
 ## 💻 Comandos de Desenvolvimento
 
 ```bash
-# Instalar dependências
+# 1. Instalar dependências
 npm install
 
-# Iniciar servidor de desenvolvimento (acessível na rede local)
+# 2. Iniciar servidor de desenvolvimento (acessível na rede local)
 npm run dev
 
-# Verificar tipagem TypeScript e ESLint
-./node_modules/.bin/tsc --noEmit && ./node_modules/.bin/eslint src
+# 3. Verificação de tipos TypeScript
+npx tsc --noEmit
 
-# Gerar build de produção (requer Node.js >= 20.9.0)
+# 4. Executar linter ESLint
+npm run lint
+
+# 5. Build de produção (Next.js Turbopack)
 npm run build
 
-# Iniciar servidor de produção
+# 6. Iniciar servidor de produção
 npm start
 ```
+
+---
+
+## 🔑 Variáveis de Ambiente Opcionais (`.env.local`)
+
+```env
+# Banco de dados na nuvem (opcional - funciona 100% offline se omitido)
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon
+
+# Notificações Web Push (opcional)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=sua-chave-publica-vapid
+VAPID_PRIVATE_KEY=sua-chave-privada-vapid
+
+# Proventos B3 via Brapi (opcional - atua como fallback adicional)
+BRAPI_TOKEN=seu-token-gratuito-brapi
+```
+
+---
+
+## 📄 Licença
+
+Distribuído sob licença proprietária para uso pessoal. Dados de cotações e proventos são informativos e obtidos de fontes públicas da B3, StatusInvest e Banco Central do Brasil.
