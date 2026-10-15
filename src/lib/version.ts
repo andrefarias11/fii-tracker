@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.3.2';
+export const APP_VERSION = '4.4.0';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,18 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.4.0',
+    date: '15/10/2026',
+    highlights: [
+      'Dashboard Administrativa Completa (/admin): visão global e unificada de todas as contas da plataforma no padrão visual XP Investimentos Dark (#0b0b0d, #1c1c1e, #f5b800)',
+      'API de Visão Geral (/api/admin): integração com RPC get_admin_accounts_overview do Supabase (e fallback inteligente) com cálculo contábil em tempo real de patrimônio, cotações ao vivo e proventos mensais',
+      'Unificação Nuvem + Cofre Local: contas salvas no aparelho que ainda não sincronizaram aparecem consolidadas lado a lado com as contas da nuvem',
+      'KPIs de Custódia da Plataforma: métricas soltas no topo exibindo Patrimônio Total sob custódia, Total em Bolsa, Total em Caixinhas, Proventos Somados e Total de Contas Ativas',
+      'Busca, Ordenação e Expansão de Carteiras: filtro rápido por nome/e-mail/ticker, ordenação dinâmica e gaveta "Ver Detalhes" com a lista completa de FIIs, Ações e Caixinhas de cada investidor',
+      'Atalho Rápido no Seletor de Contas e Ajustes: botão direto para o Painel Admin com alternância instantânea entre contas',
+    ],
+  },
   {
     version: '4.3.2',
     date: '15/10/2026',

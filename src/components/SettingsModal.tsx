@@ -18,6 +18,7 @@ import {
   Smartphone,
   Copy,
   LayoutGrid,
+  ShieldCheck,
 } from 'lucide-react';
 import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
 import {
@@ -42,6 +43,7 @@ import {
   generateScriptableWidgetCode,
 } from '../lib/iphoneWidget';
 import { APP_VERSION, APP_UPDATED_AT, APP_CHANGELOG } from '../lib/version';
+import { triggerHaptic } from '../lib/haptic';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -824,9 +826,21 @@ export function SettingsModal({
           </div>
         </div>
 
-        {/* 5. VERSÃO DO APP & CONTROLE DE ATUALIZAÇÃO */}
-        <div className="mt-6 pt-4 border-t border-white/[0.06] space-y-2.5">
-          <div className="flex items-center justify-between">
+        {/* 5. ATALHO ADMIN & CONTROLE DE VERSÃO DO APP */}
+        <div className="mt-6 pt-4 border-t border-white/[0.06] space-y-3">
+          <a
+            href="/admin"
+            onClick={() => {
+              triggerHaptic('light');
+              onClose();
+            }}
+            className="w-full py-2.5 px-3 rounded-xl bg-[#2b2512] hover:bg-[#3d3419] border border-[#f5b800]/25 text-xs font-semibold text-[#f5b800] flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Painel Admin (Visão de Todas as Contas)</span>
+          </a>
+
+          <div className="flex items-center justify-between pt-1">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-white">Versão do Sistema</span>

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Loader2,
   User,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   SavedAccountSession,
@@ -335,19 +336,33 @@ export function AccountSwitcherModal({
                 <span>Adicionar outra conta</span>
               </button>
 
-              {/* Sair da Conta Atual */}
-              {activeAccount && (
-                <div className="pt-2 text-center">
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors inline-flex items-center gap-1.5 py-1 px-3"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Sair da conta atual</span>
-                  </button>
-                </div>
-              )}
+              {/* Sair da Conta Atual e Atalho Admin */}
+              <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                <a
+                  href="/admin"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    onClose();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#f5b800]" />
+                  <span>Painel Admin (Visão de Todas as Contas)</span>
+                </a>
+
+                {activeAccount && (
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors inline-flex items-center gap-1.5 py-1 px-3"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sair da conta atual</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>
