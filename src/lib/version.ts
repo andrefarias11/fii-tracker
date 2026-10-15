@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.1.1';
+export const APP_VERSION = '4.2.0';
 export const APP_UPDATED_AT = '15/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.2.0',
+    date: '15/10/2026',
+    highlights: [
+      'Simplificação Visual da Carteira (page.tsx): remoção do card "Distribuição por Setor" na tela Inicial, conectando o seletor segmentado diretamente à lista Meus Ativos no padrão XP Investimentos Dark',
+    ],
+  },
   {
     version: '4.1.1',
     date: '15/10/2026',

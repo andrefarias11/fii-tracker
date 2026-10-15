@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
-import { AllocationCard } from '../components/AllocationCard';
 import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
 import { PositionList } from '../components/PositionList';
@@ -331,15 +330,6 @@ export default function HomePage() {
 
             {homeSubView === 'assets' ? (
               <div className="space-y-3 animate-in fade-in duration-150">
-                <AllocationCard
-                  positions={positions}
-                  fixedIncomeAssets={fixedIncomeAssets}
-                  onNavigateToRadar={() => {
-                    setActiveTab('radar');
-                    setExploreSubView('radar');
-                  }}
-                />
-
                 <PositionList
                   positions={positions}
                   isPrivacyMode={isPrivacyMode}
@@ -353,15 +343,6 @@ export default function HomePage() {
               </div>
             ) : homeSubView === 'fixed_income' ? (
               <div className="space-y-3 animate-in fade-in duration-150">
-                <AllocationCard
-                  positions={positions}
-                  fixedIncomeAssets={fixedIncomeAssets}
-                  onNavigateToRadar={() => {
-                    setActiveTab('radar');
-                    setExploreSubView('radar');
-                  }}
-                />
-
                 <FixedIncomeList
                   assets={fixedIncomeAssets}
                   bcbIndicators={bcbIndicators}
