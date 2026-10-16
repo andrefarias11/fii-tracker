@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRight, PieChart, Layers } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { FiiPosition, FixedIncomeAsset } from '../types/portfolio';
 import { triggerHaptic } from '../lib/haptic';
 
@@ -22,27 +22,27 @@ interface SectorSlice {
 function normalizeSector(segment: string): { label: string; colorClass: string; dotClass: string } {
   const s = segment.toLowerCase();
   if (s.includes('ações') || s.includes('acoes')) {
-    return { label: 'Ações', colorClass: 'bg-cyan-400', dotClass: 'bg-cyan-400' };
+    return { label: 'Ações', colorClass: 'bg-zinc-200', dotClass: 'bg-zinc-200' };
   }
   if (s.includes('papel')) {
-    return { label: 'Papel', colorClass: 'bg-emerald-400', dotClass: 'bg-emerald-400' };
+    return { label: 'Papel', colorClass: 'bg-[#f5b800]', dotClass: 'bg-[#f5b800]' };
   }
   if (s.includes('logística') || s.includes('logistica')) {
-    return { label: 'Logística', colorClass: 'bg-sky-400', dotClass: 'bg-sky-400' };
+    return { label: 'Logística', colorClass: 'bg-emerald-400', dotClass: 'bg-emerald-400' };
   }
   if (s.includes('shopping')) {
-    return { label: 'Shoppings', colorClass: 'bg-violet-400', dotClass: 'bg-violet-400' };
+    return { label: 'Shoppings', colorClass: 'bg-amber-300', dotClass: 'bg-amber-300' };
   }
   if (s.includes('fiagro')) {
-    return { label: 'Fiagro', colorClass: 'bg-amber-400', dotClass: 'bg-amber-400' };
+    return { label: 'Fiagro', colorClass: 'bg-teal-400', dotClass: 'bg-teal-400' };
   }
   if (s.includes('fof')) {
-    return { label: 'FOF', colorClass: 'bg-teal-400', dotClass: 'bg-teal-400' };
+    return { label: 'FOF', colorClass: 'bg-sky-400', dotClass: 'bg-sky-400' };
   }
   if (s.includes('renda urbana') || s.includes('lajes')) {
-    return { label: 'Tijolo Urbano', colorClass: 'bg-indigo-400', dotClass: 'bg-indigo-400' };
+    return { label: 'Tijolo Urbano', colorClass: 'bg-zinc-400', dotClass: 'bg-zinc-400' };
   }
-  return { label: 'Outros', colorClass: 'bg-zinc-500', dotClass: 'bg-zinc-400' };
+  return { label: 'Outros', colorClass: 'bg-zinc-600', dotClass: 'bg-zinc-500' };
 }
 
 export function AllocationCard({
@@ -78,22 +78,22 @@ export function AllocationCard({
       label: 'FIIs (Imobiliário)',
       value: fiiEquity,
       percent: fiiPercent,
-      colorClass: 'bg-emerald-400',
-      dotClass: 'bg-emerald-400',
+      colorClass: 'bg-[#f5b800]',
+      dotClass: 'bg-[#f5b800]',
     },
     {
       label: 'Ações (Empresas)',
       value: acaoEquity,
       percent: acaoPercent,
-      colorClass: 'bg-cyan-400',
-      dotClass: 'bg-cyan-400',
+      colorClass: 'bg-zinc-200',
+      dotClass: 'bg-zinc-200',
     },
     {
       label: 'Renda Fixa & Caixinhas',
       value: totalFixedIncomeEquity,
       percent: fixedIncomePercent,
-      colorClass: 'bg-amber-400',
-      dotClass: 'bg-amber-400',
+      colorClass: 'bg-emerald-400',
+      dotClass: 'bg-emerald-400',
     },
   ].filter((s) => s.value > 0);
 
@@ -121,20 +121,20 @@ export function AllocationCard({
   const isConcentrated = topSlice && topSlice.percent >= 70;
 
   return (
-    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5">
+    <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5">
       {/* Título & Alternador de Modo */}
       <div className="flex items-center justify-between mb-3">
         {hasFixedIncome ? (
-          <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#141416] border border-white/[0.04]">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic('light');
                 setAllocationMode('macro');
               }}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+              className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
                 allocationMode === 'macro'
-                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  ? 'bg-[#2b2512] text-[#f5b800]'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -146,9 +146,9 @@ export function AllocationCard({
                 triggerHaptic('light');
                 setAllocationMode('sectors');
               }}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+              className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
                 allocationMode === 'sectors'
-                  ? 'bg-emerald-500 text-zinc-950 font-bold'
+                  ? 'bg-[#2b2512] text-[#f5b800]'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -156,26 +156,26 @@ export function AllocationCard({
             </button>
           </div>
         ) : (
-          <span className="text-xs font-semibold text-zinc-300">Distribuição por Setor</span>
+          <span className="text-xs font-bold text-white">Alocação por Setor</span>
         )}
 
         {isConcentrated && onNavigateToRadar ? (
           <button
             type="button"
             onClick={onNavigateToRadar}
-            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
+            className="text-[11px] text-[#f5b800] hover:opacity-80 font-bold inline-flex items-center gap-1"
           >
             Diversificar <ArrowRight className="w-3 h-3" />
           </button>
         ) : (
-          <span className="text-[11px] text-zinc-500">
+          <span className="text-[11px] text-zinc-400">
             {activeSlices.length} {activeSlices.length === 1 ? 'classe' : 'classes'}
           </span>
         )}
       </div>
 
       {/* Barra Segmentada Minimalista */}
-      <div className="w-full h-2.5 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-3">
+      <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden flex gap-0.5 mb-3">
         {activeSlices.map((s) => (
           <div
             key={s.label}
@@ -187,12 +187,12 @@ export function AllocationCard({
       </div>
 
       {/* Legenda Limpa */}
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
         {activeSlices.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5 text-[11px]">
-            <span className={`w-1.5 h-1.5 rounded-full ${s.dotClass}`} />
+          <div key={s.label} className="flex items-center gap-1.5 text-xs">
+            <span className={`w-2 h-2 rounded-full ${s.dotClass}`} />
             <span className="text-zinc-400">{s.label}</span>
-            <span className="text-zinc-200 font-semibold tabular-nums">{s.percent}%</span>
+            <span className="text-white font-bold tabular-nums">{s.percent}%</span>
           </div>
         ))}
       </div>

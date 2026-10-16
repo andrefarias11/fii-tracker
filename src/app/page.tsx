@@ -21,7 +21,7 @@ import { IosInstallBanner } from '../components/IosInstallBanner';
 import { AddFixedIncomeModal } from '../components/AddFixedIncomeModal';
 import { AddTransactionModal } from '../components/AddTransactionModal';
 import { FixedIncomeList } from '../components/FixedIncomeList';
-import { FixedIncomeAsset } from '../types/portfolio';
+import { FixedIncomeAsset, Transaction } from '../types/portfolio';
 import { AccountSwitcherModal } from '../components/AccountSwitcherModal';
 import {
   initAuthVaultListener,
@@ -42,7 +42,6 @@ import {
   Sparkles,
   Trophy,
   Globe,
-  ChevronRight,
   PiggyBank,
 } from 'lucide-react';
 
@@ -94,7 +93,6 @@ export default function HomePage() {
     if (raw === 'goals' || raw === 'achievements') return 'goals';
     return 'portfolio';
   });
-  // Sub-seções estilo Apple iOS Segmented Control para evitar poluição visual
   const [homeSubView, setHomeSubView] = useState<'assets' | 'fixed_income' | 'history'>(() => {
     if (typeof window === 'undefined') return 'assets';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -121,6 +119,7 @@ export default function HomePage() {
   const [editingFixedIncomeAsset, setEditingFixedIncomeAsset] = useState<FixedIncomeAsset | null>(null);
   const [isAddTxModalOpen, setIsAddTxModalOpen] = useState<boolean>(false);
   const [addTxTicker, setAddTxTicker] = useState<string>('');
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   useEffect(() => {
     // Inicializa listener do cofre de sessões (OAuth redirect Google, SIGNED_IN e INITIAL_SESSION)
@@ -153,20 +152,10 @@ export default function HomePage() {
     };
   }, [isInitialized, syncWithCloud]);
 
-  const [monthlyWrapped, setMonthlyWrapped] = useState<ReturnType<typeof calculateMonthlyWrapped>>(null);
-
-  useEffect(() => {
-    if (isInitialized) {
-      setMonthlyWrapped(calculateMonthlyWrapped(positions, transactions, goals.monthlyTarget));
-    }
+  const monthlyWrapped = useMemo(() => {
+    if (!isInitialized) return null;
+    return calculateMonthlyWrapped(positions, transactions, goals.monthlyTarget);
   }, [isInitialized, positions, transactions, goals.monthlyTarget]);
-
-  const formatBRL = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(val);
-  };
 
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -268,6 +257,12 @@ export default function HomePage() {
       default:
         return 'Carteira';
     }
+  };
+
+  const handleOpenBuyForTicker = (ticker: string) => {
+    setEditingTx(null);
+    setAddTxTicker(ticker);
+    setIsAddTxModalOpen(true);
   };
 
   return (
@@ -388,10 +383,7 @@ export default function HomePage() {
                   isPrivacyMode={isPrivacyMode}
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
-                  onOpenBuyModal={(ticker) => {
-                    setAddTxTicker(ticker);
-                    setIsAddTxModalOpen(true);
-                  }}
+                  onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>
             ) : homeSubView === 'fixed_income' ? (
@@ -417,6 +409,11 @@ export default function HomePage() {
                   transactions={transactions}
                   monthlyTarget={goals.monthlyTarget}
                   isPrivacyMode={isPrivacyMode}
+                  onEditTransaction={(tx) => {
+                    setEditingTx(tx);
+                    setAddTxTicker(tx.ticker);
+                    setIsAddTxModalOpen(true);
+                  }}
                   onDeleteTransaction={deleteTransaction}
                 />
               </div>
@@ -506,6 +503,7 @@ export default function HomePage() {
                   }}
                   isPrivacyMode={isPrivacyMode}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
+                  onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>
             ) : exploreSubView === 'universal' ? (
@@ -513,6 +511,7 @@ export default function HomePage() {
                 <UniversalB3Explorer
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
+                  onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>
             ) : (
@@ -522,6 +521,7 @@ export default function HomePage() {
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
                   isPrivacyMode={isPrivacyMode}
+                  onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>
             )}
@@ -672,15 +672,19 @@ export default function HomePage() {
 
       {/* Modais */}
       <AddTransactionModal
+        key={isAddTxModalOpen ? `tx-${editingTx?.id || addTxTicker || 'new'}` : 'tx-closed'}
         isOpen={isAddTxModalOpen}
         initialTicker={addTxTicker}
+        editingTransaction={editingTx}
         monthlyTarget={goals.monthlyTarget}
         currentMonthInvested={summary.currentMonthInvested}
         onClose={() => {
           setIsAddTxModalOpen(false);
           setAddTxTicker('');
+          setEditingTx(null);
         }}
         onAddTransaction={addTransaction}
+        onUpdateTransaction={updateTransaction}
       />
 
       <B3ImportModal
@@ -700,6 +704,7 @@ export default function HomePage() {
       />
 
       <AddFixedIncomeModal
+        key={isFixedIncomeModalOpen ? `fi-${editingFixedIncomeAsset?.id || 'new'}` : 'fi-closed'}
         isOpen={isFixedIncomeModalOpen}
         onClose={() => {
           setIsFixedIncomeModalOpen(false);

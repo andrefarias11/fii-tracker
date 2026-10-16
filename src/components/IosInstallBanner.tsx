@@ -26,7 +26,7 @@ export function IosInstallBanner() {
   if (isDismissed) return null;
 
   return (
-    <div className="relative rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 mb-4">
+    <div className="relative rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5 mb-4">
       <button
         onClick={handleDismiss}
         aria-label="Dispensar banner"
@@ -36,8 +36,8 @@ export function IosInstallBanner() {
       </button>
 
       <div className="flex items-start gap-3.5 pr-6">
-        <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
-          <Share className="w-4 h-4 text-emerald-400" />
+        <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
+          <Share className="w-4 h-4 text-[#f5b800]" />
         </div>
 
         <div>
@@ -47,15 +47,15 @@ export function IosInstallBanner() {
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-2.5">
             Para usar em tela cheia como um app nativo, toque no botão{' '}
             <strong className="text-zinc-200">Compartilhar</strong> no Safari e selecione:{' '}
-            <span className="inline-flex items-center gap-1 font-semibold text-zinc-200 bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded-md">
-              <PlusSquare className="w-3 h-3 text-emerald-400" />
+            <span className="inline-flex items-center gap-1 font-semibold text-white bg-[#141416] border border-white/[0.06] px-2 py-0.5 rounded-full">
+              <PlusSquare className="w-3 h-3 text-[#f5b800]" />
               Adicionar à Tela de Início
             </span>
           </p>
 
           <button
             onClick={handleDismiss}
-            className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="text-xs font-bold text-[#f5b800] hover:opacity-80 transition-opacity"
           >
             Entendido, já sei como fazer
           </button>
@@ -64,4 +64,3 @@ export function IosInstallBanner() {
     </div>
   );
 }
-

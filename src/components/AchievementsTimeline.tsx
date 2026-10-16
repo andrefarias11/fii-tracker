@@ -78,8 +78,8 @@ export function AchievementsTimeline({
         origin: { y: 0.7 },
         colors:
           item.tier === 'PLATINA'
-            ? ['#22d3ee', '#38bdf8', '#10b981', '#f59e0b']
-            : ['#10b981', '#f59e0b', '#cbd5e1'],
+            ? ['#f5b800', '#22c55e', '#38bdf8', '#ffffff']
+            : ['#f5b800', '#22c55e', '#cbd5e1'],
       });
     } else {
       triggerHaptic('medium');
@@ -135,35 +135,35 @@ export function AchievementsTimeline({
   const getTierStyles = (tier: AchievementTier, unlocked: boolean) => {
     if (!unlocked) {
       return {
-        badge: 'bg-white/[0.03] text-zinc-500 border-white/[0.06]',
-        iconBox: 'bg-white/[0.02] border-white/[0.05] text-zinc-600',
-        bar: 'bg-zinc-700',
+        badge: 'bg-white/[0.04] text-zinc-500 border-white/[0.06]',
+        iconBox: 'bg-[#141416] border-white/[0.08] text-zinc-500',
+        bar: 'bg-zinc-600',
       };
     }
     switch (tier) {
       case 'BRONZE':
         return {
-          badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-          iconBox: 'bg-white/[0.03] border-white/[0.06] text-amber-400',
-          bar: 'bg-amber-500',
+          badge: 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/20',
+          iconBox: 'bg-[#2b2512] border-[#f5b800]/40 text-[#f5b800]',
+          bar: 'bg-[#f5b800]',
         };
       case 'PRATA':
         return {
-          badge: 'bg-slate-400/10 text-slate-200 border-slate-400/20',
-          iconBox: 'bg-white/[0.03] border-white/[0.06] text-slate-200',
-          bar: 'bg-slate-300',
+          badge: 'bg-white/[0.08] text-zinc-200 border-white/[0.15]',
+          iconBox: 'bg-white/[0.08] border-white/40 text-white',
+          bar: 'bg-zinc-200',
         };
       case 'OURO':
         return {
-          badge: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20',
-          iconBox: 'bg-white/[0.03] border-white/[0.06] text-yellow-400',
-          bar: 'bg-yellow-400',
+          badge: 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/30',
+          iconBox: 'bg-[#f5b800] border-[#f5b800] text-zinc-950',
+          bar: 'bg-[#f5b800]',
         };
       case 'PLATINA':
         return {
-          badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
-          iconBox: 'bg-white/[0.03] border-white/[0.06] text-cyan-300',
-          bar: 'bg-cyan-400',
+          badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+          iconBox: 'bg-emerald-500/20 border-emerald-400 text-emerald-400',
+          bar: 'bg-emerald-400',
         };
     }
   };
@@ -177,19 +177,19 @@ export function AchievementsTimeline({
 
   return (
     <div className="space-y-4">
-      {/* Hero Card: Troféu Platina & Progresso Geral */}
-      <div className="p-5 rounded-[24px] bg-[#121215] border border-white/[0.06] relative overflow-hidden">
+      {/* Hero Card: Troféu Platina & Progresso Geral Estilo XP */}
+      <div className="p-5 rounded-[20px] bg-[#1c1c1e] border border-white/[0.04]">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
-              <Trophy className="w-4 h-4 text-emerald-400" />
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
+              <Trophy className="w-4 h-4 text-[#f5b800]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
                   Modo Carreira B3
                 </span>
-                <span className="text-[11px] font-semibold text-zinc-400 tabular-nums">
+                <span className="text-[11px] font-bold text-zinc-400 tabular-nums">
                   {overview.totalXp} / {overview.maxXp} XP
                 </span>
               </div>
@@ -197,17 +197,17 @@ export function AchievementsTimeline({
                 {overview.currentLevelTitle}
               </h2>
               <p className="text-xs text-zinc-400">
-                Conquistas validadas exclusivamente por planilhas oficiais da B3
+                Conquistas validadas por planilhas oficiais da B3
               </p>
             </div>
           </div>
 
           <div className="text-right shrink-0">
-            <span className="text-xl font-extrabold text-white tracking-tight tabular-nums">
+            <span className="text-xl font-bold text-white tracking-tight tabular-nums">
               {overview.unlockedCount}
               <span className="text-xs text-zinc-500 font-semibold">/{overview.totalCount}</span>
             </span>
-            <span className="block text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+            <span className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
               Troféus
             </span>
           </div>
@@ -217,14 +217,14 @@ export function AchievementsTimeline({
         <div className="space-y-1.5 mb-4">
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-400 font-medium flex items-center gap-1.5">
-              <Crown className="w-3.5 h-3.5 text-zinc-300" />
+              <Crown className="w-3.5 h-3.5 text-[#f5b800]" />
               Progresso do Troféu Platina
             </span>
             <span className="font-bold text-white tabular-nums">{overview.platinumProgressPercent}%</span>
           </div>
           <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+              className="h-full rounded-full bg-[#f5b800] transition-all duration-700"
               style={{ width: `${overview.platinumProgressPercent}%` }}
             />
           </div>
@@ -232,14 +232,14 @@ export function AchievementsTimeline({
 
         {/* Próxima conquista na mira */}
         {overview.nextAchievement && (
-          <div className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300 shrink-0">
-                <Target className="w-4 h-4 text-emerald-400" />
+              <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800] shrink-0">
+                <Target className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block tabular-nums">
-                  Próximo Troféu na Mira ({overview.nextAchievement.progressPercent}%)
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#f5b800] block tabular-nums">
+                  Próximo Troféu ({overview.nextAchievement.progressPercent}%)
                 </span>
                 <p className="text-xs font-bold text-white truncate">
                   #{String(overview.nextAchievement.order).padStart(2, '0')} ·{' '}
@@ -255,7 +255,7 @@ export function AchievementsTimeline({
             <button
               type="button"
               onClick={onOpenB3Modal}
-              className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs shrink-0 flex items-center gap-1.5 transition-all"
+              className="px-3.5 py-2 rounded-full bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-xs shrink-0 flex items-center gap-1.5 active:scale-95 transition-all"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               Subir B3
@@ -264,52 +264,54 @@ export function AchievementsTimeline({
         )}
       </div>
 
-      {/* Filtro de Conquistas */}
-      <div className="w-full">
-        <div className="grid grid-cols-3 w-full p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('selection');
-              setFilter('ALL');
-            }}
-            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
-              filter === 'ALL' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Todas ({overview.totalCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('selection');
-              setFilter('UNLOCKED');
-            }}
-            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
-              filter === 'UNLOCKED'
-                ? 'bg-emerald-500 text-zinc-950 font-bold'
-                : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Desbloqueadas ({overview.unlockedCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('selection');
-              setFilter('LOCKED');
-            }}
-            className={`px-2 py-1.5 rounded-xl text-xs font-semibold transition-all truncate text-center ${
-              filter === 'LOCKED' ? 'bg-emerald-500 text-zinc-950 font-bold' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Faltam ({overview.totalCount - overview.unlockedCount})
-          </button>
-        </div>
+      {/* Filtro de Conquistas em Pílulas Estilo XP */}
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('selection');
+            setFilter('ALL');
+          }}
+          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+            filter === 'ALL'
+              ? 'bg-[#f5b800] text-zinc-950'
+              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+          }`}
+        >
+          Todas ({overview.totalCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('selection');
+            setFilter('UNLOCKED');
+          }}
+          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+            filter === 'UNLOCKED'
+              ? 'bg-[#f5b800] text-zinc-950'
+              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+          }`}
+        >
+          Conquistadas ({overview.unlockedCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('selection');
+            setFilter('LOCKED');
+          }}
+          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+            filter === 'LOCKED'
+              ? 'bg-[#f5b800] text-zinc-950'
+              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+          }`}
+        >
+          Faltam ({overview.totalCount - overview.unlockedCount})
+        </button>
       </div>
 
       {/* Linha do Tempo Vertical das Conquistas */}
-      <div className="p-5 rounded-[24px] bg-[#121215] border border-white/[0.06]">
+      <div className="p-5 rounded-[20px] bg-[#1c1c1e] border border-white/[0.04]">
         <div className="relative space-y-3">
           {filteredAchievements.map((item: AchievementItem, index: number) => {
             const styles = getTierStyles(item.tier, item.unlocked);
@@ -321,7 +323,7 @@ export function AchievementsTimeline({
                 {!isLast && (
                   <div
                     className={`absolute left-4 top-10 bottom-[-14px] w-[1px] ${
-                      item.unlocked ? 'bg-emerald-500/30' : 'bg-white/[0.06]'
+                      item.unlocked ? 'bg-[#f5b800]/40' : 'bg-white/[0.06]'
                     }`}
                   />
                 )}
@@ -329,7 +331,7 @@ export function AchievementsTimeline({
                 {/* Ícone do Troféu na Linha do Tempo */}
                 <div
                   onClick={() => handleAchievementClick(item)}
-                  className={`relative z-10 w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
+                  className={`relative z-10 w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
                 >
                   {renderIcon(item.iconName, 'w-3.5 h-3.5')}
                 </div>
@@ -339,8 +341,8 @@ export function AchievementsTimeline({
                   onClick={() => handleAchievementClick(item)}
                   className={`flex-1 p-3.5 rounded-2xl transition-all cursor-pointer active:scale-[0.99] select-none ${
                     item.unlocked
-                      ? 'bg-white/[0.025] hover:bg-white/[0.04]'
-                      : 'bg-white/[0.015] hover:bg-white/[0.03] opacity-75'
+                      ? 'bg-[#141416] hover:bg-white/[0.04]'
+                      : 'bg-[#141416]/60 hover:bg-[#141416] opacity-75'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
@@ -354,7 +356,7 @@ export function AchievementsTimeline({
                         >
                           {item.tier}
                         </span>
-                        <span className="text-[10px] font-semibold text-zinc-500 tabular-nums">
+                        <span className="text-[10px] font-semibold text-zinc-400 tabular-nums">
                           +{item.xp} XP
                         </span>
                       </div>
@@ -370,7 +372,7 @@ export function AchievementsTimeline({
 
                     <div className="text-right shrink-0">
                       {item.unlocked ? (
-                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                           {item.unlockedAt
                             ? `Em ${formatDateBR(item.unlockedAt)}`
                             : 'Desbloqueado'}
@@ -389,7 +391,7 @@ export function AchievementsTimeline({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400 font-medium">{item.subtitle}</span>
-                      <span className="text-zinc-300 font-semibold tabular-nums">
+                      <span className="text-white font-semibold tabular-nums">
                         {item.formattedCurrent}{' '}
                         <span className="text-zinc-500">/ {item.formattedTarget}</span>
                       </span>
@@ -412,4 +414,3 @@ export function AchievementsTimeline({
     </div>
   );
 }
-

@@ -149,7 +149,7 @@ export function AddTransactionModal({
       typeof price === 'number' ? price : parseFloat(price.toString().replace(',', '.'));
 
     if (!cleanTicker || isNaN(numShares) || numShares <= 0 || isNaN(numPrice) || numPrice <= 0) {
-      setErrorMsg('Informe o código do FII, quantidade de cotas e o preço unitário.');
+      setErrorMsg('Informe o código do ativo, quantidade de cotas e o preço unitário.');
       return;
     }
 
@@ -184,29 +184,29 @@ export function AddTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-              <Sparkles className="w-4 h-4 text-zinc-300" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white">
+              <Sparkles className="w-4 h-4 text-[#f5b800]" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">
                 {editingTransaction ? 'Editar Lançamento' : 'Registrar Operação'}
               </h2>
               <p className="text-xs text-zinc-400">
-                {editingTransaction ? 'Ajuste os dados deste registro' : 'Compra ou venda na sua corretora'}
+                {editingTransaction ? 'Ajuste os dados deste registro' : 'Compra ou venda na corretora'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[#141416] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -220,13 +220,13 @@ export function AddTransactionModal({
         )}
 
         {/* Chave Compra vs Venda */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-white/[0.03] border border-white/[0.06] mb-4">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#141416] border border-white/[0.04] mb-4">
           <button
             type="button"
             onClick={() => setTxType('BUY')}
             className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               txType === 'BUY'
-                ? 'bg-emerald-500 text-zinc-950 shadow-sm'
+                ? 'bg-[#2b2512] text-[#f5b800]'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -258,10 +258,10 @@ export function AddTransactionModal({
                 key={sug}
                 type="button"
                 onClick={() => handleSelectSuggestion(sug)}
-                className={`text-xs px-2.5 py-1 rounded-xl font-mono font-medium transition-all ${
+                className={`text-xs px-3 py-1 rounded-full font-mono font-bold transition-all ${
                   ticker.toUpperCase() === sug
-                    ? 'bg-emerald-500 text-zinc-950 font-bold'
-                    : 'bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08]'
+                    ? 'bg-[#f5b800] text-zinc-950'
+                    : 'bg-[#141416] text-zinc-300 hover:text-white'
                 }`}
               >
                 {sug}
@@ -274,7 +274,7 @@ export function AddTransactionModal({
           {/* Ticker */}
           <div>
             <label className="text-xs font-semibold text-zinc-300 block mb-1">
-              Código do FII (Ticker)
+              Código do Ativo (Ticker)
             </label>
             <div className="relative">
               <input
@@ -283,16 +283,16 @@ export function AddTransactionModal({
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value.toUpperCase())}
                 onBlur={() => loadPriceForTicker(ticker)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-mono uppercase tracking-wider outline-none focus:border-emerald-500/60"
+                className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-mono uppercase tracking-wider outline-none focus:border-[#f5b800]/60"
                 required
               />
               <button
                 type="button"
                 onClick={() => loadPriceForTicker(ticker)}
-                className="absolute right-2 top-2 p-1 text-zinc-400 hover:text-emerald-400"
+                className="absolute right-2.5 top-2.5 p-1 text-zinc-400 hover:text-[#f5b800]"
                 title="Buscar cotação ao vivo"
               >
-                <Search className={`w-4 h-4 ${isFetchingPrice ? 'animate-spin text-emerald-400' : ''}`} />
+                <Search className={`w-4 h-4 ${isFetchingPrice ? 'animate-spin text-[#f5b800]' : ''}`} />
               </button>
             </div>
           </div>
@@ -301,7 +301,7 @@ export function AddTransactionModal({
             {/* Quantidade de Cotas */}
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                Quantidade de Cotas
+                Quantidade
               </label>
               <input
                 type="number"
@@ -310,7 +310,7 @@ export function AddTransactionModal({
                 step="1"
                 value={shares}
                 onChange={(e) => setShares(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
+                className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -318,7 +318,7 @@ export function AddTransactionModal({
             {/* Preço Unitário */}
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                Preço por Cota (R$)
+                Preço Unitário (R$)
               </label>
               <input
                 type="text"
@@ -326,7 +326,7 @@ export function AddTransactionModal({
                 placeholder="Ex: 9.42"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
+                className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -340,7 +340,7 @@ export function AddTransactionModal({
                 <button
                   type="button"
                   onClick={() => handleQuickFillByBudget(100)}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.06] transition-colors tabular-nums"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#141416] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
                 >
                   R$ 100 ({Math.floor(100 / validPrice)} cotas)
                 </button>
@@ -349,7 +349,7 @@ export function AddTransactionModal({
                 <button
                   type="button"
                   onClick={() => handleQuickFillByBudget(remainingGoal)}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-colors tabular-nums"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#2b2512] text-[#f5b800] transition-colors tabular-nums"
                 >
                   Falta p/ Meta ({Math.floor(remainingGoal / validPrice)} cotas)
                 </button>
@@ -358,7 +358,7 @@ export function AddTransactionModal({
                 <button
                   type="button"
                   onClick={() => handleQuickFillByBudget(monthlyTarget)}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.06] transition-colors tabular-nums"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#141416] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
                 >
                   Meta R$ {monthlyTarget} ({Math.floor(monthlyTarget / validPrice)} cotas)
                 </button>
@@ -367,18 +367,18 @@ export function AddTransactionModal({
           )}
 
           {/* Resumo da Operação */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.06] flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-[#141416] flex items-center justify-between">
             <div>
               <span
-                className={`text-[11px] block font-medium ${
-                  txType === 'SELL' ? 'text-rose-400' : 'text-emerald-400'
+                className={`text-[11px] block font-bold uppercase tracking-wider ${
+                  txType === 'SELL' ? 'text-rose-400' : 'text-[#f5b800]'
                 }`}
               >
                 {txType === 'SELL' ? 'Valor Total da Venda' : 'Total Deste Aporte'}
               </span>
               <span
-                className={`text-lg font-extrabold tabular-nums ${
-                  txType === 'SELL' ? 'text-rose-400' : 'text-emerald-400'
+                className={`text-lg font-bold tabular-nums ${
+                  txType === 'SELL' ? 'text-rose-400' : 'text-white'
                 }`}
               >
                 {formatBRL(currentTotal)}
@@ -389,7 +389,7 @@ export function AddTransactionModal({
                 <span className="text-[11px] text-zinc-400 block">
                   Impacto na Meta ({formatBRL(monthlyTarget)})
                 </span>
-                <span className="text-xs font-bold text-zinc-200 tabular-nums">
+                <span className="text-xs font-bold text-[#f5b800] tabular-nums">
                   {Math.round((currentTotal / Math.max(1, monthlyTarget)) * 100)}% da meta
                 </span>
               </div>
@@ -411,7 +411,7 @@ export function AddTransactionModal({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
                 required
               />
             </div>
@@ -422,7 +422,7 @@ export function AddTransactionModal({
               <select
                 value={broker}
                 onChange={(e) => setBroker(e.target.value)}
-                className="w-full bg-[#121215] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-emerald-500/60"
+                className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
               >
                 <option value="XP Investimentos">XP Investimentos</option>
                 <option value="BTG Pactual">BTG Pactual</option>
@@ -447,17 +447,17 @@ export function AddTransactionModal({
               }
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-3.5 py-2 text-base sm:text-sm text-zinc-300 outline-none focus:border-emerald-500/60"
+              className="w-full bg-[#141416] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-zinc-200 outline-none focus:border-[#f5b800]/60"
             />
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              className={`w-full py-3.5 px-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg ${
+              className={`w-full py-3.5 px-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${
                 txType === 'SELL'
-                  ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
-                  : 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20'
+                  ? 'bg-rose-500 hover:bg-rose-400 text-white'
+                  : 'bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950'
               }`}
             >
               <Check className="w-4 h-4 stroke-[2.5]" />

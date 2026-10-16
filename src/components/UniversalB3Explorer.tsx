@@ -3,16 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Search,
-  Globe,
   Sparkles,
-  TrendingUp,
-  TrendingDown,
   Snowflake,
   Coins,
   ShieldCheck,
   Loader2,
   X,
   ArrowUpRight,
+  BarChart3,
 } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
 
@@ -48,16 +46,17 @@ interface LiveQuoteInspection {
 interface UniversalB3ExplorerProps {
   positions: FiiPosition[];
   monthlyTarget: number;
+  onOpenBuyModal?: (ticker: string) => void;
 }
 
 export function UniversalB3Explorer({
   positions,
   monthlyTarget,
+  onOpenBuyModal,
 }: UniversalB3ExplorerProps) {
   const [query, setQuery] = useState<string>('');
   const [assetFilter, setAssetFilter] = useState<'ALL' | 'FII' | 'ACAO'>('ALL');
   const [items, setItems] = useState<UniversalMarketItem[]>([]);
-  const [totalDirectoryCount, setTotalDirectoryCount] = useState<number>(0);
   const [isLoadingList, setIsLoadingList] = useState<boolean>(true);
 
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -81,9 +80,6 @@ export function UniversalB3Explorer({
         if (res.ok) {
           const data = await res.json();
           setItems(data.items || []);
-          if (data.totalDirectoryCount) {
-            setTotalDirectoryCount(data.totalDirectoryCount);
-          }
         }
       } catch {
         // Silencioso
@@ -147,12 +143,12 @@ export function UniversalB3Explorer({
 
     if (isInspecting) {
       return (
-        <div className="rounded-[26px] bg-[#121215] border border-emerald-500/30 p-6 text-center space-y-2 animate-in fade-in">
-          <Loader2 className="w-6 h-6 text-emerald-400 animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-white">
+        <div className="rounded-[20px] bg-[#1c1c1e] border border-[#f5b800]/30 p-6 text-center space-y-2 animate-in fade-in">
+          <Loader2 className="w-6 h-6 text-[#f5b800] animate-spin mx-auto" />
+          <p className="text-xs font-bold text-white">
             Consultando {selectedTicker} ao vivo na B3...
           </p>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-zinc-400">
             Buscando cotação atual, histórico de 12 meses de dividendos e calculando Preço-Teto
           </p>
         </div>
@@ -161,12 +157,12 @@ export function UniversalB3Explorer({
 
     if (inspectError || !inspectedQuote) {
       return (
-        <div className="rounded-[26px] bg-[#121215] border border-rose-500/30 p-5 flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="rounded-[20px] bg-[#1c1c1e] border border-rose-500/30 p-5 flex items-center justify-between gap-3 animate-in fade-in">
           <div className="text-xs text-rose-400">{inspectError}</div>
           <button
             type="button"
             onClick={() => setSelectedTicker(null)}
-            className="p-1.5 rounded-full bg-zinc-800 text-zinc-400 hover:text-white"
+            className="p-1.5 rounded-full bg-white/[0.06] text-zinc-400 hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
@@ -215,119 +211,107 @@ export function UniversalB3Explorer({
     const monthlyIncomeWithBudget = Number((sharesWithBudget * monthlyDiv).toFixed(2));
 
     return (
-      <div className="rounded-[24px] bg-[#121215] border border-white/[0.08] p-5 shadow-2xl space-y-4 animate-in fade-in duration-150">
+      <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.08] p-5 shadow-2xl space-y-4 animate-in fade-in duration-150">
         {/* Topo do Raio-X Ao Vivo */}
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-lg font-bold text-white tracking-tight">
-                {q.ticker}
-              </span>
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
-                {isStock ? 'Ação B3' : 'FII / Fiagro B3'}
-              </span>
-              {userPosition && (
-                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 tabular-nums">
-                  Na sua carteira ({userPosition.totalShares}{' '}
-                  {isStock ? 'ações' : 'cotas'})
-                </span>
-              )}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center shrink-0 text-white">
+              <BarChart3 className="w-4 h-4" />
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">{q.name || q.ticker}</p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-base font-bold text-white leading-tight">
+                  {q.ticker}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
+                  {isStock ? 'Ação B3' : 'FII / Fiagro B3'}
+                </span>
+                {userPosition && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 tabular-nums">
+                    Na carteira ({userPosition.totalShares})
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400 uppercase tracking-wide truncate mt-0.5">
+                {(q.name || q.ticker).toUpperCase()}
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-start gap-2">
-            <div className="text-right">
-              <div className="text-lg font-bold text-white tabular-nums">
-                {formatBRL(q.price)}
-              </div>
-              <div
-                className={`inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums ${
+          <button
+            type="button"
+            onClick={() => setSelectedTicker(null)}
+            aria-label="Fechar análise"
+            className="p-1.5 rounded-full bg-[#141416] text-zinc-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tabela Key-Value Limpa Estilo XP */}
+        <div className="space-y-2.5 pt-2 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">Cotação ao vivo</span>
+            <span className="text-white font-bold tabular-nums">
+              {formatBRL(q.price)}{' '}
+              <span
+                className={`text-xs font-medium ${
                   isUp ? 'text-emerald-400' : 'text-rose-400'
                 }`}
               >
-                {isUp ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {isUp ? '+' : ''}
-                {q.changePercent}% hoje
-              </div>
-            </div>
+                ({isUp ? '▲' : '▼'} {Math.abs(q.changePercent)}%)
+              </span>
+            </span>
+          </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedTicker(null)}
-              aria-label="Fechar análise"
-              className="p-1.5 rounded-full bg-white/[0.04] text-zinc-400 hover:text-white"
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">Dividend Yield (12m)</span>
+            <span className="text-emerald-400 font-bold tabular-nums">
+              {annualYieldPct > 0 ? `▲ ${annualYieldPct}% a.a. (${monthlyYieldPct}% a.m.)` : 'Sem div. 12m'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">
+              {isStock ? 'Média mensal / 12m' : 'Último dividendo / 12m'}
+            </span>
+            <span className="text-white font-medium tabular-nums">
+              {monthlyDiv > 0 ? `${formatBRL(monthlyDiv)} (${formatBRL(annualDiv)}/ano)` : 'R$ 0,00'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">
+              {isStock ? 'Preço-Teto Barsi (6%)' : 'Preço-Teto (0,9% a.m.)'}
+            </span>
+            <span
+              className={`font-semibold tabular-nums ${
+                isBelowCeiling ? 'text-[#f5b800]' : 'text-zinc-300'
+              }`}
             >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Grade Principal de Indicadores Calculados ao Vivo */}
-        <div className="grid grid-cols-3 gap-2 p-3.5 rounded-2xl bg-white/[0.025] text-center">
-          <div>
-            <span className="text-[11px] text-zinc-500 block mb-0.5">Dividend Yield (12m)</span>
-            <span className="text-sm font-bold text-emerald-400 tabular-nums">
-              {annualYieldPct > 0 ? `${annualYieldPct}% a.a.` : 'Sem div. 12m'}
+              {annualDiv > 0
+                ? `${formatBRL(ceilingPrice)} (${
+                    isBelowCeiling ? `${marginToCeilingPct}% margem` : 'Acima do teto'
+                  })`
+                : '—'}
             </span>
-            {monthlyYieldPct > 0 && (
-              <span className="text-[11px] text-zinc-400 block tabular-nums">
-                ({monthlyYieldPct}% a.m.)
-              </span>
-            )}
-          </div>
-
-          <div className="border-x border-white/[0.05] px-1">
-            <span className="text-[11px] text-zinc-500 block mb-0.5">
-              {isStock ? 'Média Mensal' : 'Último Dividendo'}
-            </span>
-            <span className="text-sm font-bold text-white tabular-nums">
-              {monthlyDiv > 0 ? formatBRL(monthlyDiv) : 'R$ 0,00'}
-            </span>
-            <span className="text-[11px] text-zinc-400 block tabular-nums">
-              12m: {formatBRL(annualDiv)}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[11px] text-zinc-500 block mb-0.5">
-              {isStock ? 'Teto Barsi (6%)' : 'Preço-Teto (0,9%)'}
-            </span>
-            <span className="text-sm font-bold text-zinc-200 tabular-nums">
-              {annualDiv > 0 ? formatBRL(ceilingPrice) : '—'}
-            </span>
-            {annualDiv > 0 && (
-              <span
-                className={`text-[11px] font-medium block tabular-nums ${
-                  isBelowCeiling ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              >
-                {isBelowCeiling
-                  ? `${marginToCeilingPct}% margem`
-                  : 'Acima do teto'}
-              </span>
-            )}
           </div>
         </div>
 
         {/* Bola de Neve & Simulador de Poder de Compra */}
         {monthlyDiv > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1.5">
-                  <Snowflake className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
+                  <Snowflake className="w-3.5 h-3.5 text-[#f5b800]" />
                   Número Mágico
                 </span>
                 <div className="text-xs font-bold text-white mt-1 tabular-nums">
                   {magicShares} {isStock ? 'ações' : 'cotas'}
                 </div>
                 <span className="text-[11px] text-zinc-500 tabular-nums">
-                  Aporte: {formatBRL(magicCapitalRequired)}
+                  Capital: {formatBRL(magicCapitalRequired)}
                 </span>
               </div>
               <div className="text-right">
@@ -338,10 +322,10 @@ export function UniversalB3Explorer({
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1.5">
-                  <Coins className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-[#f5b800]" />
                   Com <span className="tabular-nums">{formatBRL(simBudget)}</span>
                 </span>
                 <div className="text-xs font-bold text-white mt-1 tabular-nums">
@@ -361,13 +345,30 @@ export function UniversalB3Explorer({
           </div>
         )}
 
-        {/* Rodapé de Auditoria B3 */}
-        <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-1 border-t border-white/[0.05]">
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            Dados consultados em tempo real na B3 / Yahoo Finance
-          </span>
-          {q.dividendExDate && <span className="tabular-nums">Última Data-Com: {q.dividendExDate}</span>}
+        {/* Botões Pílula Estilo XP */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => setSelectedTicker(null)}
+            className="py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold text-center active:scale-95 transition-all"
+          >
+            Fechar Raio-X
+          </button>
+
+          {onOpenBuyModal ? (
+            <button
+              type="button"
+              onClick={() => onOpenBuyModal(q.ticker)}
+              className="py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center active:scale-95 transition-all"
+            >
+              Aportar em {q.ticker}
+            </button>
+          ) : (
+            <div className="py-2.5 rounded-full bg-[#141416] text-zinc-400 text-[11px] font-semibold text-center flex items-center justify-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              B3 Ao Vivo
+            </div>
+          )}
         </div>
       </div>
     );
@@ -375,10 +376,10 @@ export function UniversalB3Explorer({
 
   return (
     <div className="space-y-4">
-      {/* Barra de Busca Desencaixotada Direto no Topo */}
+      {/* Barra de Busca Estilo XP */}
       <div className="space-y-2.5">
         <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={query}
@@ -389,20 +390,20 @@ export function UniversalB3Explorer({
               }
             }}
             placeholder="Buscar FII ou Ação na B3 (ex: HGLG11, ITUB4...)"
-            className="w-full pl-10 pr-20 py-3 rounded-2xl bg-[#121215] border border-white/[0.08] focus:border-emerald-500/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all shadow-sm"
+            className="w-full pl-10 pr-20 py-3 rounded-full bg-[#1c1c1e] border border-white/[0.06] focus:border-[#f5b800]/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400 hover:text-white px-2 py-0.5 rounded-lg bg-white/[0.06]"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#f5b800] px-2.5 py-0.5 rounded-full bg-[#2b2512]"
             >
               Limpar
             </button>
           )}
         </div>
 
-        {/* Pílulas de Filtro Rápido com whitespace-nowrap */}
+        {/* Pílulas de Filtro Rápido */}
         <div className="flex items-center justify-between gap-2 overflow-x-auto pb-0.5">
           <div className="flex items-center gap-1.5 shrink-0">
             {[
@@ -414,10 +415,10 @@ export function UniversalB3Explorer({
                 key={pill.id}
                 type="button"
                 onClick={() => setAssetFilter(pill.id as 'ALL' | 'FII' | 'ACAO')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   assetFilter === pill.id
-                    ? 'bg-emerald-500 text-zinc-950 font-bold'
-                    : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
+                    ? 'bg-[#f5b800] text-zinc-950'
+                    : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
                 }`}
               >
                 {pill.label}
@@ -429,7 +430,7 @@ export function UniversalB3Explorer({
             <button
               type="button"
               onClick={() => handleInspectAsset(query)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold hover:opacity-90 transition-all whitespace-nowrap shrink-0"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Raio-X de &ldquo;{query.trim().toUpperCase()}&rdquo;
@@ -438,26 +439,26 @@ export function UniversalB3Explorer({
         </div>
       </div>
 
-      {/* CARD DE INSPEÇÃO AO VIVO (QUANDO O USUÁRIO CLICA EM QUALQUER ATIVO) */}
+      {/* CARD DE INSPEÇÃO AO VIVO */}
       {renderLiveInspectionCard()}
 
       {/* LISTA DE RESULTADOS DA B3 */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
+        <div className="flex items-center justify-between px-1 text-xs text-zinc-400">
           <span>
             {isLoadingList
               ? 'Buscando na B3...'
-              : `Exibindo ${items.length} ativos (toque em qualquer um para abrir o Raio-X ao vivo)`}
+              : `Ativos listados (${items.length}) • Toque para abrir o Raio-X`}
           </span>
         </div>
 
         {isLoadingList ? (
-          <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center">
-            <Loader2 className="w-6 h-6 text-emerald-400 animate-spin mx-auto mb-2" />
+          <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-8 text-center">
+            <Loader2 className="w-6 h-6 text-[#f5b800] animate-spin mx-auto mb-2" />
             <p className="text-xs text-zinc-400">Carregando catálogo completo da B3...</p>
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-6 text-center space-y-3">
+          <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-6 text-center space-y-3">
             <p className="text-xs text-zinc-300">
               Nenhum ativo listado no índice rápido para <strong>{query}</strong>.
             </p>
@@ -465,7 +466,7 @@ export function UniversalB3Explorer({
               <button
                 type="button"
                 onClick={() => handleInspectAsset(query)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-zinc-950 text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold"
               >
                 <Search className="w-3.5 h-3.5" />
                 Consultar &ldquo;{query.trim().toUpperCase()}&rdquo; direto na B3
@@ -473,7 +474,7 @@ export function UniversalB3Explorer({
             )}
           </div>
         ) : (
-          <div className="rounded-2xl bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
+          <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] divide-y divide-white/[0.06] overflow-hidden">
             {items.map((item) => {
               const isStock = item.assetClass === 'ACAO';
               const isSelected = selectedTicker === item.ticker;
@@ -485,18 +486,18 @@ export function UniversalB3Explorer({
                   onClick={() => handleInspectAsset(item.ticker)}
                   className={`px-4 py-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                     isSelected
-                      ? 'bg-white/[0.05]'
+                      ? 'bg-[#2b2512]/40'
                       : 'hover:bg-white/[0.02]'
                   }`}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[11px] font-bold text-white leading-none">
+                    <div className="w-9 h-9 rounded-lg border border-white/80 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-white leading-none">
                         {item.ticker.slice(0, 4)}
                       </span>
                       <span
-                        className={`text-[9px] font-semibold mt-0.5 leading-none ${
-                          isStock ? 'text-zinc-400' : 'text-emerald-400'
+                        className={`text-[9px] font-bold mt-0.5 leading-none ${
+                          isStock ? 'text-zinc-300' : 'text-[#f5b800]'
                         }`}
                       >
                         {item.ticker.slice(4)}
@@ -508,11 +509,11 @@ export function UniversalB3Explorer({
                         <span className="text-sm font-bold text-white whitespace-nowrap">
                           {item.ticker}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-full bg-white/[0.04] text-zinc-400 border border-white/[0.06] whitespace-nowrap">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800] whitespace-nowrap">
                           {isStock ? 'Ação' : 'FII'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-zinc-400 truncate">
+                      <p className="text-[11px] text-zinc-400 uppercase tracking-wide truncate mt-0.5">
                         {item.name}
                       </p>
                     </div>
@@ -530,13 +531,13 @@ export function UniversalB3Explorer({
                               isUp ? 'text-emerald-400' : 'text-rose-400'
                             }`}
                           >
-                            {isUp ? '+' : ''}
+                            {isUp ? '▲ +' : '▼ '}
                             {item.changePercent}%
                           </div>
                         )}
                       </>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#f5b800] bg-[#2b2512] px-3 py-1 rounded-full whitespace-nowrap">
                         Raio-X
                         <ArrowUpRight className="w-3 h-3" />
                       </span>
@@ -551,4 +552,3 @@ export function UniversalB3Explorer({
     </div>
   );
 }
-

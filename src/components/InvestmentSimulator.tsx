@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Calculator, TrendingUp, Wallet, Flag } from 'lucide-react';
+import { Calculator, Wallet, Flag } from 'lucide-react';
 
 interface InvestmentSimulatorProps {
   currentEquity?: number;
@@ -42,7 +42,6 @@ export function InvestmentSimulator({
     for (let m = 1; m <= totalMonths; m++) {
       accumulated += monthlyContribution;
       totalInvestedFromPocket += monthlyContribution;
-      // Rende no fim do mês
       accumulated += accumulated * rate;
     }
 
@@ -90,15 +89,19 @@ export function InvestmentSimulator({
   }));
 
   return (
-    <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
+    <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
             <Calculator className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Simulador de Futuro</h3>
-            <p className="text-[11px] text-zinc-400">Projeção com juros compostos em FIIs</p>
+            <h3 className="text-base font-bold text-white leading-tight">
+              Simulador de Futuro
+            </h3>
+            <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-0.5">
+              PROJEÇÃO COM JUROS COMPOSTOS
+            </p>
           </div>
         </div>
 
@@ -106,10 +109,10 @@ export function InvestmentSimulator({
           <button
             type="button"
             onClick={() => setStartFromCurrentEquity(!startFromCurrentEquity)}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 border transition-all ${
+            className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
               startFromCurrentEquity
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                : 'bg-white/[0.02] border-white/[0.06] text-zinc-400'
+                ? 'bg-[#2b2512] text-[#f5b800]'
+                : 'bg-[#141416] text-zinc-400'
             }`}
             title="Alternar entre iniciar com seu patrimônio atual ou do zero"
           >
@@ -120,24 +123,28 @@ export function InvestmentSimulator({
       </div>
 
       {/* Controles simples */}
-      <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/[0.025]">
+      <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#141416]">
         <div>
-          <label className="text-[11px] text-zinc-400 block mb-1">Aporte Mensal (R$)</label>
+          <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
+            Aporte Mensal (R$)
+          </label>
           <input
             type="number"
             inputMode="decimal"
             step="50"
             value={monthlyContribution}
             onChange={(e) => setMonthlyContribution(Math.max(10, Number(e.target.value)))}
-            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
+            className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
           />
         </div>
         <div>
-          <label className="text-[11px] text-zinc-400 block mb-1">Yield Mensal Médio</label>
+          <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
+            Yield Mensal Médio
+          </label>
           <select
             value={monthlyYieldPercent}
             onChange={(e) => setMonthlyYieldPercent(Number(e.target.value))}
-            className="w-full bg-[#16161a] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-base sm:text-xs text-white font-bold outline-none focus:border-emerald-500/60 tabular-nums"
+            className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-xl px-2.5 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
           >
             {averageYieldPercent >= 0.6 &&
               averageYieldPercent <= 1.3 &&
@@ -154,18 +161,20 @@ export function InvestmentSimulator({
       </div>
 
       {/* Tempo estimado até os próximos Marcos */}
-      <div className="p-4 rounded-2xl bg-white/[0.025]">
-        <div className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1.5 mb-2.5">
-          <Flag className="w-3.5 h-3.5 text-zinc-400" />
-          <span>Tempo até seus marcos (mantendo <span className="tabular-nums font-medium text-zinc-300">{formatBRL(monthlyContribution)}/mês</span>)</span>
+      <div className="p-4 rounded-2xl bg-[#141416]">
+        <div className="text-xs font-bold text-zinc-300 flex items-center gap-1.5 mb-2.5">
+          <Flag className="w-3.5 h-3.5 text-[#f5b800]" />
+          <span>
+            Tempo até os marcos (<span className="tabular-nums text-[#f5b800]">{formatBRL(monthlyContribution)}/mês</span>)
+          </span>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
           {milestones.map((m) => (
-            <div key={m.target} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+            <div key={m.target} className="p-2.5 rounded-xl bg-[#1c1c1e] border border-white/[0.04]">
               <div className="text-[11px] text-zinc-400 font-medium tabular-nums">
                 R$ {(m.target / 1000).toFixed(0)} mil
               </div>
-              <div className="text-xs font-bold text-zinc-200 mt-0.5 tabular-nums">
+              <div className="text-xs font-bold text-white mt-0.5 tabular-nums">
                 {formatDuration(m.months)}
               </div>
             </div>
@@ -173,33 +182,32 @@ export function InvestmentSimulator({
         </div>
       </div>
 
-      {/* Cards de Cenários */}
-      <div className="space-y-2">
+      {/* Cenários estilo Tabela Corrida XP */}
+      <div className="space-y-2.5">
         {scenarios.map((sc) => (
           <div
             key={sc.years}
-            className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between"
+            className="p-4 rounded-2xl bg-[#141416] flex items-center justify-between"
           >
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold text-zinc-300 px-2 py-0.5 rounded-md bg-white/[0.05]">
+                <span className="text-[11px] font-bold text-[#f5b800] px-2.5 py-0.5 rounded-full bg-[#2b2512]">
                   {sc.years} {sc.years === 1 ? 'ano' : 'anos'}
                 </span>
-                <span className="text-xs font-bold text-white tabular-nums">
+                <span className="text-sm font-bold text-white tabular-nums">
                   {formatBRL(sc.accumulated)}
                 </span>
               </div>
-              <div className="text-[11px] text-zinc-400">
-                Investido: <span className="tabular-nums">{formatBRL(sc.totalInvestedFromPocket)}</span> • Juros:{' '}
+              <div className="text-xs text-zinc-400">
+                Aplicado: <span className="tabular-nums text-zinc-300">{formatBRL(sc.totalInvestedFromPocket)}</span> • Juros:{' '}
                 <strong className="text-emerald-400 font-semibold tabular-nums">+{formatBRL(sc.dividendProfit)}</strong>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-[11px] text-zinc-500 block mb-0.5">Renda/mês</span>
-              <span className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1 tabular-nums">
-                <TrendingUp className="w-3.5 h-3.5" />
-                {formatBRL(sc.estimatedMonthlyIncome)}
+              <span className="text-[11px] text-zinc-400 block mb-0.5">Renda/mês</span>
+              <span className="text-xs font-bold text-emerald-400 tabular-nums">
+                ▲ {formatBRL(sc.estimatedMonthlyIncome)}
               </span>
             </div>
           </div>
@@ -208,4 +216,3 @@ export function InvestmentSimulator({
     </div>
   );
 }
-

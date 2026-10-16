@@ -1,16 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   X,
-  Plus,
   Check,
   ShieldCheck,
-  Sparkles,
   Trash2,
-  Building2,
-  Percent,
-  DollarSign,
   PiggyBank,
 } from 'lucide-react';
 import { FixedIncomeAsset, FixedIncomeType } from '../types/portfolio';
@@ -19,9 +14,9 @@ import { triggerHaptic } from '../lib/haptic';
 interface AddFixedIncomeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (assetData: Omit<FixedIncomeAsset, 'id' | 'updatedAt'>) => Promise<any> | any;
-  onUpdate?: (id: string, assetData: Partial<FixedIncomeAsset>) => Promise<any> | any;
-  onDelete?: (id: string) => Promise<any> | any;
+  onSave: (assetData: Omit<FixedIncomeAsset, 'id' | 'updatedAt'>) => Promise<unknown> | unknown;
+  onUpdate?: (id: string, assetData: Partial<FixedIncomeAsset>) => Promise<unknown> | unknown;
+  onDelete?: (id: string) => Promise<unknown> | unknown;
   editingAsset?: FixedIncomeAsset | null;
 }
 
@@ -34,7 +29,6 @@ interface PresetOption {
   rateType: 'CDI' | 'IPCA' | 'PREFIXADO';
   ratePercent: number;
   isExempt: boolean;
-  iconBg: string;
   badge: string;
 }
 
@@ -48,7 +42,6 @@ const PRESETS: PresetOption[] = [
     rateType: 'CDI',
     ratePercent: 100,
     isExempt: false,
-    iconBg: 'from-purple-600 to-indigo-600',
     badge: '100% CDI',
   },
   {
@@ -60,7 +53,6 @@ const PRESETS: PresetOption[] = [
     rateType: 'CDI',
     ratePercent: 102,
     isExempt: false,
-    iconBg: 'from-emerald-600 to-teal-600',
     badge: '102% CDI',
   },
   {
@@ -72,7 +64,6 @@ const PRESETS: PresetOption[] = [
     rateType: 'CDI',
     ratePercent: 100,
     isExempt: false,
-    iconBg: 'from-amber-600 to-orange-600',
     badge: 'Selic + 0.05%',
   },
   {
@@ -84,19 +75,17 @@ const PRESETS: PresetOption[] = [
     rateType: 'IPCA',
     ratePercent: 6.2,
     isExempt: false,
-    iconBg: 'from-blue-600 to-cyan-600',
     badge: 'IPCA + 6,2%',
   },
   {
     id: 'lci-lca',
     label: 'LCI / LCA',
     name: 'LCA Agronegócio 92% CDI',
-    institution: 'Banco Inter',
+    institution: 'XP Investimentos',
     type: 'LCI_LCA',
     rateType: 'CDI',
     ratePercent: 92,
     isExempt: true,
-    iconBg: 'from-teal-600 to-emerald-500',
     badge: 'Isento de IR',
   },
 ];
@@ -109,42 +98,31 @@ export function AddFixedIncomeModal({
   onDelete,
   editingAsset,
 }: AddFixedIncomeModalProps) {
-  const [name, setName] = useState('');
-  const [institution, setInstitution] = useState('Nubank');
-  const [type, setType] = useState<FixedIncomeType>('CAIXINHA');
-  const [investedAmount, setInvestedAmount] = useState<string>('');
-  const [currentBalance, setCurrentBalance] = useState<string>('');
-  const [rateType, setRateType] = useState<'CDI' | 'IPCA' | 'PREFIXADO'>('CDI');
-  const [ratePercent, setRatePercent] = useState<string>('100');
-  const [isExempt, setIsExempt] = useState(false);
-  const [notes, setNotes] = useState('');
+  const defaultPreset = PRESETS[0];
+  const [name, setName] = useState(editingAsset ? editingAsset.name : defaultPreset.name);
+  const [institution, setInstitution] = useState(
+    editingAsset ? editingAsset.institution : defaultPreset.institution
+  );
+  const [type, setType] = useState<FixedIncomeType>(
+    editingAsset ? editingAsset.type : defaultPreset.type
+  );
+  const [investedAmount, setInvestedAmount] = useState<string>(
+    editingAsset ? editingAsset.investedAmount.toString() : ''
+  );
+  const [currentBalance, setCurrentBalance] = useState<string>(
+    editingAsset ? editingAsset.currentBalance.toString() : ''
+  );
+  const [rateType, setRateType] = useState<'CDI' | 'IPCA' | 'PREFIXADO'>(
+    editingAsset ? editingAsset.rateType : defaultPreset.rateType
+  );
+  const [ratePercent, setRatePercent] = useState<string>(
+    editingAsset ? editingAsset.ratePercent.toString() : defaultPreset.ratePercent.toString()
+  );
+  const [isExempt, setIsExempt] = useState(
+    editingAsset ? editingAsset.isExempt : defaultPreset.isExempt
+  );
+  const [notes, setNotes] = useState(editingAsset?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (editingAsset) {
-      setName(editingAsset.name);
-      setInstitution(editingAsset.institution);
-      setType(editingAsset.type);
-      setInvestedAmount(editingAsset.investedAmount.toString());
-      setCurrentBalance(editingAsset.currentBalance.toString());
-      setRateType(editingAsset.rateType);
-      setRatePercent(editingAsset.ratePercent.toString());
-      setIsExempt(editingAsset.isExempt);
-      setNotes(editingAsset.notes || '');
-    } else {
-      // Default para nova Caixinha Nubank
-      const defaultPreset = PRESETS[0];
-      setName(defaultPreset.name);
-      setInstitution(defaultPreset.institution);
-      setType(defaultPreset.type);
-      setInvestedAmount('');
-      setCurrentBalance('');
-      setRateType(defaultPreset.rateType);
-      setRatePercent(defaultPreset.ratePercent.toString());
-      setIsExempt(defaultPreset.isExempt);
-      setNotes('');
-    }
-  }, [editingAsset, isOpen]);
 
   if (!isOpen) return null;
 
@@ -215,14 +193,14 @@ export function AddFixedIncomeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl overflow-y-auto max-h-[88dvh] space-y-5"
+        className="relative w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl overflow-y-auto max-h-[88dvh] space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-              <PiggyBank className="w-4 h-4 text-zinc-300" />
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white">
+              <PiggyBank className="w-4 h-4 text-[#f5b800]" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
@@ -239,7 +217,7 @@ export function AddFixedIncomeModal({
               triggerHaptic('light');
               onClose();
             }}
-            className="p-1.5 rounded-full bg-white/[0.04] text-zinc-400 hover:text-white transition-colors"
+            className="p-2 rounded-full bg-[#141416] text-zinc-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -248,7 +226,7 @@ export function AddFixedIncomeModal({
         {/* Presets Rápidos de 1 Toque (apenas quando criando novo) */}
         {!editingAsset && (
           <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block mb-2">
               Sugestões Rápidas (1 Toque)
             </span>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -259,14 +237,16 @@ export function AddFixedIncomeModal({
                     key={p.id}
                     type="button"
                     onClick={() => handleApplyPreset(p)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-2xl border text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                       isSelected
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm'
-                        : 'bg-white/[0.03] border-white/[0.06] text-zinc-400 hover:text-zinc-200'
+                        ? 'bg-[#f5b800] text-zinc-950'
+                        : 'bg-[#141416] text-zinc-300 hover:text-white'
                     }`}
                   >
                     <span>{p.label}</span>
-                    <span className="text-[11px] text-zinc-500 font-normal">({p.badge})</span>
+                    <span className={`text-[10px] font-semibold ${isSelected ? 'text-zinc-800' : 'text-zinc-500'}`}>
+                      ({p.badge})
+                    </span>
                   </button>
                 );
               })}
@@ -286,7 +266,7 @@ export function AddFixedIncomeModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Caixinha Reserva Nubank, CDB 110% XP"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-sm focus:outline-none focus:border-emerald-500/60 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
             />
           </div>
 
@@ -302,7 +282,7 @@ export function AddFixedIncomeModal({
                 value={institution}
                 onChange={(e) => setInstitution(e.target.value)}
                 placeholder="Ex: Nubank, Inter, XP"
-                className="w-full px-3 py-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-emerald-500/60 transition-colors"
+                className="w-full px-3 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
               />
             </div>
 
@@ -322,7 +302,7 @@ export function AddFixedIncomeModal({
                     setRateType('CDI');
                   }
                 }}
-                className="w-full px-3 py-2.5 rounded-2xl bg-[#121215] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-emerald-500/60 transition-colors"
+                className="w-full px-3 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
               >
                 <option value="CAIXINHA">Caixinha / Cofrinho</option>
                 <option value="CDB">CDB (Liquidez / Prazo)</option>
@@ -352,14 +332,14 @@ export function AddFixedIncomeModal({
                   value={currentBalance}
                   onChange={(e) => setCurrentBalance(e.target.value)}
                   placeholder="500,00"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white text-base sm:text-sm font-semibold focus:outline-none focus:border-emerald-500/60 transition-colors tabular-nums"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-sm font-bold focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
                 />
               </div>
             </div>
 
             <div>
               <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
-                Total Aportado (R$)
+                Total Aplicado (R$)
               </label>
               <div className="relative">
                 <span className="absolute left-3.5 top-2.5 text-zinc-500 text-xs font-semibold">
@@ -371,22 +351,22 @@ export function AddFixedIncomeModal({
                   value={investedAmount}
                   onChange={(e) => setInvestedAmount(e.target.value)}
                   placeholder="Opcional"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-emerald-500/60 transition-colors tabular-nums"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
                 />
               </div>
             </div>
           </div>
 
           {/* Taxa & Indexador */}
-          <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.06]">
+          <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#141416]">
             <div>
               <label className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
                 Indexador
               </label>
               <select
                 value={rateType}
-                onChange={(e) => setRateType(e.target.value as any)}
-                className="w-full px-2.5 py-2 rounded-xl bg-[#121215] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-emerald-500/60"
+                onChange={(e) => setRateType(e.target.value as 'CDI' | 'IPCA' | 'PREFIXADO')}
+                className="w-full px-2.5 py-2 rounded-xl bg-[#1c1c1e] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60"
               >
                 <option value="CDI">% do CDI</option>
                 <option value="IPCA">IPCA + taxa anual</option>
@@ -409,7 +389,7 @@ export function AddFixedIncomeModal({
                   value={ratePercent}
                   onChange={(e) => setRatePercent(e.target.value)}
                   placeholder={rateType === 'CDI' ? '100' : '6.5'}
-                  className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-white text-base sm:text-xs font-semibold focus:outline-none focus:border-emerald-500/60 tabular-nums"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1c1c1e] border border-white/[0.08] text-white text-base sm:text-xs font-bold focus:outline-none focus:border-[#f5b800]/60 tabular-nums"
                 />
                 <span className="absolute right-3 top-2 text-zinc-500 text-xs font-semibold">
                   %
@@ -418,7 +398,7 @@ export function AddFixedIncomeModal({
             </div>
 
             {/* Isenção de IR */}
-            <div className="col-span-2 flex items-center justify-between pt-1 border-t border-white/[0.04]">
+            <div className="col-span-2 flex items-center justify-between pt-2 border-t border-white/[0.06]">
               <div className="flex items-center gap-1.5 text-xs text-zinc-300">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Isento de Imposto de Renda (LCI/LCA/CRI/CRA)</span>
@@ -427,12 +407,12 @@ export function AddFixedIncomeModal({
                 type="button"
                 onClick={() => setIsExempt(!isExempt)}
                 className={`w-11 h-6 rounded-full transition-colors relative ${
-                  isExempt ? 'bg-emerald-500' : 'bg-white/[0.1]'
+                  isExempt ? 'bg-[#f5b800]' : 'bg-white/[0.1]'
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5 left-0.5 ${
-                    isExempt ? 'translate-x-5' : 'translate-x-0'
+                  className={`w-5 h-5 rounded-full bg-zinc-950 transition-transform absolute top-0.5 left-0.5 ${
+                    isExempt ? 'translate-x-5' : 'translate-x-0 bg-white'
                   }`}
                 />
               </button>
@@ -449,17 +429,17 @@ export function AddFixedIncomeModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ex: Reserva de emergência de 6 meses"
-              className="w-full px-3.5 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-emerald-500/60 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-[#141416] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
             />
           </div>
 
           {/* Botões de Ação */}
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2.5 pt-2">
             {editingAsset && onDelete && (
               <button
                 type="button"
                 onClick={handleDelete}
-                className="p-3 rounded-2xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-95 transition-all"
+                className="p-3.5 rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 active:scale-95 transition-all"
                 title="Excluir"
               >
                 <Trash2 className="w-5 h-5" />
@@ -469,7 +449,7 @@ export function AddFixedIncomeModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-3.5 px-4 rounded-full bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-sm active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <span>Salvando...</span>

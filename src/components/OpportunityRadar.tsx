@@ -11,6 +11,7 @@ import {
   Zap,
   PiggyBank,
   ArrowRight,
+  BarChart3,
 } from 'lucide-react';
 import { QuoteData, FiiPosition, FixedIncomeAsset } from '../types/portfolio';
 import {
@@ -30,6 +31,7 @@ interface OpportunityRadarProps {
   isPrivacyMode?: boolean;
   onOpenB3Modal?: () => void;
   onOpenAddFixedIncome?: () => void;
+  onOpenBuyModal?: (ticker: string) => void;
 }
 
 export function OpportunityRadar({
@@ -42,6 +44,7 @@ export function OpportunityRadar({
   isPrivacyMode = false,
   onOpenB3Modal,
   onOpenAddFixedIncome,
+  onOpenBuyModal,
 }: OpportunityRadarProps) {
   const [filterSegment, setFilterSegment] = useState<string>('TODOS');
   const [strategyMode, setStrategyMode] = useState<RecommendationStrategy>('balanced');
@@ -89,33 +92,33 @@ export function OpportunityRadar({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* 1. CARD DA RECOMENDAÇÃO DO DIA PARA O SALDO RESTANTE */}
-      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
+      <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <h2 className="text-base font-bold text-white leading-tight">
                 Alocação Inteligente do Mês
               </h2>
-              <p className="text-[11px] text-zinc-400">
-                Sugestão calculada com base na sua carteira
+              <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-0.5">
+                SUGESTÃO COM BASE NA SUA CARTEIRA
               </p>
             </div>
           </div>
         </div>
 
         {/* Seletor de Estratégia (Equilibrar vs Bola de Neve) */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-white/[0.025] mb-3">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#141416] border border-white/[0.04] mb-4">
           <button
             type="button"
             onClick={() => setStrategyMode('balanced')}
-            className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               strategyMode === 'balanced'
-                ? 'bg-emerald-500 text-zinc-950 font-bold shadow-sm'
+                ? 'bg-[#2b2512] text-[#f5b800]'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -126,9 +129,9 @@ export function OpportunityRadar({
           <button
             type="button"
             onClick={() => setStrategyMode('snowball')}
-            className={`py-1.5 px-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               strategyMode === 'snowball'
-                ? 'bg-emerald-500 text-zinc-950 font-bold shadow-sm'
+                ? 'bg-[#2b2512] text-[#f5b800]'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -138,36 +141,35 @@ export function OpportunityRadar({
         </div>
 
         {/* Resumo do Orçamento + Toggle de Reinvestimento */}
-        <div className="p-4 rounded-2xl bg-white/[0.025] mb-3.5">
+        <div className="p-4 rounded-2xl bg-[#141416] mb-3.5 space-y-2.5 text-sm">
           <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[11px] text-zinc-400 block mb-0.5">Poder de Compra Disponível</span>
-              <span className="text-xl font-bold text-white tabular-nums">
-                {formatBRL(remainingBudget)}
-              </span>
-            </div>
+            <span className="text-zinc-400">Poder de compra disponível</span>
+            <span className="text-base font-bold text-white tabular-nums">
+              {formatBRL(remainingBudget)}
+            </span>
+          </div>
 
-            <div className="text-right">
-              <span className="text-[11px] text-zinc-400 block mb-0.5">Aportado no mês</span>
-              <span className="text-xs font-semibold text-emerald-400 tabular-nums">
-                {formatBRL(currentMonthInvested)} / {formatBRL(monthlyTarget)}
-              </span>
-            </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-400">Aportado no mês</span>
+            <span className="text-white font-medium tabular-nums">
+              {formatBRL(currentMonthInvested)}{' '}
+              <span className="text-zinc-500">/ {formatBRL(monthlyTarget)}</span>
+            </span>
           </div>
 
           {totalMonthlyDividends > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 flex items-center gap-1.5">
-                <Coins className="w-3.5 h-3.5 text-emerald-400" />
-                Reinvestir proventos do mês (<span className="tabular-nums">{formatBRL(totalMonthlyDividends)}</span>)
+            <div className="pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
+              <span className="text-xs text-zinc-400 flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-[#f5b800]" />
+                Reinvestir proventos (<span className="tabular-nums text-white">{formatBRL(totalMonthlyDividends)}</span>)
               </span>
               <button
                 type="button"
                 onClick={() => setReinvestDividends(!reinvestDividends)}
-                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all ${
+                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
                   reinvestDividends
-                    ? 'bg-emerald-500 text-zinc-950'
-                    : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/[0.06]'
+                    ? 'bg-[#f5b800] text-zinc-950'
+                    : 'bg-[#2b2512] text-[#f5b800]'
                 }`}
               >
                 {reinvestDividends ? 'Ativado' : '+ Somar'}
@@ -183,10 +185,10 @@ export function OpportunityRadar({
 
         {/* Cesta de Compras Recomendada */}
         {recommendation.items.length > 0 && (
-          <div className="space-y-2 mb-2">
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Cesta Sugerida Hoje:</span>
-              <span className="text-emerald-400 font-semibold tabular-nums">
+          <div className="space-y-2.5">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Cesta sugerida hoje</span>
+              <span className="text-[#f5b800] font-bold tabular-nums">
                 {formatBRL(recommendation.totalSuggestedCost)}
               </span>
             </div>
@@ -196,16 +198,16 @@ export function OpportunityRadar({
               return (
                 <div
                   key={item.ticker}
-                  className="p-3.5 rounded-2xl bg-white/[0.025] flex items-center justify-between"
+                  className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between gap-2"
                 >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="font-bold text-sm text-white">{item.ticker}</span>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
                         {isStockItem ? 'Ação' : `Base ${item.base}`}
                       </span>
-                      <span className="text-xs font-semibold text-emerald-400 tabular-nums">
-                        {item.shares}{' '}
+                      <span className="text-xs font-bold text-emerald-400 tabular-nums">
+                        +{item.shares}{' '}
                         {isStockItem
                           ? item.shares === 1
                             ? 'ação'
@@ -219,10 +221,11 @@ export function OpportunityRadar({
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-white tabular-nums">{formatBRL(item.totalCost)}</div>
-                    <div className="text-[11px] text-emerald-400 flex items-center justify-end gap-1 tabular-nums">
-                      <Coins className="w-3 h-3" />
-                      +{formatBRL(item.estimatedMonthlyIncome)}/mês
+                    <div className="text-xs font-bold text-white tabular-nums">
+                      {formatBRL(item.totalCost)}
+                    </div>
+                    <div className="text-[11px] text-emerald-400 font-medium tabular-nums">
+                      ▲ +{formatBRL(item.estimatedMonthlyIncome)}/mês
                     </div>
                   </div>
                 </div>
@@ -230,16 +233,16 @@ export function OpportunityRadar({
             })}
 
             {recommendation.unallocatedCash > 0 && (
-              <div className="p-4 rounded-2xl bg-white/[0.025] border border-white/[0.06] flex items-start gap-3 my-2.5 animate-in fade-in duration-200">
-                <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center shrink-0 mt-0.5 text-zinc-300">
+              <div className="p-4 rounded-2xl bg-[#141416] border border-white/[0.04] flex items-start gap-3 my-2">
+                <div className="w-8 h-8 rounded-lg border border-white/60 flex items-center justify-center shrink-0 mt-0.5 text-white">
                   <PiggyBank className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
-                      Sugestão de Troco Inteligente
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-white">
+                      Troco Inteligente
                     </span>
-                    <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="text-[10px] font-bold text-[#f5b800] bg-[#2b2512] px-2 py-0.5 rounded-full">
                       100% CDI
                     </span>
                   </div>
@@ -252,7 +255,7 @@ export function OpportunityRadar({
                     <strong className="text-zinc-100 font-semibold">
                       {targetCaixinhaLabel}
                     </strong>{' '}
-                    rendendo juros diários até o próximo aporte!
+                    rendendo juros diários até o próximo aporte.
                   </p>
                   {onOpenAddFixedIncome && (
                     <button
@@ -261,9 +264,9 @@ export function OpportunityRadar({
                         triggerHaptic('light');
                         onOpenAddFixedIncome();
                       }}
-                      className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-[#f5b800] hover:opacity-80 active:scale-95 transition-all"
                     >
-                      Guardar na Caixinha agora <ArrowRight className="w-3 h-3" />
+                      Guardar na Caixinha <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -275,10 +278,10 @@ export function OpportunityRadar({
                 <button
                   type="button"
                   onClick={onOpenB3Modal}
-                  className="w-full py-3 px-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] text-zinc-200 font-semibold text-xs flex items-center justify-center gap-2 transition-all"
+                  className="w-full py-2.5 px-4 rounded-full bg-[#2b2512] text-[#f5b800] font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                  Já comprei na corretora → Importar Planilha B3
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Já comprei na corretora → Importar B3
                 </button>
               </div>
             )}
@@ -287,20 +290,18 @@ export function OpportunityRadar({
       </div>
 
       {/* 2. RADAR DE TODOS OS FIIS & AÇÕES MONITORADOS */}
-      <div className="space-y-3 pt-1">
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-              <Compass className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Scanner B3</h3>
-              <p className="text-[11px] text-zinc-400">P/VP e Preço-Teto em tempo real</p>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <Compass className="w-4 h-4 text-[#f5b800]" />
+            <h3 className="text-base font-bold text-white">
+              Scanner B3 ({filteredFiis.length})
+            </h3>
           </div>
+          <span className="text-xs text-zinc-400">P/VP e Preço-Teto</span>
         </div>
 
-        {/* Filtros em Chips */}
+        {/* Filtros em Pílulas Estilo XP */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {[
             { id: 'TODOS', label: 'Todos' },
@@ -316,10 +317,10 @@ export function OpportunityRadar({
             <button
               key={chip.id}
               onClick={() => setFilterSegment(chip.id)}
-              className={`text-xs px-3.5 py-1.5 rounded-xl whitespace-nowrap font-medium transition-all ${
+              className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
                 filterSegment === chip.id
-                  ? 'bg-emerald-500 text-zinc-950 font-bold'
-                  : 'bg-[#121215] border border-white/[0.06] text-zinc-400 hover:text-white'
+                  ? 'bg-[#f5b800] text-zinc-950'
+                  : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
               }`}
             >
               {chip.label}
@@ -327,8 +328,8 @@ export function OpportunityRadar({
           ))}
         </div>
 
-        {/* Lista de Ativos com Análise Enxuta e Intuitiva */}
-        <div className="space-y-2.5">
+        {/* Lista de Ativos no Molde "Meus ativos" da XP */}
+        <div className="space-y-4">
           {filteredFiis.map((fii) => {
             const isStock = fii.assetClass === 'ACAO';
             const isOpportunity = fii.status === 'OPPORTUNITY';
@@ -338,89 +339,124 @@ export function OpportunityRadar({
             return (
               <div
                 key={fii.ticker}
-                className="rounded-[22px] bg-[#121215] border border-white/[0.06] p-4 shadow-sm hover:border-white/[0.12] transition-all"
+                className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5"
               >
-                <div className="flex items-start justify-between mb-2 gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-base font-bold text-white">{fii.ticker}</span>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-300 border border-white/[0.06]">
-                        {fii.segment}
-                      </span>
-                      {fii.isBelowAveragePrice && (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          Abaixo do PM
-                        </span>
-                      )}
-                      {isExDateSoon && (
-                        <span className="inline-flex items-center gap-0.5 text-[11px] font-medium px-2 py-0.5 rounded bg-white/[0.05] text-zinc-300">
-                          <Zap className="w-3 h-3 text-emerald-400" />
-                          {fii.daysUntilExDate === 0
-                            ? `Data-Com hoje! (dia ${fii.announcementDay})`
-                            : `Data-Com em ${fii.daysUntilExDate}d (dia ${fii.announcementDay})`}
-                        </span>
-                      )}
+                {/* Topo do Card */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center shrink-0 text-white">
+                      <BarChart3 className="w-4 h-4" />
                     </div>
-                    <div className="text-xs text-zinc-400 truncate flex-1 min-w-0 mt-0.5">
-                      {fii.name}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-bold text-white leading-tight">
+                          {fii.ticker}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
+                          {fii.segment}
+                        </span>
+                        {fii.isBelowAveragePrice && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+                            Abaixo do PM
+                          </span>
+                        )}
+                        {isExDateSoon && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/[0.08] text-white">
+                            <Zap className="w-3 h-3 text-[#f5b800]" />
+                            {fii.daysUntilExDate === 0
+                              ? 'Data-Com hoje!'
+                              : `Data-Com em ${fii.daysUntilExDate}d`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-400 uppercase tracking-wide truncate mt-0.5">
+                        {fii.name.toUpperCase()}
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="text-base font-bold text-white tabular-nums">{formatBRL(fii.currentPrice)}</div>
+                {/* Corpo Key-Value Limpo Estilo XP */}
+                <div className="space-y-2.5 mt-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Cotação atual</span>
+                    <span className="text-white font-bold tabular-nums">
+                      {formatBRL(fii.currentPrice)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">P/VP atual</span>
                     <span
-                      className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${
+                      className={`font-medium tabular-nums ${
                         isOpportunity
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'text-emerald-400'
                           : isExpensive
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          : 'bg-white/[0.04] text-zinc-400 border border-white/[0.06]'
+                          ? 'text-rose-400'
+                          : 'text-white'
                       }`}
                     >
-                      P/VP {fii.pvp}{' '}
+                      {fii.pvp.toFixed(2).replace('.', ',')}{' '}
                       {fii.discountPercent > 0
-                        ? `(-${fii.discountPercent}%)`
+                        ? `(▼ -${fii.discountPercent}% desc.)`
                         : fii.discountPercent < 0
-                        ? `(+${Math.abs(fii.discountPercent)}%)`
-                        : ''}
+                        ? `(▲ +${Math.abs(fii.discountPercent)}% ágio)`
+                        : '(Justo)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">
+                      {isStock ? 'VPA / Ação' : 'Valor patrimonial (VP)'}
+                    </span>
+                    <span className="text-white font-medium tabular-nums">
+                      {formatBRL(fii.vp)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">
+                      {isStock ? 'Preço-Teto Barsi (6%)' : 'Preço-Teto (0,9% a.m.)'}
+                    </span>
+                    <span className="text-[#f5b800] font-semibold tabular-nums">
+                      {formatBRL(fii.ceilingPrice)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Provento estimado</span>
+                    <span className="text-emerald-400 font-medium tabular-nums">
+                      +{formatBRL(fii.monthlyDividend)} ({fii.monthlyYieldPercent.toFixed(2).replace('.', ',')}% a.m.)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Dividend Yield (12m)</span>
+                    <span className="text-emerald-400 font-bold tabular-nums">
+                      ▲ {fii.annualYieldPercent.toFixed(2).replace('.', ',')}% a.a.
                     </span>
                   </div>
                 </div>
 
-                {/* Métricas Chave (VP/VPA, Yield e Preço Teto) */}
-                <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-white/[0.025] mb-2.5 text-center text-xs">
-                  <div className="min-w-0">
-                    <span className="text-[11px] text-zinc-500 block truncate mb-0.5">
-                      {isStock ? 'VPA / Ação' : 'VP / Cota'}
-                    </span>
-                    <span className="font-semibold text-zinc-300 block truncate tabular-nums">{formatBRL(fii.vp)}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[11px] text-zinc-500 block truncate mb-0.5">Yield Anual</span>
-                    <span className="font-bold text-emerald-400 block truncate tabular-nums">{fii.annualYieldPercent}% a.a.</span>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[11px] text-zinc-500 block truncate mb-0.5">
-                      {isStock ? 'Teto Barsi (6%)' : 'Preço Teto (0,9%)'}
-                    </span>
-                    <span className="font-semibold text-zinc-200 block truncate tabular-nums">{formatBRL(fii.ceilingPrice)}</span>
-                  </div>
-                </div>
-
-                {/* Resumo direto + Ação */}
-                <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
+                {/* Resumo Racional */}
+                <div className="mt-4 p-3 rounded-xl bg-[#141416] text-xs text-zinc-300 leading-relaxed">
                   {fii.rationale}
-                </p>
-
-                <div className="flex items-center justify-between pt-2 border-t border-white/[0.05] gap-2">
-                  <span className="text-[11px] text-zinc-500 truncate flex-1 min-w-0">
-                    {fii.management} • <span className="tabular-nums">{formatBRL(fii.monthlyDividend)}</span>/{isStock ? 'mês eq.' : 'cota'}
-                  </span>
-
-                  <span className="text-[11px] font-semibold text-emerald-400 shrink-0 tabular-nums">
-                    Yield {fii.monthlyYieldPercent}% a.m.
-                  </span>
                 </div>
+
+                {onOpenBuyModal && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('light');
+                        onOpenBuyModal(fii.ticker);
+                      }}
+                      className="w-full py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center active:scale-95 transition-all"
+                    >
+                      Aportar em {fii.ticker}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -429,5 +465,3 @@ export function OpportunityRadar({
     </div>
   );
 }
-
-

@@ -33,7 +33,6 @@ export function PortfolioSummary({
   totalProfitLossPercent,
   totalMonthlyDividends,
   averageYieldOnCostPercent = 0,
-  bcbIndicators = null,
   unifiedSummary = null,
   fixedIncomeCount = 0,
   isPrivacyMode = false,

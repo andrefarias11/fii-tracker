@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.4.1';
-export const APP_UPDATED_AT = '15/10/2026';
+export const APP_VERSION = '4.5.0';
+export const APP_UPDATED_AT = '16/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,17 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.5.0',
+    date: '16/10/2026',
+    highlights: [
+      'Redesign XP Investimentos iOS Completo (100% do App): unificação visual de todas as abas, componentes e modais seguindo o Design System Dark da XP (#0b0b0d, #1c1c1e, Amarelo Ouro #f5b800 e #2b2512)',
+      'Caixinhas & Renda Fixa no Molde "Meus Ativos" XP (FixedIncomeList.tsx & AllocationCard.tsx): cards com ícone contornado branco, tabela Key-Value limpa (Taxa contratada, Valor aplicado, Posição atual, Rendimento mensal e Resultado total com ▲/▼) e botões pílula de edição e nova aplicação',
+      'Explorar B3 no Padrão XP (OpportunityRadar.tsx, UniversalB3Explorer.tsx & MentorsTab.tsx): Scanner B3, Raio-X Ao Vivo e Mentores reconstruídos com tabelas Key-Value limpas, pílulas de filtro em Amarelo Ouro e botões diretos de "Aportar" integrados ao modal de operação',
+      'Platina (20 Troféus), Bola de Neve & Simulador (AchievementsTimeline.tsx, GoalsCard.tsx, MagicNumberCard.tsx & InvestmentSimulator.tsx): barras de progresso e badges em Amarelo Ouro XP (#f5b800) e Esmeralda (#22c55e), com superfícies #1c1c1e e #141416',
+      'Padronização XP de Todos os 5 Modais & Extrato (AddTransactionModal, AddFixedIncomeModal, B3ImportModal, MonthlyWrappedModal, SettingsModal & TransactionHistory): bottom sheets em #1c1c1e, botões principais pílula em #f5b800 e edição direta de lançamentos pelo Extrato',
+    ],
+  },
   {
     version: '4.4.1',
     date: '15/10/2026',

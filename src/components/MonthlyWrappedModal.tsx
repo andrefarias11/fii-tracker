@@ -6,16 +6,11 @@ import {
   Coins,
   Layers,
   Snowflake,
-  TrendingUp,
   Share2,
   X,
-  ChevronLeft,
-  ChevronRight,
   Coffee,
   Zap,
-  Building2,
   Check,
-  Calendar,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FiiPosition, Transaction } from '../types/portfolio';
@@ -85,7 +80,7 @@ export function MonthlyWrappedModal({
       particleCount: 80,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#10b981', '#34d399', '#38bdf8', '#f59e0b'],
+      colors: ['#f5b800', '#22c55e', '#ffffff'],
     });
 
     const shareText = `🏢 Meu Mês de ${wrapped.fullLabel} na B3 (FII Tracker):\n\n` +
@@ -109,7 +104,6 @@ export function MonthlyWrappedModal({
       }
     }
 
-    // Fallback: Copiar para área de transferência
     try {
       await navigator.clipboard.writeText(shareText);
       setCopiedSuccess(true);
@@ -125,27 +119,27 @@ export function MonthlyWrappedModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
+        className="w-full max-w-lg bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho do Modal */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-              <Sparkles className="w-4 h-4 text-zinc-300" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white">
+              <Sparkles className="w-4 h-4 text-[#f5b800]" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#f5b800] bg-[#2b2512] px-2.5 py-0.5 rounded-full">
                   Retrospectiva B3
                 </span>
                 {wrapped.isCurrentMonth && (
-                  <span className="text-[10px] font-semibold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-zinc-400 bg-[#141416] px-2 py-0.5 rounded-full">
                     Em andamento
                   </span>
                 )}
               </div>
-              <h2 className="text-base font-bold text-white tracking-tight">
+              <h2 className="text-base font-bold text-white tracking-tight mt-0.5">
                 Seu Mês de {wrapped.monthName}
               </h2>
             </div>
@@ -157,13 +151,13 @@ export function MonthlyWrappedModal({
               onClose();
             }}
             aria-label="Fechar"
-            className="p-1.5 rounded-full text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[#141416] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Seletor de Meses estilo Carrossel iOS */}
+        {/* Seletor de Meses estilo Carrossel XP */}
         {availableMonths.length > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-4 scrollbar-none">
             {availableMonths.map((m) => {
@@ -172,10 +166,10 @@ export function MonthlyWrappedModal({
                 <button
                   key={m.key}
                   onClick={() => handleMonthChange(m.key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                     isSelected
-                      ? 'bg-emerald-500 text-zinc-950 font-bold shadow-md shadow-emerald-500/20'
-                      : 'bg-white/[0.04] text-zinc-400 hover:text-white border border-white/[0.06]'
+                      ? 'bg-[#f5b800] text-zinc-950'
+                      : 'bg-[#141416] text-zinc-400 hover:text-white'
                   }`}
                 >
                   {m.label}
@@ -186,22 +180,22 @@ export function MonthlyWrappedModal({
         )}
 
         {/* CARD PRINCIPAL EM DESTAQUE: FRASE RESUMO */}
-        <div className="rounded-2xl bg-white/[0.025] border border-white/[0.06] p-4.5 mb-4">
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+        <div className="rounded-2xl bg-[#141416] p-4 mb-4">
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold text-[#f5b800] uppercase tracking-wider">
               {wrapped.fullLabel}
             </span>
             <p className="text-sm font-medium text-zinc-200 leading-relaxed">
               Você recebeu{' '}
-              <strong className="text-emerald-400 font-extrabold text-base tabular-nums">
+              <strong className="text-emerald-400 font-bold text-base tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </strong>{' '}
               em proventos, aportou em{' '}
-              <strong className="text-white font-extrabold text-base tabular-nums">
+              <strong className="text-white font-bold text-base tabular-nums">
                 {wrapped.totalSharesBought} cotas
               </strong>{' '}
               e sua bola de neve avançou{' '}
-              <strong className="text-emerald-400 font-extrabold text-base tabular-nums">
+              <strong className="text-[#f5b800] font-bold text-base tabular-nums">
                 +{wrapped.snowballGrowthPercent}%
               </strong>
               !
@@ -209,18 +203,17 @@ export function MonthlyWrappedModal({
           </div>
         </div>
 
-        {/* GRADE DE ESTATÍSTICAS NUBANK / APPLE */}
+        {/* GRADE DE ESTATÍSTICAS */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Card 1: Proventos */}
-          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-[#141416] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-                <Coins className="w-4 h-4 text-zinc-300" />
+              <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
+                <Coins className="w-4 h-4" />
               </div>
               {wrapped.dividendGrowthPercent > 0 && (
-                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 tabular-nums">
-                  <TrendingUp className="w-3 h-3" />
-                  +{wrapped.dividendGrowthPercent}%
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full tabular-nums">
+                  ▲ +{wrapped.dividendGrowthPercent}%
                 </span>
               )}
             </div>
@@ -228,12 +221,12 @@ export function MonthlyWrappedModal({
               <span className="text-[11px] text-zinc-400 font-semibold uppercase">
                 Proventos no Mês
               </span>
-              <div className="text-lg font-extrabold text-white tracking-tight tabular-nums">
+              <div className="text-lg font-bold text-white tracking-tight tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </div>
               {wrapped.topDividendAsset && (
                 <p className="text-[11px] text-zinc-400 mt-1 truncate">
-                  Maior pagador:{' '}
+                  Maior:{' '}
                   <span className="font-bold text-emerald-400">
                     {wrapped.topDividendAsset.ticker}
                   </span>{' '}
@@ -244,12 +237,12 @@ export function MonthlyWrappedModal({
           </div>
 
           {/* Card 2: Aportes */}
-          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-[#141416] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-                <Layers className="w-4 h-4 text-zinc-300" />
+              <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
+                <Layers className="w-4 h-4" />
               </div>
-              <span className="text-[11px] font-bold text-zinc-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-zinc-300 bg-white/[0.06] px-2 py-0.5 rounded-full">
                 {wrapped.distinctAssetsBoughtCount}{' '}
                 {wrapped.distinctAssetsBoughtCount === 1 ? 'ativo' : 'ativos'}
               </span>
@@ -258,7 +251,7 @@ export function MonthlyWrappedModal({
               <span className="text-[11px] text-zinc-400 font-semibold uppercase">
                 Aportes no Mês
               </span>
-              <div className="text-lg font-extrabold text-white tracking-tight tabular-nums">
+              <div className="text-lg font-bold text-white tracking-tight tabular-nums">
                 {formatBRL(wrapped.totalInvested)}
               </div>
               <p className="text-[11px] text-zinc-400 mt-1">
@@ -271,30 +264,30 @@ export function MonthlyWrappedModal({
 
         {/* CARD BOLA DE NEVE & NÚMERO MÁGICO */}
         {wrapped.magicNumberLeader && (
-          <div className="rounded-2xl bg-white/[0.025] border border-white/[0.05] p-4 mb-4 space-y-3">
+          <div className="rounded-2xl bg-[#141416] p-4 mb-4 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-zinc-300">
-                  <Snowflake className="w-4 h-4 text-zinc-300" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
+                  <Snowflake className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">Efeito Bola de Neve</h4>
                   <p className="text-[11px] text-zinc-400">
                     Líder rumo ao Número Mágico:{' '}
-                    <span className="text-emerald-400 font-bold">
+                    <span className="text-[#f5b800] font-bold">
                       {wrapped.magicNumberLeader.ticker}
                     </span>
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-extrabold text-emerald-400 tabular-nums">
+              <span className="text-xs font-bold text-[#f5b800] tabular-nums">
                 {wrapped.magicNumberLeader.progressPercent}%
               </span>
             </div>
 
             <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
               <div
-                className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+                className="h-full rounded-full bg-[#f5b800] transition-all duration-500"
                 style={{ width: `${wrapped.magicNumberLeader.progressPercent}%` }}
               />
             </div>
@@ -313,16 +306,16 @@ export function MonthlyWrappedModal({
 
         {/* EQUIVALÊNCIAS DA VIDA REAL */}
         {wrapped.totalDividends > 0 && (
-          <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-white/[0.02]">
-              <Coffee className="w-4 h-4 text-zinc-400 mx-auto mb-1" />
+          <div className="rounded-2xl bg-[#141416] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-[#1c1c1e]">
+              <Coffee className="w-4 h-4 text-[#f5b800] mx-auto mb-1" />
               <div className="text-xs font-bold text-white tabular-nums">
                 ~{wrapped.coffeeCupsPaid} cafés
               </div>
               <div className="text-[11px] text-zinc-500">pagos pelos FIIs</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02]">
-              <Zap className="w-4 h-4 text-zinc-400 mx-auto mb-1" />
+            <div className="p-2.5 rounded-xl bg-[#1c1c1e]">
+              <Zap className="w-4 h-4 text-[#f5b800] mx-auto mb-1" />
               <div className="text-xs font-bold text-white tabular-nums">
                 {wrapped.energyBillPaidPercent}% da conta
               </div>
@@ -332,46 +325,45 @@ export function MonthlyWrappedModal({
         )}
 
         {/* FRASE DE IMPACTO */}
-        <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/[0.04] mb-5 text-center">
-          <p className="text-xs italic text-zinc-400 mb-1">
+        <div className="p-3.5 rounded-2xl bg-[#141416] mb-5 text-center">
+          <p className="text-xs italic text-zinc-300 mb-1">
             &ldquo;{wrapped.quote.text}&rdquo;
           </p>
-          <span className="text-[11px] font-bold text-zinc-500">
+          <span className="text-[11px] font-bold text-[#f5b800]">
             — {wrapped.quote.author}
           </span>
         </div>
 
-        {/* BOTÕES DE AÇÃO */}
-        <div className="space-y-2">
-          <button
-            onClick={handleShare}
-            className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95 transition-all"
-          >
-            {copiedSuccess ? (
-              <>
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Copiado para o WhatsApp!</span>
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4 stroke-[2.5]" />
-                <span>Compartilhar Retrospectiva</span>
-              </>
-            )}
-          </button>
-
+        {/* BOTÕES DE AÇÃO EM PÍLULA ESTILO XP */}
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => {
               triggerHaptic('light');
               onClose();
             }}
-            className="w-full py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
+            className="py-3 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold text-center active:scale-95 transition-all"
           >
             Fechar
+          </button>
+
+          <button
+            onClick={handleShare}
+            className="py-3 rounded-full bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+          >
+            {copiedSuccess ? (
+              <>
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Copiado!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4 stroke-[2.5]" />
+                <span>Compartilhar</span>
+              </>
+            )}
           </button>
         </div>
       </div>
     </div>
   );
 }
-
