@@ -80,6 +80,7 @@ export function OpportunityRadar({
 
   // Filtragem da lista
   const filteredFiis = evaluatedFiis.filter((fii) => {
+    if (filterSegment === 'HIGH_GRADE') return fii.qualityTier === 'HIGH_GRADE';
     if (filterSegment === 'OPORTUNIDADES') return fii.status === 'OPPORTUNITY';
     if (filterSegment === 'ACOES') return fii.assetClass === 'ACAO';
     if (filterSegment === 'SO_FIIS') return fii.assetClass !== 'ACAO';
@@ -206,6 +207,9 @@ export function OpportunityRadar({
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
                         {isStockItem ? 'Ação' : `Base ${item.base}`}
                       </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                        {item.qualityBadgeLabel}
+                      </span>
                       <span className="text-xs font-bold text-emerald-400 tabular-nums">
                         +{item.shares}{' '}
                         {isStockItem
@@ -305,6 +309,7 @@ export function OpportunityRadar({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {[
             { id: 'TODOS', label: 'Todos' },
+            { id: 'HIGH_GRADE', label: 'High Grade 5★' },
             { id: 'OPORTUNIDADES', label: 'Descontados' },
             { id: 'ACOES', label: 'Ações' },
             { id: 'SO_FIIS', label: 'Só FIIs' },
@@ -354,6 +359,17 @@ export function OpportunityRadar({
                         </span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
                           {fii.segment}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            fii.qualityTier === 'HIGH_GRADE'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                              : fii.qualityTier === 'ALERTA_RISCO'
+                              ? 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
+                              : 'bg-white/[0.06] text-zinc-300'
+                          }`}
+                        >
+                          {fii.qualityBadgeLabel}
                         </span>
                         {fii.isBelowAveragePrice && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
@@ -424,7 +440,9 @@ export function OpportunityRadar({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Provento estimado</span>
+                    <span className="text-zinc-400">
+                      {fii.isYieldNormalized ? 'Provento recorrente (travado)' : 'Provento estimado'}
+                    </span>
                     <span className="text-emerald-400 font-medium tabular-nums">
                       +{formatBRL(fii.monthlyDividend)} ({fii.monthlyYieldPercent.toFixed(2).replace('.', ',')}% a.m.)
                     </span>
@@ -438,8 +456,19 @@ export function OpportunityRadar({
                   </div>
                 </div>
 
+                {/* Alertas de Blindagem Anti-Cilada (se acionados) */}
+                {fii.qualityWarnings.length > 0 && (
+                  <div className="mt-3 p-3 rounded-xl bg-[#2b2512]/70 border border-[#f5b800]/30 text-[11px] text-[#f5b800] space-y-1">
+                    {fii.qualityWarnings.map((w, idx) => (
+                      <p key={idx} className="leading-relaxed">
+                        • {w}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
                 {/* Resumo Racional */}
-                <div className="mt-4 p-3 rounded-xl bg-[#141416] text-xs text-zinc-300 leading-relaxed">
+                <div className="mt-3 p-3 rounded-xl bg-[#141416] text-xs text-zinc-300 leading-relaxed">
                   {fii.rationale}
                 </div>
 

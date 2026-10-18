@@ -229,12 +229,17 @@ export function MentorsTab({
                 </div>
               )}
 
-              {/* ESCOLHA Nº 1 DO MENTOR AGORA NA B3 */}
+                {/* ESCOLHA Nº 1 DO MENTOR AGORA NA B3 */}
               <div className="p-4 rounded-2xl bg-[#141416]">
                 <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
-                    Indicação #1 {mentor.name.split(' ')[0] === 'Prof.' ? 'Baroni' : mentor.name.split(' ')[1] || mentor.name}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
+                      Indicação #1 {mentor.name.split(' ')[0] === 'Prof.' ? 'Baroni' : mentor.name.split(' ')[1] || mentor.name}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      {top1.fii.qualityBadgeLabel}
+                    </span>
+                  </div>
                   <span className="text-xs text-zinc-400 tabular-nums">
                     {top1.keyMetricLabel}:{' '}
                     <strong className="text-white">{top1.keyMetricValue}</strong>

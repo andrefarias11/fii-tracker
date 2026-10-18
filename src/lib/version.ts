@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.6.0';
-export const APP_UPDATED_AT = '17/10/2026';
+export const APP_VERSION = '4.8.0';
+export const APP_UPDATED_AT = '18/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,26 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.8.0',
+    date: '18/10/2026',
+    highlights: [
+      'Blindagem Institucional Anti-Cilada / Quality Gate (recommendationEngine.ts & mentorEngine.ts): auditoria tripla nas recomendações do Radar e dos 4 Mentores contra armadilhas de dividendo (Value Traps)',
+      'Trava de Yield Anômalo Não-Recorrente: bloqueia picos extraordinários de dividendos (>30% acima da média recorrente por venda de imóvel) para nunca inflar artificialmente o Preço-Teto',
+      'Filtro de Desconto Suspeito (Distressed Filter): penaliza automaticamente FIIs com P/VP < 0,80 ou vacância física > 12%, excluindo ativos em estresse da cesta automática e do Top 3 dos Mentores',
+      'Selo de Solidez Institucional (High Grade 5★ vs Moderado 4★ vs Alerta Value Trap) e novo filtro rápido "High Grade 5★" em OpportunityRadar.tsx e MentorsTab.tsx',
+    ],
+  },
+  {
+    version: '4.7.0',
+    date: '18/10/2026',
+    highlights: [
+      'Integração Boletim Focus ao Vivo — API Olinda do Banco Central (/api/bcb): consulta oficial OData (ExpectativasMercadoAnuais) trazendo a projeção mediana do mercado para Selic, IPCA e Juro Real Implícito dos próximos 3 anos',
+      'Painel Boletim Focus & Termômetro de Ciclo (InvestmentSimulator.tsx): grade comparativa 3 anos (Selic, IPCA e Juro Real) com leitura automática de fechamento/abertura da curva de juros para orientar entre FIIs de Tijolo e Papel',
+      'Simulador com Curva Dinâmica Focus BCB & Poder de Compra Real: novo seletor "Curva Focus BCB" vs "Taxa Fixa Manual" projetando patrimônio nominal e poder de compra real descontado o IPCA Focus ano a ano',
+      'Diagnóstico Macroeconômico Enriquecido na IA (/api/ai-insights & AiInsightsTab.tsx): integração das projeções futuras do Boletim Focus na análise de alocação Tijolo vs Papel e veredito macro da carteira',
+    ],
+  },
   {
     version: '4.6.0',
     date: '17/10/2026',

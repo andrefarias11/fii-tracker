@@ -102,6 +102,7 @@ export function AiInsightsTab({
             selicAnnual: bcbIndicators?.selicAnnual ?? 10.75,
             cdiAnnual: bcbIndicators?.cdiAnnual ?? 10.65,
             ipca12m: bcbIndicators?.ipca12m ?? 4.42,
+            focusProjections: bcbIndicators?.focusProjections ?? [],
             promptType: selectedPrompt,
             customQuestion: questionOverride ?? customQuestion,
             customApiKey: savedKey,

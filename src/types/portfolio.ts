@@ -97,6 +97,13 @@ export interface QuoteData {
   updatedAt: string;
 }
 
+export interface FocusYearlyProjection {
+  year: number;
+  selicMedian: number;
+  ipcaMedian: number;
+  realRateAnnual: number;
+}
+
 export interface BcbIndicators {
   selicAnnual: number;
   cdiAnnual: number;
@@ -106,6 +113,8 @@ export interface BcbIndicators {
   ipcaMonthly: number;
   updatedAt: string;
   source: 'BCB_OFICIAL' | 'FALLBACK';
+  focusReportDate?: string;
+  focusProjections?: FocusYearlyProjection[];
 }
 
 export type FixedIncomeType =

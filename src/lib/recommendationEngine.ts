@@ -3,6 +3,7 @@ import { findFiiInfo } from '../data/fiiDatabase';
 import { QuoteData, FiiPosition } from '../types/portfolio';
 
 export type RecommendationStrategy = 'balanced' | 'snowball';
+export type QualityTier = 'HIGH_GRADE' | 'MODERADO' | 'ALERTA_RISCO';
 
 export interface EvaluatedFii {
   ticker: string;
@@ -15,6 +16,13 @@ export interface EvaluatedFii {
   pvp: number;
   discountPercent: number; // Positivo = Desconto, Negativo = Ágio
   monthlyDividend: number;
+  rawLiveDividend?: number; // Dividendo bruto caso tenha sido normalizado pelo filtro anti-não-recorrente
+  isYieldNormalized: boolean; // True se o dividendo ao vivo foi travado contra pico não-recorrente
+  isDistressedWarning: boolean; // True se P/VP < 0.80 ou vacância > 12% (alerta Value Trap)
+  qualityTier: QualityTier; // Classificação institucional Anti-Cilada
+  qualityStars: number; // 1 a 5 estrelas de solidez
+  qualityBadgeLabel: string;
+  qualityWarnings: string[];
   monthlyYieldPercent: number;
   annualYieldPercent: number;
   ceilingPrice: number; // Preço teto (0.90% a.m. para FIIs ou 6% a.a. Barsi para Ações)
@@ -43,6 +51,7 @@ export interface RecommendedBasketItem {
   estimatedMonthlyIncome: number;
   segment: string;
   base: 10 | 100;
+  qualityBadgeLabel: string;
   reason: string;
 }
 
@@ -67,6 +76,29 @@ function getMacroCategory(segment: string): string {
   if (s.includes('fof')) return 'FOF';
   return 'Outros';
 }
+
+const TIER_1_MANAGERS = [
+  'kinea',
+  'pátria',
+  'patria',
+  'cshg',
+  'btg pactual',
+  'xp asset',
+  'vinci',
+  'alianza',
+  'bresco',
+  'itaú',
+  'itau',
+  'banco do brasil',
+  'taesa',
+  'engie',
+  'sabesp',
+  'porto seguro',
+  'bb seguridade',
+  'vale',
+  'petrobras',
+  'weg',
+];
 
 export function evaluateAllFiis(
   quotes: Record<string, QuoteData>,
@@ -117,10 +149,23 @@ export function evaluateAllFiis(
         : fii.vp;
     const discountPercent = Number(((1 - pvp) * 100).toFixed(1));
 
-    const monthlyDividend =
+    // =========================================================================
+    // BLINDAGEM 1: TETO DE YIELD ANÔMALO (Normalização de Não-Recorrentes)
+    // Impede que lucro extraordinário de venda de imóvel infle o Preço-Teto
+    // =========================================================================
+    const rawLiveDividend =
       quote?.lastDividend && quote.lastDividend > 0
         ? Number(quote.lastDividend.toFixed(3))
-        : fii.typicalMonthlyDividend;
+        : undefined;
+
+    const maxSustainableDividend = Number((fii.typicalMonthlyDividend * 1.3).toFixed(3));
+    let isYieldNormalized = false;
+    let monthlyDividend = rawLiveDividend ?? fii.typicalMonthlyDividend;
+
+    if (rawLiveDividend && rawLiveDividend > maxSustainableDividend) {
+      isYieldNormalized = true;
+      monthlyDividend = fii.typicalMonthlyDividend;
+    }
 
     const monthlyYieldPercent = Number(((monthlyDividend / currentPrice) * 100).toFixed(2));
     const annualYieldPercent = Number((monthlyYieldPercent * 12).toFixed(2));
@@ -132,6 +177,67 @@ export function evaluateAllFiis(
     const barsiCeilingPrice = isStock
       ? Number(((monthlyDividend * 12) / 0.06).toFixed(2))
       : Number((monthlyDividend / 0.008).toFixed(2));
+
+    // =========================================================================
+    // BLINDAGEM 2: FILTRO ANTI-VALUE TRAP (Desconto Suspeito / Vacância Alta)
+    // FII com P/VP < 0.80 ou vacância física > 12% sinaliza estresse de crédito/imóvel
+    // =========================================================================
+    const qualityWarnings: string[] = [];
+    if (isYieldNormalized && rawLiveDividend) {
+      qualityWarnings.push(
+        `Provento ao vivo (R$ ${rawLiveDividend.toFixed(2)}) acima da média recorrente: Preço-Teto travado na base recorrente (R$ ${fii.typicalMonthlyDividend.toFixed(2)}) contra efeito não-recorrente.`
+      );
+    }
+
+    const hasHighVacancy =
+      !isStock && fii.vacancyPhysical !== undefined && fii.vacancyPhysical > 12;
+    const hasDistressedPvp = !isStock && pvp < 0.8;
+    const isDistressedWarning = hasHighVacancy || hasDistressedPvp;
+
+    if (hasDistressedPvp) {
+      qualityWarnings.push(
+        `Desconto atípico (P/VP ${pvp}): deságio superior a 20% do VP exige cautela redobrada com risco de crédito ou reavaliação patrimonial.`
+      );
+    }
+    if (hasHighVacancy) {
+      qualityWarnings.push(
+        `Vacância física elevada (${fii.vacancyPhysical}%): acima do limite institucional de 12%.`
+      );
+    }
+
+    // =========================================================================
+    // BLINDAGEM 3: SCORE DE SOLIDEZ INSTITUCIONAL (Quality Gate 1 a 5 Estrelas)
+    // Avalia gestora Tier-1, pulverização de ativos/CRIs, vacância e High Grade
+    // =========================================================================
+    const mgmtLower = fii.management.toLowerCase();
+    const thesisLower = `${fii.thesis} ${fii.diversification}`.toLowerCase();
+    const isTier1Manager = TIER_1_MANAGERS.some((m) => mgmtLower.includes(m));
+    const isHighGradeThesis =
+      thesisLower.includes('high grade') ||
+      thesisLower.includes('líder') ||
+      thesisLower.includes('maior') ||
+      thesisLower.includes('atípico') ||
+      thesisLower.includes('padrão ouro');
+    const isLowVacancy =
+      isStock || fii.vacancyPhysical === undefined || fii.vacancyPhysical <= 4.5;
+
+    let qualityStars = 4;
+    let qualityTier: QualityTier = 'MODERADO';
+    let qualityBadgeLabel = 'Qualidade Sólida';
+
+    if (isDistressedWarning) {
+      qualityStars = 2;
+      qualityTier = 'ALERTA_RISCO';
+      qualityBadgeLabel = 'Alerta Value Trap';
+    } else if (isTier1Manager && (isHighGradeThesis || isLowVacancy)) {
+      qualityStars = 5;
+      qualityTier = 'HIGH_GRADE';
+      qualityBadgeLabel = 'High Grade 5★';
+    } else if (isTier1Manager || isLowVacancy) {
+      qualityStars = 4;
+      qualityTier = 'MODERADO';
+      qualityBadgeLabel = 'Moderado 4★';
+    }
 
     const userPos = positions.find((p) => p.ticker === fii.ticker);
     const userAveragePrice = userPos?.averagePrice;
@@ -166,11 +272,15 @@ export function evaluateAllFiis(
         rationale = `Cotação acima do Preço-Teto previdenciário de 6% a.a. (Teto R$ ${ceilingPrice.toFixed(2)}).`;
       }
     } else {
-      // Avaliação clássica de FIIs (P/VP + Yield Mensal)
-      if (pvp <= 0.99) {
+      // Avaliação de FIIs com Blindagem Anti-Value Trap
+      if (isDistressedWarning) {
+        status = 'FAIR';
+        score -= 28;
+        rationale = `Atenção Institucional: apesar do P/VP ${pvp}, o ativo acionou trava de cautela (${qualityWarnings[0]}).`;
+      } else if (pvp >= 0.82 && pvp <= 0.99) {
         status = 'OPPORTUNITY';
         score += 32;
-        rationale = `Negociando com ${discountPercent}% de desconto sobre o VP (P/VP ${pvp}) e entregando ${monthlyYieldPercent}% a.m. (${annualYieldPercent}% a.a.).`;
+        rationale = `Negociando com ${discountPercent}% de desconto saudável sobre o VP (P/VP ${pvp}) e entregando ${monthlyYieldPercent}% a.m. recorrentes (${annualYieldPercent}% a.a.).`;
       } else if (pvp <= 1.02) {
         status = 'FAIR';
         score += 15;
@@ -182,19 +292,24 @@ export function evaluateAllFiis(
       }
     }
 
-    if ((isStock && annualYieldPercent >= 7.5) || (!isStock && monthlyYieldPercent >= 0.85)) {
-      score += 12;
-    }
-
-    if (rebalancesPortfolio && status !== 'EXPENSIVE') {
+    // Bônus de Solidez Institucional High Grade
+    if (qualityTier === 'HIGH_GRADE') {
       score += 10;
     }
 
-    if (isBelowAveragePrice && status !== 'EXPENSIVE') {
+    if ((isStock && annualYieldPercent >= 7.5) || (!isStock && monthlyYieldPercent >= 0.85)) {
+      score += 10;
+    }
+
+    if (rebalancesPortfolio && status !== 'EXPENSIVE' && !isDistressedWarning) {
+      score += 10;
+    }
+
+    if (isBelowAveragePrice && status !== 'EXPENSIVE' && !isDistressedWarning) {
       score += 6;
     }
 
-    if (daysUntilExDate <= 5 && status !== 'EXPENSIVE') {
+    if (daysUntilExDate <= 5 && status !== 'EXPENSIVE' && !isDistressedWarning) {
       score += 5;
     }
 
@@ -209,6 +324,13 @@ export function evaluateAllFiis(
       pvp,
       discountPercent,
       monthlyDividend,
+      rawLiveDividend,
+      isYieldNormalized,
+      isDistressedWarning,
+      qualityTier,
+      qualityStars,
+      qualityBadgeLabel,
+      qualityWarnings,
       monthlyYieldPercent,
       annualYieldPercent,
       ceilingPrice,
@@ -230,7 +352,7 @@ export function evaluateAllFiis(
   }).sort((a, b) => b.score - a.score);
 }
 
-// Gerar recomendação personalizada para o valor disponível
+// Gerar recomendação personalizada para o valor disponível (excluindo ativos em alerta de risco)
 export function generateDailyRecommendation(
   remainingBudget: number,
   evaluatedFiis: EvaluatedFii[],
@@ -251,15 +373,20 @@ export function generateDailyRecommendation(
     };
   }
 
-  // MODO 1: TURBO BOLA DE NEVE (Foco em bater o Número Mágico mais próximo)
+  // MODO 1: TURBO BOLA DE NEVE (Foco em bater o Número Mágico mais próximo em ativos saudáveis)
   if (strategyMode === 'snowball' && positions.length > 0) {
     const candidates = positions
-      .filter((p) => p.totalShares < p.magicNumber && p.currentPrice <= budget)
+      .filter((p) => {
+        const evalItem = evaluatedFiis.find((e) => e.ticker === p.ticker);
+        const isSafe = !evalItem || !evalItem.isDistressedWarning;
+        return isSafe && p.totalShares < p.magicNumber && p.currentPrice <= budget;
+      })
       .sort((a, b) => b.magicProgressPercent - a.magicProgressPercent);
 
     const targetPos = candidates[0] || positions.find((p) => p.currentPrice <= budget);
 
     if (targetPos) {
+      const evalInfo = evaluatedFiis.find((e) => e.ticker === targetPos.ticker);
       const shares = Math.floor(budget / targetPos.currentPrice);
       if (shares > 0) {
         const cost = Number((shares * targetPos.currentPrice).toFixed(2));
@@ -289,21 +416,28 @@ export function generateDailyRecommendation(
               estimatedMonthlyIncome: income,
               segment: targetPos.segment,
               base: targetPos.base,
+              qualityBadgeLabel: evalInfo?.qualityBadgeLabel || 'High Grade 5★',
               reason:
                 remainingToMagic === 0
                   ? '❄️ Atinge o Número Mágico com esta compra!'
                   : `❄️ Reduz para apenas ${remainingToMagic} cotas até o Número Mágico`,
             },
           ],
-          strategyExplanation: `Focando 100% do saldo em ${targetPos.ticker} para acelerar sua Bola de Neve: você passará de ${targetPos.totalShares} para ${newTotalShares} cotas (meta: ${targetPos.magicNumber}).`,
+          strategyExplanation: `Focando 100% do saldo em ${targetPos.ticker} (auditado pelo Quality Gate) para acelerar sua Bola de Neve: você passará de ${targetPos.totalShares} para ${newTotalShares} cotas (meta: ${targetPos.magicNumber}).`,
         };
       }
     }
   }
 
-  // MODO 2: EQUILÍBRIO DE CARTEIRA + DESCONTOS P/VP
+  // MODO 2: EQUILÍBRIO DE CARTEIRA + QUALITY GATE ANTI-CILADA
+  // Filtra estritamente ativos sem alerta de Value Trap e prioriza High Grade
   const eligibleFiis = evaluatedFiis
-    .filter((f) => f.status === 'OPPORTUNITY' || f.status === 'FAIR')
+    .filter(
+      (f) =>
+        !f.isDistressedWarning &&
+        f.qualityTier !== 'ALERTA_RISCO' &&
+        (f.status === 'OPPORTUNITY' || f.status === 'FAIR')
+    )
     .sort((a, b) => {
       if (budget < 120 && a.base !== b.base) {
         return a.base - b.base;
@@ -311,6 +445,10 @@ export function generateDailyRecommendation(
       // Priorizar setores que equilibram a carteira do usuário
       if (a.rebalancesPortfolio !== b.rebalancesPortfolio) {
         return a.rebalancesPortfolio ? -1 : 1;
+      }
+      // Desempate por Quality Tier (High Grade primeiro) e Score
+      if (a.qualityStars !== b.qualityStars) {
+        return b.qualityStars - a.qualityStars;
       }
       return b.score - a.score;
     });
@@ -337,7 +475,7 @@ export function generateDailyRecommendation(
 
   const formatReason = (f: EvaluatedFii) => {
     if (f.isBelowAveragePrice) {
-      return `📉 Abaixo do seu PM (R$ ${f.userAveragePrice?.toFixed(2)}) • Yield ${f.monthlyYieldPercent}% a.m.`;
+      return `📉 Abaixo do seu PM (R$ ${f.userAveragePrice?.toFixed(2)}) • ${f.qualityBadgeLabel}`;
     }
     if (f.rebalancesPortfolio) {
       return `⚖️ Diversifica em ${getMacroCategory(f.segment)} • P/VP ${f.pvp}`;
@@ -360,6 +498,7 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income,
         segment: f.segment,
         base: f.base,
+        qualityBadgeLabel: f.qualityBadgeLabel,
         reason: formatReason(f),
       });
       currentTotalCost += cost;
@@ -389,6 +528,7 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income1,
         segment: f1.segment,
         base: f1.base,
+        qualityBadgeLabel: f1.qualityBadgeLabel,
         reason: formatReason(f1),
       });
       currentTotalCost += cost1;
@@ -405,6 +545,7 @@ export function generateDailyRecommendation(
         estimatedMonthlyIncome: income2,
         segment: f2.segment,
         base: f2.base,
+        qualityBadgeLabel: f2.qualityBadgeLabel,
         reason: formatReason(f2),
       });
       currentTotalCost += cost2;
@@ -420,7 +561,7 @@ export function generateDailyRecommendation(
 
   const explanation =
     items.length > 0
-      ? `Sugestão equilibrada para sua carteira atual: combina desconto patrimonial e diversificação setorial, gerando +R$ ${totalIncome.toFixed(2)}/mês de renda isenta.`
+      ? `Cesta auditada pelo Quality Gate (filtro anti-Value Trap e dividendos recorrentes): combina segurança High Grade e desconto patrimonial, gerando +R$ ${totalIncome.toFixed(2)}/mês.`
       : 'Nenhuma oportunidade compatível com o saldo disponível hoje.';
 
   return {
@@ -433,5 +574,3 @@ export function generateDailyRecommendation(
     strategyExplanation: explanation,
   };
 }
-
-

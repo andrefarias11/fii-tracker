@@ -60,11 +60,15 @@ export function evaluateMentorsRecommendations(
   const paperPercent = totalEquity > 0 ? Math.round((paperEquity / totalEquity) * 100) : 0;
   const brickPercent = totalEquity > 0 ? Math.round((brickEquity / totalEquity) * 100) : 0;
 
+  // Filtra apenas ativos aprovados no Quality Gate (sem alerta de Value Trap / estresse de crédito)
+  const safeFiis = allFiis.filter((f) => !f.isDistressedWarning);
+  const candidatePool = safeFiis.length >= 3 ? safeFiis : allFiis;
+
   // ============================================================================
   // 1. LUIZ BARSI FILHO — "O Rei dos Dividendos & Carteira Previdenciária"
   // Foco: Preço-Teto, Acúmulo de Grande Quantidade de Cotas (Base 10), Renda Mensal Forte e Perenidade
   // ============================================================================
-  const barsiCandidates = [...allFiis]
+  const barsiCandidates = [...candidatePool]
     .map((fii) => {
       let score = 0;
       const belowCeiling = fii.currentPrice <= fii.ceilingPrice;
@@ -72,7 +76,7 @@ export function evaluateMentorsRecommendations(
         (((fii.ceilingPrice - fii.currentPrice) / fii.ceilingPrice) * 100).toFixed(1)
       );
 
-      // 1. Regra de Ouro do Preço-Teto
+      // 1. Regra de Ouro do Preço-Teto (já protegido contra dividendos não-recorrentes)
       if (belowCeiling) score += 35 + Math.min(20, Math.max(0, ceilingMarginPercent * 2));
       else if (fii.currentPrice <= fii.barsiCeilingPrice) score += 20;
       else score -= 25;
@@ -80,8 +84,9 @@ export function evaluateMentorsRecommendations(
       // 2. Foco em acumular MUITAS cotas (Base 10 acelera a Bola de Neve mensal)
       if (fii.base === 10) score += 22;
 
-      // 3. Dividend Yield elevado e recorrente
+      // 3. Dividend Yield elevado e recorrente + Bônus de Solidez High Grade
       score += fii.monthlyYieldPercent * 18;
+      if (fii.qualityTier === 'HIGH_GRADE') score += 10;
 
       // 4. Bônus se o usuário já possui na carteira e está próximo do Número Mágico
       const userPos = positions.find((p) => p.ticker === fii.ticker);
@@ -93,12 +98,12 @@ export function evaluateMentorsRecommendations(
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [
-        `Cotado a ${formatBRL(fii.currentPrice)} na B3, respeitando o Preço-Teto de ${formatBRL(fii.ceilingPrice)} (${
+        `Cotado a ${formatBRL(fii.currentPrice)} na B3, respeitando o Preço-Teto auditado de ${formatBRL(fii.ceilingPrice)} (${
           ceilingMarginPercent >= 0
             ? `${ceilingMarginPercent}% de folga abaixo do teto`
             : `dentro do teto previdenciário de ${formatBRL(fii.barsiCeilingPrice)}`
         }).`,
-        `Entrega dividendo mensal de ${formatBRL(fii.monthlyDividend)}/cota (${fii.monthlyYieldPercent}% a.m. ou ${fii.annualYieldPercent}% a.a. isento de IR).`,
+        `Entrega dividendo recorrente de ${formatBRL(fii.monthlyDividend)}/cota (${fii.monthlyYieldPercent}% a.m. ou ${fii.annualYieldPercent}% a.a.) com selo ${fii.qualityBadgeLabel}.`,
         fii.base === 10
           ? `Foco na Quantidade de Cotas: com ${formatBRL(effectiveBudget)} você acumula +${sharesForBudget} cotas de uma vez, gerando +${formatBRL(incomeFromBudget)}/mês vitalícios.`
           : `Ativo previdenciário de alta solidez (${fii.management}) que gera +${formatBRL(fii.monthlyDividend)} por cota todo mês.`,
@@ -132,7 +137,7 @@ export function evaluateMentorsRecommendations(
   // 2. WARREN BUFFETT — "Value Investing, Fosso Competitivo (Moat) & Ativos Reais"
   // Foco: Imóveis/Ativos dominantes (Tijolo Triple-A / Crédito High Grade), baixa vacância, gestão de elite a preço justo
   // ============================================================================
-  const buffettCandidates = [...allFiis]
+  const buffettCandidates = [...candidatePool]
     .map((fii) => {
       let score = 0;
       const isTijoloPremium =
@@ -145,6 +150,7 @@ export function evaluateMentorsRecommendations(
       // 1. Fosso Competitivo (Moat): Ativos físicos insubstituíveis ou High Grade líder
       if (isTijoloPremium) score += 38;
       else if (isHighGradePaper) score += 22;
+      if (fii.qualityTier === 'HIGH_GRADE') score += 14;
 
       // 2. Baixa vacância física (Contratos fortes e demanda resiliente)
       if (typeof fii.vacancyPhysical === 'number') {
@@ -163,7 +169,7 @@ export function evaluateMentorsRecommendations(
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [
-        `Fosso Competitivo (Moat): ${fii.diversification} sob gestão da ${fii.management}.`,
+        `Fosso Competitivo (Moat • ${fii.qualityBadgeLabel}): ${fii.diversification} sob gestão da ${fii.management}.`,
         fii.pvp <= 1
           ? `Excelente ativo negociado com desconto na B3: P/VP de ${fii.pvp} (${fii.discountPercent}% abaixo do valor patrimonial de ${formatBRL(fii.vp)}).`
           : `Negócio de altíssima qualidade cotado a preço justo na B3 (P/VP ${fii.pvp}, VP de ${formatBRL(fii.vp)}).`,
@@ -189,17 +195,20 @@ export function evaluateMentorsRecommendations(
 
   // ============================================================================
   // 3. BENJAMIN GRAHAM — "Margem de Segurança Estrita (Comprar R$ 1 por R$ 0,85)"
-  // Foco: Maior desconto patrimonial (Menor P/VP da bolsa) combinado com pagamento regular de proventos
+  // Foco: Maior desconto patrimonial saudável (0.80 <= P/VP < 1.00) sem cair em Value Traps
   // ============================================================================
-  const grahamCandidates = [...allFiis]
+  const grahamCandidates = [...candidatePool]
     .map((fii) => {
-      // Graham prioriza diretamente o maior desconto sobre o Valor Patrimonial (1 - P/VP)
+      // Graham prioriza diretamente o maior desconto saudável sobre o Valor Patrimonial (1 - P/VP)
       let score = fii.discountPercent * 6;
-      if (fii.pvp < 0.95) score += 35;
+      if (fii.pvp >= 0.82 && fii.pvp < 0.95) score += 35;
       else if (fii.pvp <= 0.99) score += 20;
       else score -= 30;
 
-      // Exige que o ativo também pague bons dividendos
+      // Bônus Anti-Value Trap para ativos High Grade descontados
+      if (fii.qualityTier === 'HIGH_GRADE') score += 12;
+
+      // Exige que o ativo também pague bons dividendos recorrentes
       score += fii.monthlyYieldPercent * 12;
 
       const sharesForBudget = Math.max(1, Math.floor(effectiveBudget / fii.currentPrice));
@@ -207,11 +216,11 @@ export function evaluateMentorsRecommendations(
       const discountPerShare = Number(Math.max(0, fii.vp - fii.currentPrice).toFixed(2));
 
       const reasons: string[] = [
-        `Margem de Segurança: cotado a ${formatBRL(fii.currentPrice)} para um Valor Patrimonial oficial de ${formatBRL(fii.vp)} (P/VP ${fii.pvp}).`,
+        `Margem de Segurança Auditada (${fii.qualityBadgeLabel}): cotado a ${formatBRL(fii.currentPrice)} para um Valor Patrimonial oficial de ${formatBRL(fii.vp)} (P/VP ${fii.pvp}).`,
         discountPerShare > 0
-          ? `Você compra cada cota com ${fii.discountPercent}% de desconto (${formatBRL(discountPerShare)} "de graça" em patrimônio por cota comprada).`
+          ? `Você compra cada cota com ${fii.discountPercent}% de desconto saudável (${formatBRL(discountPerShare)} de patrimônio extra por cota sem risco de Value Trap).`
           : `Proteção patrimonial com preço alinhado ao valor intrínseco dos ativos (${formatBRL(fii.vp)}).`,
-        `Enquanto o mercado não corrige o preço para o VP, você recebe ${fii.monthlyYieldPercent}% a.m. (${fii.annualYieldPercent}% a.a.) em dividendos isentos.`,
+        `Enquanto o mercado não corrige o preço para o VP, você recebe ${fii.monthlyYieldPercent}% a.m. (${fii.annualYieldPercent}% a.a.) em dividendos recorrentes.`,
       ];
 
       return {
@@ -241,7 +250,7 @@ export function evaluateMentorsRecommendations(
         } sem pulverizar.`
       : 'Para iniciar uma carteira previdenciária equilibrada em FIIs, combine 60% em Tijolo (proteção contra inflação) e 40% em Papel (renda mensal forte).';
 
-  const baroniCandidates = [...allFiis]
+  const baroniCandidates = [...candidatePool]
     .map((fii) => {
       let score = fii.score;
       const isBrick =

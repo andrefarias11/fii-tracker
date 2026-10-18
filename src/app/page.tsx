@@ -701,6 +701,7 @@ export default function HomePage() {
                   currentEquity={summary.currentEquity}
                   monthlyTarget={goals.monthlyTarget}
                   averageYieldPercent={summary.averageYieldOnCostPercent}
+                  bcbIndicators={bcbIndicators}
                   isPrivacyMode={isPrivacyMode}
                 />
               </div>

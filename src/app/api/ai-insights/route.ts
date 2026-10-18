@@ -58,6 +58,12 @@ interface RequestPayload {
   selicAnnual?: number;
   cdiAnnual?: number;
   ipca12m?: number;
+  focusProjections?: {
+    year: number;
+    selicMedian: number;
+    ipcaMedian: number;
+    realRateAnnual: number;
+  }[];
   promptType?: 'GERAL' | 'RISCOS' | 'TIJOLO_VS_PAPEL' | 'DESCONTADOS' | 'CUSTOM';
   customQuestion?: string;
   customApiKey?: string;
@@ -125,6 +131,12 @@ function buildDeterministicInsights(
   fixedIncomeTotal: number,
   selicAnnual: number,
   ipca12m: number,
+  focusProjections: {
+    year: number;
+    selicMedian: number;
+    ipcaMedian: number;
+    realRateAnnual: number;
+  }[],
   promptType: string,
   customQuestion: string,
   liveNewsMap: Map<string, { title: string; pubDate: string; link: string; source: string }>
@@ -235,11 +247,18 @@ function buildDeterministicInsights(
     });
   }
 
-  // Veredito Macro
+  // Veredito Macro com Curva do Boletim Focus (API Olinda BCB)
+  const focusSummaryText =
+    focusProjections.length > 0
+      ? ` O Boletim Focus (API Olinda BCB) projeta Selic de ${focusProjections
+          .map((f) => `${f.selicMedian}% em ${f.year}`)
+          .join(', ')}.`
+      : '';
+
   const macroVerdict =
     selicAnnual >= 10
-      ? `Com Selic em ${selicAnnual}% a.a. e IPCA em ${ipca12m}% a.a., seus ativos de Papel (${papelPercent}%) e Caixinhas (${rendaFixaPercent}%) geram forte caixa imediato, enquanto os FIIs de Tijolo (${tijoloPercent}%) oferecem compra descontada abaixo do custo de reposição.`
-      : `Ciclo favorável para valorização de cota nos FIIs de Tijolo (${tijoloPercent}%) e Ações (${acoesPercent}%), mantendo FIIs de Papel (${papelPercent}%) como âncora de dividendos.`;
+      ? `Com Selic em ${selicAnnual}% a.a. e IPCA em ${ipca12m}% a.a., seus ativos de Papel (${papelPercent}%) e Caixinhas (${rendaFixaPercent}%) geram forte caixa imediato, enquanto os FIIs de Tijolo (${tijoloPercent}%) oferecem compra descontada abaixo do custo de reposição.${focusSummaryText}`
+      : `Ciclo favorável para valorização de cota nos FIIs de Tijolo (${tijoloPercent}%) e Ações (${acoesPercent}%), mantendo FIIs de Papel (${papelPercent}%) como âncora de dividendos.${focusSummaryText}`;
 
   // Fatos Relevantes & Resumo Executivo de 3 Bullets por Ativo
   const targetPositions =
@@ -355,11 +374,20 @@ function buildDeterministicInsights(
     ];
   } else if (promptType === 'TIJOLO_VS_PAPEL') {
     promptQuestion = 'Devo focar o próximo aporte em Tijolo ou Papel no cenário atual?';
+    const focusLine =
+      focusProjections.length > 0
+        ? `1. Curva Boletim Focus (API Olinda BCB): Selic hoje em ${selicAnnual}% a.a. com projeção de ${focusProjections
+            .map((f) => `${f.selicMedian}% (${f.year})`)
+            .join(' → ')} e IPCA projetado em ${focusProjections
+            .map((f) => `${f.ipcaMedian}% (${f.year})`)
+            .join(' → ')}.`
+        : `1. Cenário Banco Central Hoje: Selic em ${selicAnnual}% a.a. e IPCA acumulado em ${ipca12m}% a.a. (juro real elevado).`;
+
     promptAnswer = [
-      `1. Cenário Banco Central Hoje: Selic em ${selicAnnual}% a.a. e IPCA acumulado em ${ipca12m}% a.a. (juro real elevado).`,
+      focusLine,
       tijoloPercent < papelPercent
-        ? `2. Sua Alocação (${tijoloPercent}% Tijolo vs ${papelPercent}% Papel): você está sub-alocado em Tijolo. Aproveitar FIIs de Galpões Logísticos e Shoppings abaixo de P/VP 1.00 trava ganho de capital e renda crescente.`
-        : `2. Sua Alocação (${tijoloPercent}% Tijolo vs ${papelPercent}% Papel): você já tem boa base em imóveis físicos. Reforçar FIIs de Papel High Grade (CDI+ / IPCA+) acelera a bola de neve mensal imediatamente.`,
+        ? `2. Sua Alocação (${tijoloPercent}% Tijolo vs ${papelPercent}% Papel): você está sub-alocado em Tijolo. Com o fechamento futuro da Selic projetado pelo Focus, comprar Galpões e Shoppings abaixo de P/VP 1.00 trava ganho de capital e renda crescente.`
+        : `2. Sua Alocação (${tijoloPercent}% Tijolo vs ${papelPercent}% Papel): você já tem boa base em imóveis físicos. Reforçar FIIs de Papel High Grade (CDI+ / IPCA+) aproveita o juro real de curto prazo e acelera a bola de neve mensal.`,
       `3. Regra Prática: direcione o aporte do mês para a classe que estiver abaixo de 45% da carteira e negociando abaixo do Preço-Teto.`,
     ];
   } else if (promptType === 'DESCONTADOS') {
@@ -549,6 +577,9 @@ export async function POST(request: Request) {
     const fixedIncomeTotal = Number(body.fixedIncomeTotal) || 0;
     const selicAnnual = Number(body.selicAnnual) || 10.75;
     const ipca12m = Number(body.ipca12m) || 4.42;
+    const focusProjections = Array.isArray(body.focusProjections)
+      ? body.focusProjections
+      : [];
     const promptType = body.promptType || 'GERAL';
     const customQuestion = body.customQuestion || '';
 
@@ -580,6 +611,7 @@ export async function POST(request: Request) {
       fixedIncomeTotal,
       selicAnnual,
       ipca12m,
+      focusProjections,
       promptType,
       customQuestion,
       liveNewsMap
