@@ -10,8 +10,11 @@ import {
   LineChart,
   FileSpreadsheet,
   ShieldCheck,
+  MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { triggerHaptic } from '../lib/haptic';
+import { FII_PROPERTIES_CATALOG } from '../data/fiiProperties';
 
 interface PositionListProps {
   positions: FiiPosition[];
@@ -19,6 +22,8 @@ interface PositionListProps {
   onUpdateDividend: (ticker: string, dividend: number) => void;
   onOpenB3Modal?: () => void;
   onOpenBuyModal?: (ticker: string) => void;
+  onOpenMapForTicker?: (ticker: string) => void;
+  onOpenAiForTicker?: (ticker: string) => void;
 }
 
 const formatShortSegment = (segment: string): string => {
@@ -48,6 +53,8 @@ export function PositionList({
   onUpdateDividend,
   onOpenB3Modal,
   onOpenBuyModal,
+  onOpenMapForTicker,
+  onOpenAiForTicker,
 }: PositionListProps) {
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [editingTicker, setEditingTicker] = useState<string | null>(null);
@@ -438,6 +445,38 @@ export function PositionList({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Atalhos Rápidos: Mapa Imobiliário (se Tijolo mapeado) & IA / Fatos Relevantes */}
+                  <div className="flex items-center gap-2 pt-1">
+                    {FII_PROPERTIES_CATALOG.some((p) => p.ticker === pos.ticker) &&
+                      onOpenMapForTicker && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic('light');
+                            onOpenMapForTicker(pos.ticker);
+                          }}
+                          className="flex-1 py-2 px-3 rounded-full bg-[#141416] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-[#f5b800]" />
+                          <span>Imóveis no Mapa</span>
+                        </button>
+                      )}
+
+                    {onOpenAiForTicker && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          onOpenAiForTicker(pos.ticker);
+                        }}
+                        className="flex-1 py-2 px-3 rounded-full bg-[#141416] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-[#f5b800]" />
+                        <span>IA & Fatos Relevantes</span>
+                      </button>
                     )}
                   </div>
                 </div>

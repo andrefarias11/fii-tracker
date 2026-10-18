@@ -12,6 +12,8 @@ import { InvestmentSimulator } from '../components/InvestmentSimulator';
 import { OpportunityRadar } from '../components/OpportunityRadar';
 import { UniversalB3Explorer } from '../components/UniversalB3Explorer';
 import { MentorsTab } from '../components/MentorsTab';
+import { RealEstateMap } from '../components/RealEstateMap';
+import { AiInsightsTab } from '../components/AiInsightsTab';
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
 import { MonthlyWrappedModal } from '../components/MonthlyWrappedModal';
@@ -43,6 +45,7 @@ import {
   Trophy,
   Globe,
   PiggyBank,
+  MapPin,
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
@@ -89,7 +92,14 @@ export default function HomePage() {
     if (typeof window === 'undefined') return 'portfolio';
     const raw = new URLSearchParams(window.location.search).get('tab');
     if (raw === 'proventos') return 'proventos';
-    if (raw === 'radar' || raw === 'mentors' || raw === 'universal') return 'radar';
+    if (
+      raw === 'radar' ||
+      raw === 'mentors' ||
+      raw === 'universal' ||
+      raw === 'map' ||
+      raw === 'ai'
+    )
+      return 'radar';
     if (raw === 'goals' || raw === 'achievements') return 'goals';
     return 'portfolio';
   });
@@ -100,13 +110,18 @@ export default function HomePage() {
     if (tab === 'fixed_income' || tab === 'caixinhas') return 'fixed_income';
     return 'assets';
   });
-  const [exploreSubView, setExploreSubView] = useState<'radar' | 'universal' | 'mentors'>(() => {
+  const [exploreSubView, setExploreSubView] = useState<
+    'radar' | 'universal' | 'map' | 'ai' | 'mentors'
+  >(() => {
     if (typeof window === 'undefined') return 'radar';
     const raw = new URLSearchParams(window.location.search).get('tab');
     if (raw === 'mentors') return 'mentors';
     if (raw === 'universal') return 'universal';
+    if (raw === 'map') return 'map';
+    if (raw === 'ai') return 'ai';
     return 'radar';
   });
+  const [exploreTickerFilter, setExploreTickerFilter] = useState<string | null>(null);
   const [goalsSubView, setGoalsSubView] = useState<'achievements' | 'targets' | 'simulator'>(
     'achievements'
   );
@@ -124,7 +139,6 @@ export default function HomePage() {
   useEffect(() => {
     // Inicializa listener do cofre de sessões (OAuth redirect Google, SIGNED_IN e INITIAL_SESSION)
     initAuthVaultListener();
-    setActiveAccount(getActiveAccount());
 
     const unsubscribe = subscribeAuthAccounts((_, active) => {
       setActiveAccount(active);
@@ -384,6 +398,16 @@ export default function HomePage() {
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
                   onOpenBuyModal={handleOpenBuyForTicker}
+                  onOpenMapForTicker={(ticker) => {
+                    setExploreTickerFilter(ticker);
+                    setActiveTab('radar');
+                    setExploreSubView('map');
+                  }}
+                  onOpenAiForTicker={(ticker) => {
+                    setExploreTickerFilter(ticker);
+                    setActiveTab('radar');
+                    setExploreSubView('ai');
+                  }}
                 />
               </div>
             ) : homeSubView === 'fixed_income' ? (
@@ -434,25 +458,25 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL 100% B3 + MENTORES) */}
+        {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL + MAPA IMOBILIÁRIO + IA & FATOS + MENTORES) */}
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado XP: Radar vs Busca B3 vs Mentores */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
+            {/* Seletor Segmentado XP: Radar | Busca B3 | Mapa | IA & Fatos | Mentores */}
+            <div className="flex items-center overflow-x-auto scrollbar-none p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic('light');
                   setExploreSubView('radar');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   exploreSubView === 'radar'
                     ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <Compass className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Radar</span>
+                <span>Radar</span>
               </button>
 
               <button
@@ -461,14 +485,46 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setExploreSubView('universal');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   exploreSubView === 'universal'
                     ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <Globe className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Busca B3</span>
+                <span>Busca B3</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setExploreSubView('map');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  exploreSubView === 'map'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
+                <span>Mapa</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setExploreSubView('ai');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  exploreSubView === 'ai'
+                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
+                <span>IA & Fatos</span>
               </button>
 
               <button
@@ -477,14 +533,14 @@ export default function HomePage() {
                   triggerHaptic('light');
                   setExploreSubView('mentors');
                 }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   exploreSubView === 'mentors'
                     ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <GraduationCap className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Mentores</span>
+                <span>Mentores</span>
               </button>
             </div>
 
@@ -511,6 +567,26 @@ export default function HomePage() {
                 <UniversalB3Explorer
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
+                  onOpenBuyModal={handleOpenBuyForTicker}
+                />
+              </div>
+            ) : exploreSubView === 'map' ? (
+              <div className="animate-in fade-in duration-150">
+                <RealEstateMap
+                  positions={positions}
+                  initialTickerFilter={exploreTickerFilter}
+                  onClearTickerFilter={() => setExploreTickerFilter(null)}
+                  onOpenBuyModal={handleOpenBuyForTicker}
+                />
+              </div>
+            ) : exploreSubView === 'ai' ? (
+              <div className="animate-in fade-in duration-150">
+                <AiInsightsTab
+                  positions={positions}
+                  fixedIncomeAssets={fixedIncomeAssets}
+                  bcbIndicators={bcbIndicators}
+                  initialTickerFilter={exploreTickerFilter}
+                  onClearTickerFilter={() => setExploreTickerFilter(null)}
                   onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>

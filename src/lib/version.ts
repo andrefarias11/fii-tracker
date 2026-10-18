@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '4.5.0';
-export const APP_UPDATED_AT = '16/10/2026';
+export const APP_VERSION = '4.6.0';
+export const APP_UPDATED_AT = '17/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,17 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '4.6.0',
+    date: '17/10/2026',
+    highlights: [
+      'Mapa Imobiliário Interativo da B3 (RealEstateMap.tsx + fiiProperties.ts): visualização geográfica dos galpões logísticos, shoppings, lajes Triple A, imóveis de renda urbana e fazendas dos FIIs de Tijolo, com filtro entre "Meus Imóveis (Carteira)" e "Todos da B3"',
+      'Integração BrasilAPI CEP v2 Ao Vivo (/api/cep): consulta geolocalizada em tempo real de qualquer CEP comercial/logístico com coordenadas de latitude/longitude, fallback automático ViaCEP e plotagem direta no mapa',
+      'IA & Fatos Relevantes da Carteira (AiInsightsTab.tsx + /api/ai-insights): Score de Saúde da Carteira (0–100), correlação macroeconômica (Tijolo vs Papel vs Ações vs Caixinhas com Selic/IPCA do Banco Central) e alertas de risco oculto',
+      'Tradutor de Fatos Relevantes & Relatórios Gerenciais em 3 Bullets: busca de comunicados/notícias recentes por ticker com resumo executivo de impacto patrimonial e integração opcional com Google Gemini AI e Groq Llama 3.3',
+      'Atalhos Diretos nos Cards da Carteira (PositionList.tsx): botões rápidos "Imóveis no Mapa" e "IA & Fatos Relevantes" dentro dos detalhes de cada ativo e novas sub-abas em Explorar',
+    ],
+  },
   {
     version: '4.5.0',
     date: '16/10/2026',
