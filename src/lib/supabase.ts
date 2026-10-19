@@ -18,7 +18,12 @@ const DEFAULT_SUPABASE_URL = '';
 const DEFAULT_SUPABASE_KEY = '';
 
 export function getSupabaseConfig(): { url: string; key: string } {
-  // Prioridade 1: Armazenamento local customizado (se o usuário trocar na UI)
+  const environment = getEnvironmentSupabaseConfig();
+  // A configuração publicada é a fonte de verdade. Isso impede que uma chave
+  // antiga salva no navegador substitua o projeto configurado pelo operador.
+  if (environment.url && environment.key) return environment;
+
+  // Sem configuração publicada, permita a conexão manual para desenvolvimento.
   if (typeof window !== 'undefined') {
     const localUrl = localStorage.getItem(STORAGE_KEY_SUPABASE_URL);
     const localKey = localStorage.getItem(STORAGE_KEY_SUPABASE_KEY);
@@ -27,11 +32,18 @@ export function getSupabaseConfig(): { url: string; key: string } {
     }
   }
 
-  // Prioridade 2: Variáveis de ambiente (.env.local) ou fallback oficial do projeto
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+  return environment;
+}
 
-  return { url: envUrl.trim(), key: envKey.trim() };
+export function getEnvironmentSupabaseConfig(): { url: string; key: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+  return { url: url.trim(), key: key.trim() };
+}
+
+export function isEnvironmentSupabaseConfigured(): boolean {
+  const { url, key } = getEnvironmentSupabaseConfig();
+  return Boolean(url && key);
 }
 
 export function saveSupabaseConfig(url: string, key: string) {
@@ -138,16 +150,23 @@ export async function fetchDeletedIds(userId: string, table: string): Promise<Se
   return new Set((data || []).filter(row => row.table_name === table).map(row => unscopeIdFromUser(row.row_id, userId)));
 }
 
-export async function checkSupabaseConnection(): Promise<boolean> {
+export type SupabaseConnectionStatus = 'connected' | 'missing-config' | 'not-authenticated' | 'unavailable';
+
+export async function getSupabaseConnectionStatus(): Promise<SupabaseConnectionStatus> {
   try {
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('portfolio_goals').select('id').limit(1);
-      return { data: res.data, error: res.error };
-    });
-    return !error;
+    const client = getSupabaseClient();
+    if (!client) return 'missing-config';
+    const { data, error: authError } = await client.auth.getUser();
+    if (authError || !data.user) return 'not-authenticated';
+    const { error } = await client.from('portfolio_goals').select('id').limit(1);
+    return error ? 'unavailable' : 'connected';
   } catch {
-    return false;
+    return 'unavailable';
   }
+}
+
+export async function checkSupabaseConnection(): Promise<boolean> {
+  return (await getSupabaseConnectionStatus()) === 'connected';
 }
 
 // ----------------- Helpers de Isolamento Multiusuário e Escopo de ID -----------------

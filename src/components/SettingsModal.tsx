@@ -25,9 +25,10 @@ import {
 import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
 import {
   getSupabaseConfig,
+  isEnvironmentSupabaseConfigured,
   saveSupabaseConfig,
   clearSupabaseConfig,
-  checkSupabaseConnection,
+  getSupabaseConnectionStatus,
 } from '../lib/supabase';
 import {
   getPushPreferences,
@@ -90,6 +91,7 @@ export function SettingsModal({
   const [supabaseKey, setSupabaseKey] = useState<string>(() => getSupabaseConfig().key);
   const [isTestingCloud, setIsTestingCloud] = useState<boolean>(false);
   const [cloudTestResult, setCloudTestResult] = useState<string | null>(null);
+  const cloudManagedByEnvironment = isEnvironmentSupabaseConfigured();
 
   // Estados de Web Push API (iPhone / PWA)
   const [pushPrefs, setPushPrefs] = useState<PushPreferences>(() => getPushPreferences());
@@ -215,16 +217,20 @@ export function SettingsModal({
     setIsTestingCloud(true);
     setCloudTestResult(null);
 
-    saveSupabaseConfig(supabaseUrl, supabaseKey);
+    if (!cloudManagedByEnvironment) saveSupabaseConfig(supabaseUrl, supabaseKey);
 
-    const connected = await checkSupabaseConnection();
+    const status = await getSupabaseConnectionStatus();
     setIsTestingCloud(false);
 
-    if (connected) {
+    if (status === 'connected') {
       setCloudTestResult('Sucesso! Conectado ao Supabase com segurança.');
       onSyncCloud();
+    } else if (status === 'not-authenticated') {
+      setCloudTestResult('Configuração encontrada. Entre na sua conta para sincronizar esta carteira.');
+    } else if (status === 'missing-config') {
+      setCloudTestResult('Informe a URL e a chave pública do Supabase.');
     } else {
-      setCloudTestResult('Falha ao conectar. Verifique a URL e a Anon Key digitadas.');
+      setCloudTestResult('Não foi possível acessar o banco. Verifique se a migração foi executada no Supabase.');
     }
   };
 
@@ -586,11 +592,13 @@ export function SettingsModal({
           </div>
 
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
-            Conecte seu banco gratuito do Supabase para que seus lançamentos sincronizem entre o iPhone e o PC.
+            {cloudManagedByEnvironment
+              ? 'A nuvem deste aplicativo já está configurada. Entre na sua conta para sincronizar entre iPhone e PC.'
+              : 'Conecte seu banco gratuito do Supabase para que seus lançamentos sincronizem entre o iPhone e o PC.'}
           </p>
 
           <form onSubmit={handleConnectSupabase} className="space-y-2.5">
-            <div>
+            {!cloudManagedByEnvironment && <div>
               <label className="text-[11px] text-zinc-400 block mb-1">Project URL</label>
               <input
                 type="text"
@@ -599,9 +607,9 @@ export function SettingsModal({
                 onChange={(e) => setSupabaseUrl(e.target.value)}
                 className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
               />
-            </div>
+            </div>}
 
-            <div>
+            {!cloudManagedByEnvironment && <div>
               <label className="text-[11px] text-zinc-400 block mb-1">Anon Key</label>
               <input
                 type="password"
@@ -610,7 +618,7 @@ export function SettingsModal({
                 onChange={(e) => setSupabaseKey(e.target.value)}
                 className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
               />
-            </div>
+            </div>}
 
             {cloudTestResult && (
               <div
@@ -628,11 +636,11 @@ export function SettingsModal({
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="submit"
-                disabled={isTestingCloud || !supabaseUrl || !supabaseKey}
+                disabled={isTestingCloud || (!cloudManagedByEnvironment && (!supabaseUrl || !supabaseKey))}
                 className="flex-1 py-2.5 px-3 rounded-full bg-[#f5b800] hover:bg-[#ffca28] disabled:opacity-50 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
               >
                 <Cloud className="w-3.5 h-3.5" />
-                {isTestingCloud ? 'Conectando...' : 'Salvar & Conectar'}
+                {isTestingCloud ? 'Verificando...' : cloudManagedByEnvironment ? 'Verificar conexão' : 'Salvar & Conectar'}
               </button>
 
               {isCloudConnected && (

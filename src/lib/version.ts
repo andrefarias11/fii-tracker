@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.0.0';
+export const APP_VERSION = '5.0.1';
 export const APP_UPDATED_AT = '19/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,12 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.0.1', date: '19/10/2026', highlights: [
+      'Configuração Supabase automática por variáveis de ambiente, sem sobrescrita por chaves antigas salvas no navegador.',
+      'Diagnóstico de nuvem diferencia sessão ausente de falha de configuração ou migração.',
+    ],
+  },
   {
     version: '5.0.0', date: '19/10/2026', highlights: [
       'Segurança: políticas por usuário, administrador sem credenciais padrão, APIs autenticadas e widget individual revogável.',
