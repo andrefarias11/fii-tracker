@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.0.4';
+export const APP_VERSION = '5.0.5';
 export const APP_UPDATED_AT = '19/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,12 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.0.5', date: '19/10/2026', highlights: [
+      'Mapa imobiliário redesenhado com contorno do IBGE, agrupamento por estado e navegação acessível pelos imóveis.',
+      'Ficha de imóvel compacta, busca no catálogo e consultas de CEP e distribuição regional recolhidas.',
+    ],
+  },
   {
     version: '5.0.4', date: '19/10/2026', highlights: [
       'Radar compacto com saldo, estratégia, sugestão principal, filtros com contadores e análise expansível dos ativos.',

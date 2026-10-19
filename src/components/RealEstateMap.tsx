@@ -1,27 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
+import { Building2, MapPin, Search, ArrowUpRight, ChevronRight, X, Loader2, LocateFixed } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
-import {
-  FII_PROPERTIES_CATALOG,
-  FiiRealEstateProperty,
-} from '../data/fiiProperties';
+import { FII_PROPERTIES_CATALOG, STATE_COORDINATES, FiiRealEstateProperty } from '../data/fiiProperties';
+import { BRAZIL_OUTLINE } from '../data/brazilMap';
 import type { CepLookupResponse } from '../app/api/cep/route';
-import {
-  MapPin,
-  Building2,
-  Warehouse,
-  ShoppingBag,
-  Store,
-  Tractor,
-  Search,
-  ExternalLink,
-  CheckCircle2,
-  Layers,
-  Navigation,
-  Compass,
-  Loader2,
-} from 'lucide-react';
 import { triggerHaptic } from '../lib/haptic';
 
 interface RealEstateMapProps {
@@ -32,792 +16,173 @@ interface RealEstateMapProps {
 }
 
 type ScopeFilter = 'MY_PORTFOLIO' | 'ALL_B3';
-type PropertyTypeFilter =
-  | 'ALL'
-  | 'Logística'
-  | 'Shopping'
-  | 'Renda Urbana'
-  | 'Laje Corporativa'
-  | 'Agro / Terra';
+type PropertyTypeFilter = 'ALL' | FiiRealEstateProperty['type'];
 
-// Projeção geográfica calibrada para o território brasileiro (Lat: +5.3 a -33.8, Lng: -74.0 a -34.5)
-function projectLatLngToSvg(lat: number, lng: number): { x: number; y: number } {
-  const minLng = -74.0;
-  const maxLng = -34.0;
-  const maxLat = 5.5;
-  const minLat = -34.0;
-
-  const clampedLng = Math.max(minLng, Math.min(maxLng, lng));
-  const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
-
-  const x = ((clampedLng - minLng) / (maxLng - minLng)) * 340 + 30;
-  const y = ((maxLat - clampedLat) / (maxLat - minLat)) * 340 + 25;
-  return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+function projectLatLngToSvg(lat: number, lng: number) {
+  return {
+    x: ((Math.max(-74, Math.min(-34, lng)) + 74) / 40) * 340 + 30,
+    y: ((5.5 - Math.max(-34, Math.min(5.5, lat))) / 39.5) * 340 + 25,
+  };
 }
 
-export function RealEstateMap({
-  positions,
-  initialTickerFilter = null,
-  onClearTickerFilter,
-  onOpenBuyModal,
-}: RealEstateMapProps) {
-  const portfolioTickers = useMemo(
-    () => new Set(positions.map((p) => p.ticker.toUpperCase())),
-    [positions]
-  );
+// Leader lines preserve the geographic anchor while separating dense Southeast labels.
+const STATE_LABEL_OFFSETS: Record<string, [number, number]> = {
+  SP: [-15, 15], RJ: [28, 5], MG: [3, -15], ES: [28, -9],
+  PR: [-22, 6], SC: [20, 13], RS: [-5, 12], DF: [20, -14], GO: [-15, 8],
+};
 
-  const hasPortfolioProperties = useMemo(
-    () => FII_PROPERTIES_CATALOG.some((prop) => portfolioTickers.has(prop.ticker)),
-    [portfolioTickers]
-  );
+const sectors: { id: PropertyTypeFilter; label: string }[] = [
+  { id: 'ALL', label: 'Todos' }, { id: 'Logística', label: 'Logística' },
+  { id: 'Shopping', label: 'Shoppings' }, { id: 'Renda Urbana', label: 'Renda urbana' },
+  { id: 'Laje Corporativa', label: 'Escritórios' }, { id: 'Agro / Terra', label: 'Terras' },
+];
 
-  const [scope, setScope] = useState<ScopeFilter>(() =>
-    initialTickerFilter
-      ? 'ALL_B3'
-      : hasPortfolioProperties
-      ? 'MY_PORTFOLIO'
-      : 'ALL_B3'
-  );
+export function RealEstateMap({ positions, initialTickerFilter = null, onClearTickerFilter, onOpenBuyModal }: RealEstateMapProps) {
+  const gradientId = useId();
+  const detailRef = useRef<HTMLElement>(null);
+  const portfolioTickers = useMemo(() => new Set(positions.map((position) => position.ticker.toUpperCase())), [positions]);
+  const hasPortfolioProperties = FII_PROPERTIES_CATALOG.some((property) => portfolioTickers.has(property.ticker));
+  const [scope, setScope] = useState<ScopeFilter>(() => initialTickerFilter || !hasPortfolioProperties ? 'ALL_B3' : 'MY_PORTFOLIO');
   const [typeFilter, setTypeFilter] = useState<PropertyTypeFilter>('ALL');
+  const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-
-  // Estado da consulta ao vivo BrasilAPI CEP v2
-  const [cepInput, setCepInput] = useState<string>('');
-  const [isLoadingCep, setIsLoadingCep] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cepInput, setCepInput] = useState('');
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [cepResult, setCepResult] = useState<CepLookupResponse | null>(null);
   const [cepError, setCepError] = useState<string | null>(null);
 
-  const filteredProperties = useMemo(() => {
-    return FII_PROPERTIES_CATALOG.filter((prop) => {
-      if (initialTickerFilter && prop.ticker !== initialTickerFilter.toUpperCase()) {
-        return false;
-      }
-      if (!initialTickerFilter && scope === 'MY_PORTFOLIO' && !portfolioTickers.has(prop.ticker)) {
-        return false;
-      }
-      if (typeFilter !== 'ALL' && prop.type !== typeFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [scope, typeFilter, portfolioTickers, initialTickerFilter]);
+  const filteredProperties = FII_PROPERTIES_CATALOG.filter((property) => {
+    if (initialTickerFilter && property.ticker !== initialTickerFilter.toUpperCase()) return false;
+    if (!initialTickerFilter && scope === 'MY_PORTFOLIO' && !portfolioTickers.has(property.ticker)) return false;
+    if (typeFilter !== 'ALL' && property.type !== typeFilter) return false;
+    const searchable = `${property.ticker} ${property.propertyName} ${property.city} ${property.state}`;
+    return searchable.toLocaleLowerCase('pt-BR').includes(searchQuery.trim().toLocaleLowerCase('pt-BR'));
+  });
 
-  const activeProperty: FiiRealEstateProperty | null = useMemo(() => {
-    if (filteredProperties.length === 0) return null;
-    if (selectedPropertyId) {
-      const found = filteredProperties.find((p) => p.id === selectedPropertyId);
-      if (found) return found;
-    }
-    return filteredProperties[0];
-  }, [filteredProperties, selectedPropertyId]);
-
-  // Estatísticas consolidadas
-  const stats = useMemo(() => {
-    const totalAbl = filteredProperties.reduce((acc, p) => acc + p.ablM2, 0);
-    const statesSet = new Set(filteredProperties.map((p) => p.state));
-    const tickersSet = new Set(filteredProperties.map((p) => p.ticker));
-    const avgOccupancy =
-      filteredProperties.length > 0
-        ? filteredProperties.reduce((acc, p) => acc + p.occupancyPercent, 0) /
-          filteredProperties.length
-        : 0;
-
-    // Distribuição por Estado (UF)
-    const byStateMap = new Map<string, { count: number; abl: number }>();
-    for (const p of filteredProperties) {
-      const prev = byStateMap.get(p.state) || { count: 0, abl: 0 };
-      byStateMap.set(p.state, { count: prev.count + 1, abl: prev.abl + p.ablM2 });
-    }
-
-    const byState = Array.from(byStateMap.entries())
-      .map(([uf, data]) => ({
-        uf,
-        count: data.count,
-        abl: data.abl,
-        percent:
-          filteredProperties.length > 0
-            ? Math.round((data.count / filteredProperties.length) * 100)
-            : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    return {
-      totalProperties: filteredProperties.length,
-      totalAbl,
-      statesCount: statesSet.size,
-      tickersCount: tickersSet.size,
-      avgOccupancy: Number(avgOccupancy.toFixed(1)),
-      byState,
+  const totalAbl = filteredProperties.reduce((sum, property) => sum + property.ablM2, 0);
+  const tickersCount = new Set(filteredProperties.map((property) => property.ticker)).size;
+  const avgOccupancy = filteredProperties.length ? filteredProperties.reduce((sum, property) => sum + property.occupancyPercent, 0) / filteredProperties.length : 0;
+  const states = [...new Set(filteredProperties.map((property) => property.state))].map((uf) => {
+    const properties = filteredProperties.filter((property) => property.state === uf);
+    const centroid = STATE_COORDINATES[uf] ?? {
+      lat: properties.reduce((sum, property) => sum + property.lat, 0) / properties.length,
+      lng: properties.reduce((sum, property) => sum + property.lng, 0) / properties.length,
+      name: uf,
     };
-  }, [filteredProperties]);
+    return { uf, properties, centroid, percent: Math.round(properties.length / filteredProperties.length * 100) };
+  }).sort((a, b) => b.properties.length - a.properties.length);
+  const focusedState = states.some((state) => state.uf === selectedState) ? selectedState : null;
+  const visibleProperties = focusedState ? filteredProperties.filter((property) => property.state === focusedState) : filteredProperties;
+  const activeProperty = visibleProperties.find((property) => property.id === selectedPropertyId) ?? visibleProperties[0] ?? null;
+  const formatNumber = (value: number) => value.toLocaleString('pt-BR');
+
+  const selectState = (uf: string | null) => {
+    triggerHaptic('selection');
+    setSelectedState(uf);
+    setSelectedPropertyId(null);
+  };
 
   const handleLookupCep = async (rawCepToQuery?: string) => {
     const targetCep = (rawCepToQuery ?? cepInput).replace(/\D/g, '');
-    if (targetCep.length !== 8) {
-      setCepError('Digite um CEP válido de 8 dígitos (ex: 04538-132).');
-      return;
-    }
-
+    if (targetCep.length !== 8) { setCepError('Digite um CEP com 8 dígitos.'); return; }
     triggerHaptic('light');
     setIsLoadingCep(true);
     setCepError(null);
-
     try {
-      const res = await fetch(`/api/cep?cep=${targetCep}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setCepError(data.error || 'CEP não encontrado.');
-        setCepResult(null);
-      } else {
-        setCepResult(data as CepLookupResponse);
-        setCepInput(data.cep);
-      }
-    } catch {
-      setCepError('Falha ao conectar na BrasilAPI CEP v2.');
-    } finally {
-      setIsLoadingCep(false);
-    }
+      const response = await fetch(`/api/cep?cep=${targetCep}`);
+      const data = await response.json();
+      if (!response.ok) { setCepError(data.error || 'CEP não encontrado.'); setCepResult(null); }
+      else { setCepResult(data as CepLookupResponse); setCepInput(data.cep); }
+    } catch { setCepError('Não foi possível consultar o CEP. Tente novamente.'); }
+    finally { setIsLoadingCep(false); }
   };
-
-  const getPropertyIcon = (type: FiiRealEstateProperty['type']) => {
-    switch (type) {
-      case 'Logística':
-        return Warehouse;
-      case 'Shopping':
-        return ShoppingBag;
-      case 'Renda Urbana':
-        return Store;
-      case 'Laje Corporativa':
-        return Building2;
-      case 'Agro / Terra':
-        return Tractor;
-      default:
-        return Building2;
-    }
-  };
-
-  const formatNumber = (n: number) =>
-    new Intl.NumberFormat('pt-BR').format(n);
 
   return (
-    <div className="space-y-4">
-      {/* Cabeçalho Solto Estilo XP */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-xs font-medium text-zinc-400">
-              Patrimônio Físico & Geolocalização (BrasilAPI v2)
-            </p>
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Mapa Imobiliário B3
-            </h2>
-          </div>
+    <div className="space-y-5">
+      <header className="px-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Portfólio imobiliário</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">Patrimônio no mapa</h2>
+        <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">Conheça os imóveis por trás dos seus fundos.</p>
+        {initialTickerFilter && <button type="button" onClick={onClearTickerFilter} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-[#121215] px-3 text-xs text-white">{initialTickerFilter}<X className="h-3.5 w-3.5" /><span className="sr-only">Limpar filtro do fundo</span></button>}
+      </header>
 
-          {initialTickerFilter && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                onClearTickerFilter?.();
-              }}
-              className="px-3 py-1.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold border border-[#f5b800]/30 active:scale-95 transition-all"
-            >
-              Filtro: {initialTickerFilter} ✕
-            </button>
-          )}
-        </div>
+      {!initialTickerFilter && <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.06] bg-[#121215] p-1" aria-label="Escopo dos imóveis">
+        {([{ id: 'MY_PORTFOLIO', label: 'Minha carteira' }, { id: 'ALL_B3', label: 'Explorar catálogo' }] as const).map((option) => <button key={option.id} type="button" aria-pressed={scope === option.id} onClick={() => { setScope(option.id); selectState(null); }} className={`min-h-11 rounded-xl px-2 text-xs font-semibold transition-colors ${scope === option.id ? 'bg-white/[0.09] text-white shadow-sm' : 'text-zinc-500'}`}>{option.label}</button>)}
+      </div>}
+
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Setor imobiliário">
+        {sectors.map((sector) => <button key={sector.id} type="button" aria-pressed={typeFilter === sector.id} onClick={() => { setTypeFilter(sector.id); selectState(null); }} className={`min-h-11 shrink-0 rounded-full border px-4 text-xs font-medium transition-colors ${typeFilter === sector.id ? 'border-[#f5b800]/25 bg-[#f5b800]/[0.08] text-[#f5b800]' : 'border-white/[0.06] bg-[#121215] text-zinc-400'}`}>{sector.label}</button>)}
       </div>
 
-      {/* Seletor Meus Imóveis vs Todos da B3 */}
-      {!initialTickerFilter && (
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setScope('MY_PORTFOLIO');
-            }}
-            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-              scope === 'MY_PORTFOLIO'
-                ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5 text-[#f5b800]" />
-            <span>Meus Imóveis (Carteira)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setScope('ALL_B3');
-            }}
-            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-              scope === 'ALL_B3'
-                ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5 text-[#f5b800]" />
-            <span>Todos da B3 ({FII_PROPERTIES_CATALOG.length})</span>
-          </button>
+      <section className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#121215]">
+        <div className="flex items-center justify-between gap-2 px-5 pt-5">
+          <div><h3 className="text-sm font-semibold text-white">Presença no Brasil</h3><p className="mt-1 text-[11px] text-zinc-500">Selecione um estado para explorar</p></div>
+          <span className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[10px] text-zinc-400">Visão nacional</span>
         </div>
-      )}
-
-      {/* Pílulas de Segmento Imobiliário */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {(
-          [
-            { id: 'ALL', label: 'Todos Setores' },
-            { id: 'Logística', label: 'Galpões Logísticos' },
-            { id: 'Shopping', label: 'Shoppings' },
-            { id: 'Renda Urbana', label: 'Renda Urbana' },
-            { id: 'Laje Corporativa', label: 'Lajes Triple A' },
-            { id: 'Agro / Terra', label: 'Agro & Terras' },
-          ] as { id: PropertyTypeFilter; label: string }[]
-        ).map((pill) => (
-          <button
-            key={pill.id}
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setTypeFilter(pill.id);
-            }}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
-              typeFilter === pill.id
-                ? 'bg-[#f5b800] text-zinc-950 font-bold'
-                : 'bg-[#121215] text-zinc-400 hover:text-zinc-200 border border-white/[0.06]'
-            }`}
-          >
-            {pill.label}
-          </button>
-        ))}
-      </div>
-
-      {/* KPIs do Portfólio Imobiliário */}
-      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] grid grid-cols-3 divide-x divide-white/[0.06]">
-        <div className="pr-3">
-          <div className="text-[11px] text-zinc-400">Imóveis Físicos</div>
-          <div className="text-lg font-bold text-white tabular-nums mt-0.5">
-            {stats.totalProperties}
-          </div>
-          <div className="text-[11px] text-[#f5b800] font-medium">
-            {stats.tickersCount} {stats.tickersCount === 1 ? 'fundo' : 'fundos'}
-          </div>
-        </div>
-
-        <div className="px-3">
-          <div className="text-[11px] text-zinc-400">Área Locável (ABL)</div>
-          <div className="text-lg font-bold text-white tabular-nums mt-0.5">
-            {formatNumber(Math.round(stats.totalAbl / 1000))}k m²
-          </div>
-          <div className="text-[11px] text-emerald-400 font-medium tabular-nums">
-            {stats.avgOccupancy}% ocupação
-          </div>
-        </div>
-
-        <div className="pl-3">
-          <div className="text-[11px] text-zinc-400">Presença Nacional</div>
-          <div className="text-lg font-bold text-white tabular-nums mt-0.5">
-            {stats.statesCount} {stats.statesCount === 1 ? 'Estado' : 'Estados'}
-          </div>
-          <div className="text-[11px] text-zinc-400 truncate">
-            {stats.byState
-              .slice(0, 3)
-              .map((s) => s.uf)
-              .join(', ') || 'Brasil'}
-          </div>
-        </div>
-      </div>
-
-      {/* MAPA INTERATIVO DARK RADAR DO BRASIL */}
-      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#2b2512] flex items-center justify-center">
-              <Navigation className="w-3.5 h-3.5 text-[#f5b800]" />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-white">
-                Radar Geográfico de Ativos Reais
-              </h3>
-              <p className="text-[11px] text-zinc-400">
-                Toque em qualquer pin dourado para inspecionar o imóvel
-              </p>
-            </div>
-          </div>
-          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1c1f] text-zinc-400 border border-white/[0.06]">
-            Satélite / Vetor
-          </span>
-        </div>
-
-        {/* Canvas SVG Interativo do Brasil + Pins de Coordenadas Reais */}
-        <div className="relative w-full aspect-[1.08/1] rounded-2xl bg-black border border-white/[0.05] overflow-hidden flex items-center justify-center">
-          <svg
-            viewBox="0 0 400 390"
-            className="w-full h-full select-none"
-            aria-label="Mapa Imobiliário do Brasil"
-          >
-            <defs>
-              <radialGradient id="xpGoldGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#f5b800" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#f5b800" stopOpacity="0" />
-              </radialGradient>
-              <radialGradient id="emeraldGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* Grade Cartográfica Dark Sutil */}
-            {[60, 120, 180, 240, 300, 360].map((pos) => (
-              <g key={pos}>
-                <line
-                  x1={pos}
-                  y1={0}
-                  x2={pos}
-                  y2={390}
-                  stroke="rgba(255,255,255,0.03)"
-                  strokeDasharray="3 3"
-                />
-                <line
-                  x1={0}
-                  y1={pos}
-                  x2={400}
-                  y2={pos}
-                  stroke="rgba(255,255,255,0.03)"
-                  strokeDasharray="3 3"
-                />
-              </g>
-            ))}
-
-            {/* Silhueta Geográfica Estilizada do Território Brasileiro + Regiões */}
-            <path
-              d="M 135 32 L 195 24 L 245 45 L 305 70 L 362 110 L 358 158 L 325 208 L 308 252 L 265 292 L 235 352 L 198 368 L 185 325 L 182 268 L 135 232 L 105 182 L 45 148 L 42 102 L 88 65 Z"
-              fill="#141416"
-              stroke="rgba(245, 184, 0, 0.22)"
-              strokeWidth="1.5"
-            />
-
-            {/* Linhas divisórias sutis de Macro-Regiões */}
-            <path
-              d="M 105 182 L 235 175 L 325 208 M 235 175 L 245 45 M 182 268 L 308 252"
-              fill="none"
-              stroke="rgba(255,255,255,0.05)"
-              strokeWidth="1"
-              strokeDasharray="4 4"
-            />
-
-            {/* Siglas de Estados de Referência */}
-            {[
-              { uf: 'AM', lat: -3.5, lng: -62.0 },
-              { uf: 'PA', lat: -4.5, lng: -52.0 },
-              { uf: 'CE', lat: -5.0, lng: -39.5 },
-              { uf: 'PE', lat: -8.3, lng: -36.0 },
-              { uf: 'BA', lat: -12.8, lng: -41.5 },
-              { uf: 'MT', lat: -13.0, lng: -56.0 },
-              { uf: 'GO', lat: -16.5, lng: -49.5 },
-              { uf: 'MG', lat: -18.8, lng: -44.5 },
-              { uf: 'RJ', lat: -22.7, lng: -42.5 },
-              { uf: 'SP', lat: -23.3, lng: -48.0 },
-              { uf: 'PR', lat: -25.3, lng: -51.5 },
-              { uf: 'SC', lat: -27.2, lng: -50.2 },
-              { uf: 'RS', lat: -30.2, lng: -53.2 },
-            ].map((st) => {
-              const pt = projectLatLngToSvg(st.lat, st.lng);
-              return (
-                <text
-                  key={st.uf}
-                  x={pt.x}
-                  y={pt.y}
-                  fill="rgba(255,255,255,0.22)"
-                  fontSize="9"
-                  fontWeight="600"
-                  textAnchor="middle"
-                >
-                  {st.uf}
-                </text>
-              );
+        <div className="relative mt-2 bg-[radial-gradient(ellipse_at_55%_55%,rgba(70,78,94,0.16),transparent_70%)]">
+          <svg viewBox="0 0 400 410" className="block w-full" role="group" aria-label="Imóveis do catálogo agrupados por estado">
+            <defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#242932" /><stop offset="100%" stopColor="#171A20" /></linearGradient></defs>
+            {[90, 170, 250, 330].map((coordinate) => <g key={coordinate} aria-hidden="true"><line x1={coordinate} x2={coordinate} y1="25" y2="375" stroke="white" strokeOpacity="0.025" /><line x1="30" x2="370" y1={coordinate} y2={coordinate} stroke="white" strokeOpacity="0.025" /></g>)}
+            <path d={BRAZIL_OUTLINE} fill={`url(#${gradientId})`} fillRule="evenodd" stroke="#505663" strokeOpacity="0.55" strokeWidth="0.8" />
+            <text x="44" y="326" fill="#444954" fontSize="9" letterSpacing="2">BRASIL</text>
+            <text x="305" y="210" fill="#333943" fontSize="8" letterSpacing="1.5" transform="rotate(-60 305 210)">ATLÂNTICO</text>
+            {states.map((state) => {
+              const anchor = projectLatLngToSvg(state.centroid.lat, state.centroid.lng);
+              const offset = STATE_LABEL_OFFSETS[state.uf] ?? [0, 0];
+              const x = anchor.x + offset[0];
+              const y = anchor.y + offset[1];
+              const selected = focusedState === state.uf;
+              const owned = state.properties.some((property) => portfolioTickers.has(property.ticker));
+              return <g key={state.uf} role="button" tabIndex={0} aria-label={`${state.centroid.name}: ${state.properties.length} imóveis. Selecionar estado.`} aria-pressed={selected} onClick={() => selectState(selected ? null : state.uf)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectState(selected ? null : state.uf); } }} className="cursor-pointer outline-none focus-visible:[&>circle:last-of-type]:stroke-white">
+                <circle cx={x} cy={y} r="27" fill="transparent" />
+                <path d={`M${anchor.x},${anchor.y} L${x},${y}`} stroke={selected ? '#F5B800' : '#69717E'} strokeWidth="0.8" strokeOpacity="0.6" pointerEvents="none" />
+                <circle cx={anchor.x} cy={anchor.y} r="2" fill="#69717E" pointerEvents="none" />
+                {selected && <circle cx={x} cy={y} r="21" fill="#F5B800" fillOpacity="0.08" stroke="#F5B800" strokeOpacity="0.25" pointerEvents="none" />}
+                <circle cx={x} cy={y} r="14" fill={selected ? '#F5B800' : '#242932'} stroke={selected ? '#F5B800' : owned ? '#6A9B87' : '#606875'} strokeWidth="1.2" pointerEvents="none" />
+                <text x={x} y={y + 3.5} fill={selected ? '#121215' : '#E4E4E7'} fontSize="10" fontWeight="600" textAnchor="middle" pointerEvents="none">{state.properties.length}</text>
+                <text x={x} y={y + 27} fill={selected ? '#F5B800' : '#9299A4'} fontSize="9" fontWeight="500" textAnchor="middle" pointerEvents="none">{state.uf}</text>
+              </g>;
             })}
-
-            {/* Pins dos Imóveis Filtrados */}
-            {filteredProperties.map((prop, idx) => {
-              const basePt = projectLatLngToSvg(prop.lat, prop.lng);
-              // Pequeno offset espiral determinístico para não sobrepor pins na mesma cidade (ex: SP)
-              const angle = idx * 2.1;
-              const offsetRadius = prop.state === 'SP' ? (idx % 4) * 4.2 : 0;
-              const x = basePt.x + Math.cos(angle) * offsetRadius;
-              const y = basePt.y + Math.sin(angle) * offsetRadius;
-
-              const isSelected = activeProperty?.id === prop.id;
-              const isOwned = portfolioTickers.has(prop.ticker);
-
-              return (
-                <g
-                  key={prop.id}
-                  onClick={() => {
-                    triggerHaptic('selection');
-                    setSelectedPropertyId(prop.id);
-                  }}
-                  className="cursor-pointer"
-                >
-                  {isSelected && (
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={20}
-                      fill="url(#xpGoldGlow)"
-                    />
-                  )}
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={isSelected ? 7.5 : 5}
-                    fill={isSelected ? '#f5b800' : isOwned ? '#22c55e' : '#f5b800'}
-                    fillOpacity={isSelected ? 1 : 0.85}
-                    stroke="#0b0b0d"
-                    strokeWidth="2"
-                  />
-                  {isSelected && (
-                    <text
-                      x={x}
-                      y={y - 11}
-                      fill="#f5b800"
-                      fontSize="10"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {prop.ticker}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Pin extra caso o usuário tenha consultado um CEP ao vivo na BrasilAPI */}
-            {cepResult && (
-              <g>
-                {(() => {
-                  const pt = projectLatLngToSvg(cepResult.lat, cepResult.lng);
-                  return (
-                    <>
-                      <circle cx={pt.x} cy={pt.y} r={18} fill="url(#emeraldGlow)" />
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={6.5}
-                        fill="#22c55e"
-                        stroke="#ffffff"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={pt.x}
-                        y={pt.y - 10}
-                        fill="#22c55e"
-                        fontSize="9.5"
-                        fontWeight="bold"
-                        textAnchor="middle"
-                      >
-                        CEP {cepResult.cep}
-                      </text>
-                    </>
-                  );
-                })()}
-              </g>
-            )}
+            {cepResult && (() => { const point = projectLatLngToSvg(cepResult.lat, cepResult.lng); return <g aria-label={`CEP localizado: ${cepResult.cep}`} pointerEvents="none"><circle cx={point.x} cy={point.y} r="10" fill="#93C5FD" fillOpacity="0.12" /><circle cx={point.x} cy={point.y} r="4" fill="#93C5FD" stroke="#121215" strokeWidth="2" /></g>; })()}
           </svg>
-
-          {/* Legenda Flutuante no Canto Inferior */}
-          <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[10px] text-zinc-400 bg-[#1c1c1f]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/[0.06]">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-                Na sua Carteira
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#f5b800] inline-block" />
-                Catálogo B3 / Selecionado
-              </span>
-            </div>
-            <span className="text-zinc-300 font-semibold tabular-nums">
-              {filteredProperties.length} ativos
-            </span>
-          </div>
+          {filteredProperties.length === 0 && <div className="absolute inset-x-5 top-1/3 rounded-2xl border border-white/10 bg-[#121215]/95 p-5 text-center"><MapPin className="mx-auto h-5 w-5 text-zinc-500" /><p className="mt-2 text-sm text-zinc-300">Nenhum imóvel neste filtro</p><p className="mt-1 text-xs text-zinc-500">Tente outro setor ou explore o catálogo.</p></div>}
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 text-[10px] text-zinc-500"><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#6A9B87]" />Fundos da sua carteira</span><span>Números = imóveis por estado</span></div>
+        <div className="grid grid-cols-3 border-t border-white/[0.06] bg-black/10 px-5 py-4">
+          {[[filteredProperties.length, 'Imóveis'], [tickersCount, 'Fundos'], [states.length, 'Estados']].map(([value, label]) => <div key={label} className="border-r border-white/[0.06] pl-4 first:pl-0 last:border-0"><p className="text-xl font-semibold tracking-tight text-white tabular-nums">{value}</p><p className="mt-0.5 text-[10px] text-zinc-500">{label}</p></div>)}
+        </div>
+      </section>
 
-        {/* Card de Inspeção do Imóvel Selecionado no Mapa */}
-        {activeProperty ? (
-          <div className="p-4 rounded-2xl bg-[#1c1c1f] border border-[#f5b800]/30 space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md bg-[#2b2512] text-[#f5b800] text-xs font-bold">
-                    {activeProperty.ticker}
-                  </span>
-                  <span className="text-xs font-semibold text-zinc-300">
-                    {activeProperty.type}
-                  </span>
-                  {portfolioTickers.has(activeProperty.ticker) && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Sócio na Carteira
-                    </span>
-                  )}
-                </div>
-                <h4 className="text-sm font-bold text-white mt-1.5">
-                  {activeProperty.propertyName}
-                </h4>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {activeProperty.address} — {activeProperty.city}/{activeProperty.state} (CEP{' '}
-                  {activeProperty.cep})
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.06]">
-                <span className="text-zinc-400 block text-[11px]">Inquilino / Operação</span>
-                <span className="text-white font-semibold truncate block mt-0.5">
-                  {activeProperty.mainTenant}
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.06]">
-                <span className="text-zinc-400 block text-[11px]">Área Locável & Ocupação</span>
-                <span className="text-emerald-400 font-semibold tabular-nums block mt-0.5">
-                  {formatNumber(activeProperty.ablM2)} m² ({activeProperty.occupancyPercent}%)
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              {activeProperty.highlight}
-            </p>
-
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleLookupCep(activeProperty.cep)}
-                className="py-2 px-2.5 rounded-full bg-[#121215] text-zinc-200 text-[11px] font-semibold border border-white/[0.08] hover:border-[#f5b800]/50 active:scale-95 transition-all truncate"
-              >
-                Validar CEP
-              </button>
-
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  `${activeProperty.propertyName} ${activeProperty.city} ${activeProperty.state}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-2 px-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
-              >
-                <span>Satélite 3D</span>
-                <ExternalLink className="w-3 h-3 shrink-0" />
-              </a>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  onOpenBuyModal?.(activeProperty.ticker);
-                }}
-                className="py-2 px-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-[11px] font-bold active:scale-95 transition-all"
-              >
-                Aportar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="p-5 rounded-2xl bg-[#1c1c1f] text-center space-y-2">
-            <p className="text-xs font-semibold text-zinc-300">
-              Nenhum imóvel de tijolo encontrado neste filtro na sua carteira atual.
-            </p>
-            <button
-              type="button"
-              onClick={() => setScope('ALL_B3')}
-              className="px-4 py-2 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold active:scale-95 transition-all"
-            >
-              Explorar Todos os Imóveis da B3
-            </button>
-          </div>
-        )}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtrar imóveis por estado">
+        <button type="button" onClick={() => selectState(null)} aria-pressed={!focusedState} className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs ${!focusedState ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.06] text-zinc-500'}`}>Brasil</button>
+        {states.map((state) => <button key={state.uf} type="button" onClick={() => selectState(state.uf)} aria-pressed={focusedState === state.uf} className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs tabular-nums ${focusedState === state.uf ? 'border-[#f5b800]/25 bg-[#f5b800]/[0.08] text-[#f5b800]' : 'border-white/[0.06] text-zinc-400'}`}>{state.uf} · {state.properties.length}</button>)}
       </div>
 
-      {/* CONEXÃO BRASILAPI CEP V2 AO VIVO */}
-      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Search className="w-3.5 h-3.5 text-[#f5b800]" />
-              Consulta Geolocalizada de Imóvel por CEP (BrasilAPI v2)
-            </h3>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              Digite o CEP de qualquer galpão, shopping ou torre corporativa para localizar no mapa
-            </p>
-          </div>
+      {activeProperty && <section ref={detailRef} className="scroll-mt-24 rounded-[24px] border border-white/[0.08] bg-[#121215] p-5" aria-label="Imóvel selecionado">
+        <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-semibold tracking-wide text-[#F5B800]">{activeProperty.ticker}</span><span className="text-[10px] text-zinc-500">{activeProperty.type}</span></div>
+        <h3 className="mt-2 text-lg font-semibold leading-snug tracking-tight text-white">{activeProperty.propertyName}</h3>
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-400"><MapPin className="h-3.5 w-3.5 shrink-0" />{activeProperty.city}, {activeProperty.state}{portfolioTickers.has(activeProperty.ticker) && <span className="ml-auto text-[10px] text-[#8FB7A5]">Na carteira</span>}</p>
+        <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4"><div><dt className="text-[10px] text-zinc-500">Área locável</dt><dd className="mt-1 text-lg font-semibold text-white tabular-nums">{formatNumber(activeProperty.ablM2)} <span className="text-xs font-normal text-zinc-500">m²</span></dd></div><div><dt className="text-[10px] text-zinc-500">Ocupação</dt><dd className="mt-1 text-lg font-semibold text-white tabular-nums">{activeProperty.occupancyPercent}<span className="text-xs font-normal text-zinc-500">%</span></dd></div></dl>
+        <details className="mt-4 border-t border-white/[0.06]"><summary className="cursor-pointer py-3 text-xs font-medium text-zinc-300">Detalhes do imóvel</summary><div className="space-y-3 pb-2 text-xs leading-relaxed text-zinc-400"><p>{activeProperty.highlight}</p><p><span className="text-zinc-500">Operação · </span>{activeProperty.mainTenant}</p><p>{activeProperty.address}<br />CEP {activeProperty.cep}</p><button type="button" disabled={isLoadingCep} onClick={() => handleLookupCep(activeProperty.cep)} className="min-h-11 text-[#F5B800] disabled:opacity-50">{isLoadingCep ? 'Consultando…' : 'Consultar endereço por CEP'}</button></div></details>
+        <div className={`mt-2 grid gap-2 ${onOpenBuyModal ? 'grid-cols-2' : 'grid-cols-1'}`}><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${activeProperty.propertyName} ${activeProperty.city} ${activeProperty.state}`)}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-zinc-300">Abrir no Maps<ArrowUpRight className="h-3.5 w-3.5" /></a>{onOpenBuyModal && <button type="button" onClick={() => { triggerHaptic('light'); onOpenBuyModal(activeProperty.ticker); }} className="min-h-11 rounded-xl bg-[#F5B800] text-xs font-semibold text-black">Aportar em {activeProperty.ticker}</button>}</div>
+      </section>}
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1"><h3 className="text-sm font-semibold text-white">{focusedState ? `Imóveis em ${focusedState}` : 'Explorar imóveis'}</h3><span className="text-[11px] text-zinc-500 tabular-nums">{visibleProperties.length} imóveis</span></div>
+        <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#121215] px-3"><Search className="h-4 w-4 shrink-0 text-zinc-500" /><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Fundo, imóvel ou cidade" aria-label="Buscar no catálogo de imóveis" className="min-w-0 flex-1 bg-transparent py-3 text-base text-white outline-none placeholder:text-zinc-600 sm:text-sm" /></label>
+        <div className="overflow-hidden rounded-[20px] border border-white/[0.06] bg-[#121215] divide-y divide-white/[0.06]">
+          {visibleProperties.map((property) => <button key={property.id} type="button" aria-pressed={activeProperty?.id === property.id} onClick={() => { triggerHaptic('selection'); setSelectedPropertyId(property.id); detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className={`flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left transition-colors ${activeProperty?.id === property.id ? 'bg-white/[0.045]' : 'hover:bg-white/[0.025]'}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${activeProperty?.id === property.id ? 'border-[#F5B800]/20 text-[#F5B800]' : 'border-white/[0.06] text-zinc-500'}`}><Building2 className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-xs font-semibold text-white">{property.ticker}<span className="truncate text-[10px] font-normal text-zinc-500">{property.city} / {property.state}</span></span><span className="mt-1 block truncate text-xs text-zinc-400">{property.propertyName}</span></span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-600" /></button>)}
+          {visibleProperties.length === 0 && <p className="p-5 text-center text-xs text-zinc-500">Nenhum imóvel encontrado.</p>}
         </div>
+      </section>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Ex: 04538-132 (Faria Lima) ou 05676-120"
-            value={cepInput}
-            onChange={(e) => setCepInput(e.target.value)}
-            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none tabular-nums"
-          />
-          <button
-            type="button"
-            disabled={isLoadingCep}
-            onClick={() => handleLookupCep()}
-            className="px-4 py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold active:scale-95 transition-all disabled:opacity-50 shrink-0 flex items-center gap-1.5"
-          >
-            {isLoadingCep ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Buscando</span>
-              </>
-            ) : (
-              <span>Localizar CEP</span>
-            )}
-          </button>
-        </div>
+      <details className="rounded-[20px] border border-white/[0.06] bg-[#121215] px-4"><summary className="cursor-pointer py-4 text-xs font-medium text-zinc-300">Distribuição e área locável</summary><div className="space-y-4 pb-4"><div className="flex flex-wrap justify-between gap-2 text-xs text-zinc-400"><span className="tabular-nums">{formatNumber(totalAbl)} m² no catálogo filtrado</span><span className="tabular-nums">{avgOccupancy.toFixed(1)}% de ocupação média</span></div>{states.map((state) => <div key={state.uf}><div className="mb-1.5 flex justify-between text-[11px]"><span className="text-zinc-300">{state.centroid.name}</span><span className="text-zinc-500 tabular-nums">{state.properties.length} imóveis · {state.percent}%</span></div><div className="h-1 overflow-hidden rounded-full bg-white/[0.04]"><div className="h-full rounded-full bg-zinc-500" style={{ width: `${state.percent}%` }} /></div></div>)}</div></details>
 
-        {cepError && (
-          <p className="text-xs text-rose-400 font-medium">{cepError}</p>
-        )}
-
-        {cepResult && (
-          <div className="p-3.5 rounded-2xl bg-[#1c1c1f] border border-emerald-500/30 space-y-1.5 text-xs animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                CEP {cepResult.cep} Localizado ({cepResult.source})
-              </span>
-              <span className="text-[11px] text-zinc-400 tabular-nums">
-                {cepResult.lat.toFixed(4)}, {cepResult.lng.toFixed(4)}
-              </span>
-            </div>
-            <p className="text-white font-medium">
-              {cepResult.street} — {cepResult.neighborhood}
-            </p>
-            <p className="text-zinc-400">
-              {cepResult.city} / {cepResult.state}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Distribuição Regional por Estado (UF) */}
-      {stats.byState.length > 0 && (
-        <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#f5b800]" />
-              Concentração Geográfica por Estado (UF)
-            </h3>
-            <span className="text-[11px] text-zinc-400">
-              {formatNumber(stats.totalAbl)} m² totais
-            </span>
-          </div>
-
-          <div className="space-y-2.5">
-            {stats.byState.map((st) => (
-              <div key={st.uf} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white font-semibold">
-                    {st.uf} — { st.count } {st.count === 1 ? 'imóvel' : 'imóveis'}
-                  </span>
-                  <span className="text-zinc-400 tabular-nums">
-                    {formatNumber(st.abl)} m² ({st.percent}%)
-                  </span>
-                </div>
-                <div className="w-full h-1.5 rounded-full bg-[#1c1c1f] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#f5b800]"
-                    style={{ width: `${Math.max(4, st.percent)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Lista Completa de Imóveis no Padrão XP Key-Value */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-bold text-white px-1">
-          Catálogo de Imóveis ({filteredProperties.length})
-        </h3>
-
-        {filteredProperties.map((prop) => {
-          const Icon = getPropertyIcon(prop.type);
-          const isSelected = activeProperty?.id === prop.id;
-          const isOwned = portfolioTickers.has(prop.ticker);
-
-          return (
-            <div
-              key={prop.id}
-              onClick={() => {
-                triggerHaptic('light');
-                setSelectedPropertyId(prop.id);
-              }}
-              className={`bg-[#121215] rounded-[20px] p-4 border transition-all cursor-pointer ${
-                isSelected
-                  ? 'border-[#f5b800]/60 shadow-[0_0_0_1px_rgba(245,184,0,0.2)]'
-                  : 'border-white/[0.06] hover:border-white/[0.1]'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white">
-                        {prop.ticker}
-                      </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800] font-semibold">
-                        {prop.city}/{prop.state}
-                      </span>
-                      {isOwned && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold">
-                          Na Carteira
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs font-medium text-zinc-200 truncate mt-0.5">
-                      {prop.propertyName}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 mt-3 pt-3 border-t border-white/[0.05] text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Inquilino / Operador</span>
-                  <span className="text-white font-medium truncate max-w-[60%] text-right">
-                    {prop.mainTenant}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Área Bruta Locável (ABL)</span>
-                  <span className="text-white font-medium tabular-nums">
-                    {formatNumber(prop.ablM2)} m²
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Taxa de Ocupação</span>
-                  <span className="text-emerald-400 font-semibold tabular-nums">
-                    {prop.occupancyPercent}% ocupado
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <details className="rounded-[20px] border border-white/[0.06] bg-[#121215] px-4"><summary className="cursor-pointer py-4 text-xs font-medium text-zinc-300">Localizar endereço por CEP</summary><form className="space-y-3 pb-4" onSubmit={(event) => { event.preventDefault(); void handleLookupCep(); }}><label htmlFor={`${gradientId}-cep`} className="block text-[11px] text-zinc-500">Consulte um endereço e veja sua posição no mapa.</label><div className="flex gap-2"><input id={`${gradientId}-cep`} inputMode="numeric" autoComplete="postal-code" value={cepInput} onChange={(event) => setCepInput(event.target.value)} placeholder="00000-000" className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-[#1c1c1f] px-3 text-base text-white tabular-nums outline-none focus:border-white/25" /><button type="submit" disabled={isLoadingCep} className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 px-3 text-xs text-zinc-200 disabled:opacity-50">{isLoadingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}Buscar</button></div></form></details>
+      {cepError && <p role="alert" className="px-1 text-xs text-rose-300">{cepError}</p>}
+      {cepResult && <div role="status" className="rounded-2xl border border-sky-300/15 bg-[#121215] p-4 text-xs"><p className="font-medium text-sky-200">CEP {cepResult.cep}</p><p className="mt-1 text-zinc-300">{cepResult.street} · {cepResult.city}/{cepResult.state}</p><p className="mt-2 text-[10px] text-zinc-500">Fonte: {cepResult.source} · {cepResult.lat.toFixed(4)}, {cepResult.lng.toFixed(4)}</p></div>}
+      <p className="px-1 text-[10px] leading-relaxed text-zinc-600">Imóveis e indicadores do catálogo de referência. Contorno geográfico: IBGE. A quantidade de imóveis representa a cobertura do catálogo, não a totalidade dos portfólios dos fundos.</p>
     </div>
   );
 }
-
