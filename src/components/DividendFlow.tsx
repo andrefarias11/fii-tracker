@@ -23,6 +23,7 @@ import { DividendStaircaseChart } from './DividendStaircaseChart';
 import { Button, SegmentedControl } from './ui/Controls';
 import { EmptyState } from './ui/Feedback';
 import { formatCurrency } from '../lib/formatFinancial';
+import type { PushAlertEventType } from '../lib/pushNavigation';
 
 interface DividendFlowProps {
   positions: FiiPosition[];
@@ -30,6 +31,10 @@ interface DividendFlowProps {
   bcbIndicators?: BcbIndicators | null;
   monthlyContributionGoal?: number;
   isPrivacyMode?: boolean;
+  focusedTicker?: string | null;
+  focusedDate?: string | null;
+  focusedEventType?: PushAlertEventType | null;
+  onClearFocus?: () => void;
   onOpenB3Modal?: () => void;
   onOpenAsset?: (ticker: string) => void;
 }
@@ -46,19 +51,38 @@ const dateKey = (date: Date) => {
 
 const isSameDay = (a: Date, b: Date) => dateKey(a) === dateKey(b);
 
+function formatFocusedEventLabel(eventType?: PushAlertEventType | null): string {
+  switch (eventType) {
+    case 'DIVIDEND_ANNOUNCED':
+      return 'Novo anúncio confirmado';
+    case 'DIVIDEND_UPDATED':
+      return 'Alteração de provento confirmada';
+    case 'EX_DATE_REMINDER':
+      return 'Lembrete de Data-Com';
+    case 'PAYMENT_REMINDER':
+      return 'Pagamento anunciado para hoje';
+    default:
+      return 'Evento em destaque';
+  }
+}
+
 export function DividendFlow({
   positions,
   transactions = [],
   bcbIndicators = null,
   monthlyContributionGoal = 200,
   isPrivacyMode = false,
+  focusedTicker = null,
+  focusedDate = null,
+  focusedEventType = null,
+  onClearFocus,
   onOpenB3Modal,
   onOpenAsset,
 }: DividendFlowProps) {
   const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
   const [eventView, setEventView] = useState<EventView>('timeline');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
-  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(focusedDate);
 
   const currentDate = typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
   const formatBRL = (val: number) => {
@@ -122,8 +146,14 @@ export function DividendFlow({
   const renderEventRow = (event: DividendEvent) => {
     const dates = eventDates.get(event.id);
     const estimated = event.status === 'ESTIMATED';
+    const isFocused = Boolean(focusedTicker && event.ticker === focusedTicker);
     return (
-      <div key={event.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
+      <div
+        key={event.id}
+        className={`flex items-start justify-between gap-3 px-3.5 py-3 transition-colors ${
+          isFocused ? 'bg-[#f5b800]/[0.08] ring-1 ring-inset ring-[#f5b800]/35' : ''
+        }`}
+      >
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             {onOpenAsset ? <button type="button" className="ui-asset-trigger text-sm" onClick={() => onOpenAsset(event.ticker)} aria-label={`Abrir ficha de ${event.ticker}`}>{event.ticker}</button> : <span className="text-sm font-semibold text-white">{event.ticker}</span>}
@@ -136,6 +166,11 @@ export function DividendFlow({
             }`}>
               {event.status === 'PAID' ? 'Pago' : event.status === 'CONFIRMED' ? 'Confirmado' : 'Estimado'}
             </span>
+            {isFocused && (
+              <span className="rounded-full bg-[#f5b800]/20 px-2 py-0.5 text-[10px] font-semibold text-[#f5b800]">
+                Em destaque
+              </span>
+            )}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
             {dates?.announcementDate && (
@@ -195,6 +230,48 @@ export function DividendFlow({
 
   return (
     <div className="space-y-4">
+      {(focusedTicker || focusedDate || focusedEventType) && (
+        <div
+          role="region"
+          aria-label="Evento aberto pela notificação"
+          className="rounded-2xl border border-[#f5b800]/30 bg-[#18150c] p-3.5 text-xs text-zinc-200"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="font-semibold text-[#f5b800]">
+                {formatFocusedEventLabel(focusedEventType)}
+                {focusedTicker ? ` • ${focusedTicker}` : ''}
+              </p>
+              <p className="text-zinc-300">
+                {focusedDate
+                  ? `Data de referência: ${focusedDate.split('-').reverse().join('/')}. `
+                  : ''}
+                Confira os eventos destacados abaixo ou abra a ficha detalhada do ativo.
+              </p>
+            </div>
+            {onClearFocus && (
+              <button
+                type="button"
+                onClick={onClearFocus}
+                className="shrink-0 text-[11px] font-medium text-zinc-400 underline hover:text-white"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
+          {focusedTicker && onOpenAsset && (
+            <div className="mt-2.5">
+              <Button
+                variant="secondary"
+                onClick={() => onOpenAsset(focusedTicker)}
+              >
+                Ver proventos de {focusedTicker}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <SegmentedControl label="Conteúdo dos proventos" value={subView} onChange={setSubView} options={[
         { value: 'calendar', label: 'Proventos', icon: <Calendar /> }, { value: 'staircase', label: 'Evolução', icon: <BarChart3 /> }, { value: 'chart', label: 'Simulação', icon: <TrendingUp /> },
       ]} />

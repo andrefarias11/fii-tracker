@@ -1,129 +1,233 @@
-import { protectedApi, readLimitedJson } from '../../../lib/serverSecurity';
-import { isAllowedPushEndpoint } from '../../../lib/pushValidation';
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'node:crypto';
+import {
+  authenticateRequest,
+  protectedApi,
+  readLimitedJson,
+  serverDatabase,
+} from '../../../lib/serverSecurity';
+import { isAllowedPushEndpoint } from '../../../lib/pushValidation';
+import {
+  DEFAULT_VAPID_PUBLIC_KEY,
+  getServerVapidConfig,
+  sendWebPushMessage,
+} from '../../../lib/webPushCrypto';
+import {
+  createSupabasePushStorage,
+  type ServerPushPreferences,
+} from '../../../lib/serverPushEngine';
 
-// Chave VAPID P-256 padrão pública (pode ser sobrescrita via .env.local com NEXT_PUBLIC_VAPID_PUBLIC_KEY)
-const DEFAULT_VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-const DEFAULT_VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || 'mailto:alertas@fiitracker.app';
-
-function base64UrlEncode(buf: Buffer): string {
-  return buf
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
+function hashEndpoint(endpoint: string): string {
+  return createHash('sha256').update(endpoint, 'utf8').digest('hex');
 }
 
-function base64UrlDecode(str: string): Buffer {
-  const pad = '='.repeat((4 - (str.length % 4)) % 4);
-  const b64 = (str + pad).replace(/-/g, '+').replace(/_/g, '/');
-  return Buffer.from(b64, 'base64');
+function isValidPushKey(value: unknown, minLen = 16, maxLen = 256): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= minLen &&
+    value.length <= maxLen &&
+    /^[A-Za-z0-9+/=_-]+$/.test(value)
+  );
 }
 
-function createVapidJwt(audience: string, subject: string, publicKeyB64: string, privateKeyB64: string): string {
-  const header = { typ: 'JWT', alg: 'ES256' };
-  const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
-  const payload = { aud: audience, exp, sub: subject };
+export async function GET(request: NextRequest) {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY;
+  const vapidConfigured = Boolean(getServerVapidConfig());
+  const cronSecret = (process.env.CRON_SECRET || '').trim();
+  const cronConfigured = cronSecret.length >= 16;
 
-  const unsignedToken = `${base64UrlEncode(Buffer.from(JSON.stringify(header)))}.${base64UrlEncode(
-    Buffer.from(JSON.stringify(payload))
-  )}`;
+  const user = await authenticateRequest(request);
+  if (!user) {
+    return NextResponse.json(
+      {
+        publicKey,
+        vapidConfigured,
+        cronConfigured,
+        authenticated: false,
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  }
 
-  const pubBytes = base64UrlDecode(publicKeyB64); // 65 bytes (0x04 || x || y)
-  const x = base64UrlEncode(pubBytes.subarray(1, 33));
-  const y = base64UrlEncode(pubBytes.subarray(33, 65));
-  const d = privateKeyB64;
+  try {
+    const storage = createSupabasePushStorage(serverDatabase());
+    const [preferences, subscriptions, statusSummary] = await Promise.all([
+      storage.getUserPreferences(user.id),
+      storage.listUserSubscriptions(user.id, false),
+      storage.getUserStatusSummary(user.id),
+    ]);
 
-  const privateKey = crypto.createPrivateKey({
-    key: {
-      kty: 'EC',
-      crv: 'P-256',
-      x,
-      y,
-      d,
-    },
-    format: 'jwk',
-  });
-
-  const signature = crypto.sign('sha256', Buffer.from(unsignedToken), {
-    key: privateKey,
-    dsaEncoding: 'ieee-p1363',
-  });
-
-  return `${unsignedToken}.${base64UrlEncode(signature)}`;
+    return NextResponse.json(
+      {
+        publicKey,
+        vapidConfigured,
+        cronConfigured,
+        authenticated: true,
+        preferences,
+        subscriptions: subscriptions.map((s) => ({
+          id: s.id,
+          endpointHash: hashEndpoint(s.endpoint),
+          deviceLabel: s.deviceLabel,
+          isActive: s.isActive,
+          deactivatedReason: s.deactivatedReason,
+          lastStatusCode: s.lastStatusCode,
+          lastAcceptedAt: s.lastAcceptedAt,
+          lastError: s.lastError,
+          updatedAt: s.updatedAt,
+        })),
+        statusSummary,
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        publicKey,
+        vapidConfigured,
+        cronConfigured,
+        authenticated: true,
+        preferences: null,
+        subscriptions: [],
+        statusSummary: null,
+        serverWarning: 'Banco de dados de notificações indisponível ou migração pendente.',
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  }
 }
 
-function hkdfExtractAndExpand(salt: Buffer, ikm: Buffer, info: Buffer, length: number): Buffer {
-  return Buffer.from(crypto.hkdfSync('sha256', ikm, salt, info, length));
+export async function PUT(request: NextRequest) {
+  const access = await protectedApi(request, 'push-settings', 60);
+  if (access.response) return access.response;
+
+  try {
+    const body = (await readLimitedJson(request, 16_000)) as {
+      preferences?: Partial<ServerPushPreferences>;
+      migrateOnlyIfAbsent?: boolean;
+      subscription?: {
+        endpoint: string;
+        keys?: { p256dh: string; auth: string };
+        deviceLabel?: string;
+      };
+    };
+
+    const storage = createSupabasePushStorage(serverDatabase());
+
+    let savedSubscription = null;
+    if (body.subscription) {
+      const sub = body.subscription;
+      if (
+        !isAllowedPushEndpoint(sub.endpoint) ||
+        !isValidPushKey(sub.keys?.p256dh, 40, 200) ||
+        !isValidPushKey(sub.keys?.auth, 12, 120)
+      ) {
+        return NextResponse.json(
+          { error: 'Inscrição Web Push inválida.' },
+          { status: 400 }
+        );
+      }
+
+      const userAgent = (request.headers.get('user-agent') || '').slice(0, 250);
+      const deviceLabel =
+        typeof sub.deviceLabel === 'string' ? sub.deviceLabel.slice(0, 80) : null;
+
+      savedSubscription = await storage.upsertUserSubscription(access.user.id, {
+        endpoint: sub.endpoint,
+        p256dh: sub.keys.p256dh,
+        auth: sub.keys.auth,
+        userAgent,
+        deviceLabel,
+      });
+    }
+
+    const preferences = await storage.upsertUserPreferences(
+      access.user.id,
+      body.preferences || {},
+      { onlyIfAbsent: Boolean(body.migrateOnlyIfAbsent) }
+    );
+
+    return NextResponse.json(
+      {
+        ok: true,
+        preferences,
+        subscription: savedSubscription
+          ? {
+              id: savedSubscription.id,
+              endpointHash: hashEndpoint(savedSubscription.endpoint),
+              isActive: savedSubscription.isActive,
+            }
+          : null,
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  } catch {
+    return NextResponse.json(
+      { error: 'Não foi possível salvar configurações de Web Push no servidor.' },
+      { status: 503 }
+    );
+  }
 }
 
-// Criptografia RFC 8291 (aes128gcm) exigida pelo Apple APNs (iOS Web Push) e FCM
-function encryptWebPushPayload(
-  clientPublicKeyB64: string,
-  clientAuthB64: string,
-  payloadText: string
-): Buffer {
-  const clientPublicKeyBytes = base64UrlDecode(clientPublicKeyB64);
-  const authSecret = base64UrlDecode(clientAuthB64);
-  const salt = crypto.randomBytes(16);
+export async function DELETE(request: NextRequest) {
+  const user = await authenticateRequest(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Faça login para continuar.' }, { status: 401 });
+  }
 
-  const serverECDH = crypto.createECDH('prime256v1');
-  const serverPublicKey = serverECDH.generateKeys();
-  const sharedSecret = serverECDH.computeSecret(clientPublicKeyBytes);
+  try {
+    const body = (await readLimitedJson(request, 8_000).catch(() => ({}))) as {
+      endpoint?: string;
+      subscriptionId?: string;
+      disablePreferences?: boolean;
+    };
 
-  // IKM via HKDF (WebPush info = "WebPush: info\0" + ua_public + as_public)
-  const keyInfo = Buffer.concat([
-    Buffer.from('WebPush: info\0', 'ascii'),
-    clientPublicKeyBytes,
-    serverPublicKey,
-  ]);
-  const ikm = hkdfExtractAndExpand(authSecret, sharedSecret, keyInfo, 32);
+    const target = body.subscriptionId || body.endpoint;
+    if (!target || typeof target !== 'string') {
+      return NextResponse.json(
+        { error: 'Informe a inscrição a remover.' },
+        { status: 400 }
+      );
+    }
 
-  // CEK (16 bytes) e Nonce (12 bytes)
-  const cekInfo = Buffer.from('Content-Encoding: aes128gcm\0', 'ascii');
-  const nonceInfo = Buffer.from('Content-Encoding: nonce\0', 'ascii');
-  const cek = hkdfExtractAndExpand(salt, ikm, cekInfo, 16);
-  const nonce = hkdfExtractAndExpand(salt, ikm, nonceInfo, 12);
+    const storage = createSupabasePushStorage(serverDatabase());
+    await storage.deleteUserSubscription(user.id, target);
 
-  // Plaintext + delimiter 0x02
-  const plaintext = Buffer.concat([Buffer.from(payloadText, 'utf8'), Buffer.from([2])]);
+    if (body.disablePreferences) {
+      const remaining = await storage.listUserSubscriptions(user.id, true);
+      if (remaining.length === 0) {
+        await storage.upsertUserPreferences(user.id, { enabled: false });
+      }
+    }
 
-  const cipher = crypto.createCipheriv('aes-128-gcm', cek, nonce);
-  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
-
-  // Cabeçalho aes128gcm: salt (16) + rs (4, uint32BE = 4096) + idlen (1 = 65) + keyid (65 = serverPublicKey)
-  const rsBuf = Buffer.alloc(4);
-  rsBuf.writeUInt32BE(4096, 0);
-  const idLenBuf = Buffer.from([serverPublicKey.length]);
-
-  return Buffer.concat([salt, rsBuf, idLenBuf, serverPublicKey, encrypted]);
-}
-
-export async function GET() {
-  return NextResponse.json({
-    publicKey: DEFAULT_VAPID_PUBLIC_KEY,
-  });
+    return NextResponse.json(
+      { ok: true },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  } catch {
+    return NextResponse.json(
+      { error: 'Não foi possível remover a inscrição Push.' },
+      { status: 503 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
   const access = await protectedApi(request, 'push', 30);
   if (access.response) return access.response;
+
   try {
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-    if (!vapidPrivateKey) {
+    const vapidConfig = getServerVapidConfig();
+    if (!vapidConfig) {
       return NextResponse.json(
         { error: 'VAPID_PRIVATE_KEY não configurada no servidor.' },
         { status: 500 }
       );
     }
 
-    const body = await readLimitedJson(request, 12000) as {
+    const body = (await readLimitedJson(request, 12_000)) as {
       subscription?: { endpoint: string; keys?: { p256dh: string; auth: string } };
-      payload?: { title?: string; body?: string; url?: string }; delaySeconds?: number;
+      payload?: { title?: string; body?: string; tag?: string; url?: string };
+      delaySeconds?: number;
     };
     const { subscription, payload, delaySeconds } = body;
 
@@ -134,68 +238,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (payload && (typeof payload.title !== 'string' || typeof payload.body !== 'string' || payload.title.length > 150 || payload.body.length > 1500 || (payload.url && (!payload.url.startsWith('/') || payload.url.startsWith('//'))))) {
+    if (
+      payload &&
+      (typeof payload.title !== 'string' ||
+        typeof payload.body !== 'string' ||
+        payload.title.length > 150 ||
+        payload.body.length > 1500 ||
+        (payload.url && (!payload.url.startsWith('/') || payload.url.startsWith('//'))))
+    ) {
       return NextResponse.json({ error: 'Notificação inválida.' }, { status: 400 });
     }
+
     if (delaySeconds && Number(delaySeconds) > 0) {
       const waitMs = Math.min(10000, Number(delaySeconds) * 1000);
       await new Promise((r) => setTimeout(r, waitMs));
     }
 
-    const endpointUrl = new URL(subscription.endpoint);
-    const audience = `${endpointUrl.protocol}//${endpointUrl.host}`;
-
-    const jwt = createVapidJwt(
-      audience,
-      DEFAULT_VAPID_SUBJECT,
-      DEFAULT_VAPID_PUBLIC_KEY,
-      vapidPrivateKey
-    );
-
-    const payloadString = JSON.stringify(
-      payload || {
-        title: 'FII Tracker • Alerta da Carteira',
-        body: 'Seus proventos e cotações da B3 foram atualizados!',
-        url: '/',
-      }
-    );
-
-    const p256dh = subscription.keys?.p256dh;
-    const auth = subscription.keys?.auth;
-
-    const headers: Record<string, string> = {
-      TTL: '86400',
-      Urgency: 'high',
-      Authorization: `vapid t=${jwt}, k=${DEFAULT_VAPID_PUBLIC_KEY}`,
+    const finalPayload = {
+      title: payload?.title || 'FII Tracker • Alerta da Carteira',
+      body: payload?.body || 'Seus proventos e cotações da B3 foram atualizados!',
+      tag: payload?.tag || 'fii-test-push',
+      url: payload?.url || '/?tab=proventos',
     };
 
-    let requestBody: BodyInit | undefined;
+    const sendRes = await sendWebPushMessage(subscription, finalPayload, vapidConfig);
 
-    if (p256dh && auth) {
-      const encryptedBuffer = encryptWebPushPayload(p256dh, auth, payloadString);
-      headers['Content-Encoding'] = 'aes128gcm';
-      headers['Content-Type'] = 'application/octet-stream';
-      headers['Content-Length'] = String(encryptedBuffer.length);
-      requestBody = new Uint8Array(encryptedBuffer);
-    } else {
-      headers['Content-Length'] = '0';
+    // Atualiza estado da inscrição no banco caso esteja disponível
+    try {
+      const storage = createSupabasePushStorage(serverDatabase());
+      if (sendRes.outcome === 'expired') {
+        await storage.deactivateUserSubscription(
+          access.user.id,
+          subscription.endpoint,
+          sendRes.errorMessage || `HTTP ${sendRes.statusCode ?? 410}`,
+          sendRes.statusCode ?? 410
+        );
+      }
+    } catch {
+      // Banco opcional para o disparo direto de teste
     }
 
-    const pushRes = await fetch(subscription.endpoint, {
-      method: 'POST',
-      redirect: 'error',
-      signal: AbortSignal.timeout(8000),
-      headers,
-      body: requestBody,
-    });
-
-    if (!pushRes.ok && pushRes.status !== 201) {
-      const errText = await pushRes.text().catch(() => '');
+    if (!sendRes.ok) {
       return NextResponse.json(
         {
           ok: false,
-          status: pushRes.status,
-          details: errText || 'Servidor APNs/FCM recusou o envio.',
+          status: sendRes.statusCode ?? 502,
+          outcome: sendRes.outcome,
+          details: sendRes.errorMessage || 'Servidor APNs/FCM recusou o envio.',
         },
         { status: 502 }
       );
@@ -203,14 +292,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      status: pushRes.status,
+      status: sendRes.statusCode ?? 201,
+      deliveryState: 'accepted_by_push_service',
     });
-  } catch (err) {
-    console.error('Erro no envio de Web Push:', err);
+  } catch {
     return NextResponse.json(
       { error: 'Falha ao disparar Web Push.' },
       { status: 500 }
     );
   }
 }
-

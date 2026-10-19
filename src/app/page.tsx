@@ -38,6 +38,10 @@ import {
 import { calculateMonthlyWrapped } from '../lib/monthlyWrapped';
 import { triggerHaptic } from '../lib/haptic';
 import {
+  parsePushNavigationUrl,
+  type PushAlertEventType,
+} from '../lib/pushNavigation';
+import {
   Wallet,
   Target,
   Compass,
@@ -144,6 +148,23 @@ export default function HomePage() {
   const [addTxTicker, setAddTxTicker] = useState<string>('');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
+  const [selectedAssetSection, setSelectedAssetSection] = useState<
+    'summary' | 'dividends' | 'indicators'
+  >('summary');
+  const [focusedProventoFilter, setFocusedProventoFilter] = useState<{
+    ticker: string | null;
+    date: string | null;
+    eventType: PushAlertEventType | null;
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const parsed = parsePushNavigationUrl(window.location.href, window.location.origin);
+    if (!parsed || (!parsed.ticker && !parsed.date && !parsed.eventType)) return null;
+    return {
+      ticker: parsed.ticker,
+      date: parsed.date,
+      eventType: parsed.eventType,
+    };
+  });
   const [feedback, setFeedback] = useState<PageFeedback | null>(null);
   const dismissFeedback = useCallback(() => setFeedback(null), []);
 
@@ -204,7 +225,7 @@ export default function HomePage() {
     });
   };
 
-  const navigateFromTabParam = (rawTab: string | null) => {
+  const navigateFromTabParam = useCallback((rawTab: string | null) => {
     if (!rawTab) return;
     if (rawTab === 'portfolio') {
       setActiveTab('portfolio');
@@ -224,7 +245,7 @@ export default function HomePage() {
       setActiveTab('goals');
       setGoalsSubView('achievements');
     }
-  };
+  }, []);
 
   // Garante que a página inicie no topo ao carregar
   useEffect(() => {
@@ -233,14 +254,29 @@ export default function HomePage() {
     }
   }, [isInitialized]);
 
-  // Escuta clique em notificações Web Push
+  // Escuta clique em notificações Web Push (navega para Proventos e foca no ativo/evento correspondente)
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'NAVIGATE_FROM_PUSH' && typeof event.data.url === 'string') {
         try {
-          const url = new URL(event.data.url, window.location.origin);
-          navigateFromTabParam(url.searchParams.get('tab'));
+          const parsed = parsePushNavigationUrl(event.data.url, window.location.origin);
+          if (parsed) {
+            navigateFromTabParam(parsed.tab);
+            if (parsed.ticker || parsed.date || parsed.eventType) {
+              setFocusedProventoFilter({
+                ticker: parsed.ticker,
+                date: parsed.date,
+                eventType: parsed.eventType,
+              });
+            }
+            if (event.data.url.startsWith('/') && !event.data.url.startsWith('//')) {
+              window.history.replaceState(null, '', event.data.url);
+            }
+          } else {
+            const url = new URL(event.data.url, window.location.origin);
+            navigateFromTabParam(url.searchParams.get('tab'));
+          }
         } catch {
           // ignore
         }
@@ -248,7 +284,7 @@ export default function HomePage() {
     };
     navigator.serviceWorker.addEventListener('message', handler);
     return () => navigator.serviceWorker.removeEventListener('message', handler);
-  }, []);
+  }, [navigateFromTabParam]);
 
   if (!isInitialized) {
     return <PortfolioSkeleton />;
@@ -284,7 +320,11 @@ export default function HomePage() {
     setIsAddTxModalOpen(true);
   };
 
-  const handleOpenAsset = (ticker: string) => {
+  const handleOpenAsset = (
+    ticker: string,
+    section: 'summary' | 'dividends' | 'indicators' = 'summary'
+  ) => {
+    setSelectedAssetSection(section);
     setSelectedAssetTicker(ticker);
   };
   const handleOpenRelated = (ticker: string, view: 'map' | 'ai') => {
@@ -434,12 +474,21 @@ export default function HomePage() {
           <div className="animate-in fade-in duration-200">
             <DividendFlow
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
-              onOpenAsset={handleOpenAsset}
+              onOpenAsset={(ticker) => handleOpenAsset(ticker, 'dividends')}
               positions={positions}
               transactions={transactions}
               bcbIndicators={bcbIndicators}
               monthlyContributionGoal={goals.monthlyTarget}
               isPrivacyMode={isPrivacyMode}
+              focusedTicker={focusedProventoFilter?.ticker ?? null}
+              focusedDate={focusedProventoFilter?.date ?? null}
+              focusedEventType={focusedProventoFilter?.eventType ?? null}
+              onClearFocus={() => {
+                setFocusedProventoFilter(null);
+                if (typeof window !== 'undefined') {
+                  window.history.replaceState(null, '', '/?tab=proventos');
+                }
+              }}
             />
           </div>
         )}
@@ -624,8 +673,9 @@ export default function HomePage() {
 
       <FeedbackToast notice={feedbackNotice} onClose={dismissFeedback} />
       {selectedAssetTicker && <AssetDetailsSheet
-        key={`${activeAccount?.id ?? 'local'}-${selectedAssetTicker}`}
+        key={`${activeAccount?.id ?? 'local'}-${selectedAssetTicker}-${selectedAssetSection}`}
         ticker={selectedAssetTicker}
+        initialSection={selectedAssetSection}
         positions={positions}
         quotes={quotes}
         transactions={transactions}
@@ -694,6 +744,7 @@ export default function HomePage() {
         quotes={quotes}
         isCloudConnected={isCloudConnected}
         isSyncingCloud={isSyncing}
+        pendingChanges={pendingChanges}
         onClose={() => setIsSettingsModalOpen(false)}
         onUpdateGoals={updateGoals}
         onExportBackup={exportBackup}

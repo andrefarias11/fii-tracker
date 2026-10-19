@@ -17,7 +17,7 @@ import {
   calculateUnifiedPortfolioSummary,
 } from '../domain/portfolioEngine';
 import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
-import { runAutoDailyPushCheck } from '../lib/pushNotifications';
+import { fetchServerPushState } from '../lib/pushNotifications';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
@@ -714,12 +714,12 @@ export function usePortfolio(explicitUserId?: string | null) {
     return restored;
   };
 
-  // Verifica alertas automáticos de Web Push e sincroniza carteira com o Widget do iPhone
+  // Sincroniza/migra preferências de notificações Web Push com o servidor sem disparo duplicado no cliente
   useEffect(() => {
-    if (isInitialized && lastSyncTime) {
-      runAutoDailyPushCheck(positions, quotes);
+    if (isInitialized && isCloudConnected && activeUserId) {
+      void fetchServerPushState(activeUserId);
     }
-  }, [isInitialized, positions, goals, quotes, lastSyncTime]);
+  }, [isInitialized, isCloudConnected, activeUserId]);
 
   return {
     isInitialized,

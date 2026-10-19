@@ -1,18 +1,78 @@
 import { authenticatedFetch } from './authenticatedFetch';
+import { getActiveAccount } from './authManager';
 import { FiiPosition, QuoteData } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
 import { findFiiInfo } from '../data/fiiDatabase';
 import { evaluateAllFiis } from './recommendationEngine';
 import { evaluateMentorsRecommendations } from './mentorEngine';
+import { buildSafePushUrl } from './pushNavigation';
+
+export type NotificationPrivacyMode = 'discreet' | 'detailed';
 
 export interface PushPreferences {
   enabled: boolean;
-  notifyPaymentDay: boolean; // Dia em que o dividendo cai na conta
-  notifyExDate: boolean; // Véspera e dia de Data-Com (Carteira + Oportunidades)
-  notifyConfirmedDividend: boolean; // Quando o FII confirma oficialmente o valor e Data-Com na B3
-  notifyPriceOpportunity: boolean; // Quando um FII da carteira fica abaixo do seu Preço Médio
-  notifyMarketBargain: boolean; // Super oportunidade na B3 (P/VP muito descontado mesmo após bater a meta)
-  notifyMentorConsensus: boolean; // Quando um FII entra no Consenso de Barsi / Buffett / Graham
+  notifyPaymentDay: boolean; // Dia em que o provento está anunciado para pagamento
+  notifyExDate: boolean; // Véspera e dia de Data-Com
+  notifyConfirmedDividend: boolean; // Novo anúncio confirmado ou alteração confirmada de provento
+  notifyPriceOpportunity: boolean; // Quando um FII da carteira fica abaixo do Preço Médio
+  notifyMarketBargain: boolean; // Oportunidade na B3
+  notifyMentorConsensus: boolean; // Consenso de mentores
+  dailyTime: string; // Horário diário HH:MM (inicialmente 08:00)
+  timezone: string; // Fuso horário IANA (inicialmente America/Sao_Paulo)
+  privacyMode: NotificationPrivacyMode; // Privacidade na tela bloqueada (padrão: 'discreet')
+}
+
+export interface ServerPushSubscriptionSummary {
+  id: string;
+  endpointHash: string;
+  deviceLabel?: string | null;
+  isActive: boolean;
+  deactivatedReason?: string | null;
+  lastStatusCode?: number | null;
+  lastAcceptedAt?: string | null;
+  lastError?: string | null;
+  updatedAt?: string;
+}
+
+export interface ServerPushStatusSummary {
+  lastDigest: {
+    status: string;
+    localDate: string;
+    sentAt: string | null;
+    lastError: string | null;
+    eventsCount: number;
+  } | null;
+  lastDelivery: {
+    status: string;
+    acceptedAt: string | null;
+    lastStatusCode: number | null;
+    lastError: string | null;
+    attemptCount: number;
+  } | null;
+}
+
+export interface ServerPushPreferencesResponse extends PushPreferences {
+  userId: string;
+  lastProcessedAt?: string | null;
+  lastProcessedLocalDate?: string | null;
+  lastProcessStatus?: string | null;
+  lastProcessMessage?: string | null;
+  lastPushAcceptedAt?: string | null;
+  updatedAt?: string;
+}
+
+export interface ServerPushState {
+  publicKey: string;
+  vapidConfigured: boolean;
+  cronConfigured: boolean;
+  authenticated: boolean;
+  preferences: ServerPushPreferencesResponse | null;
+  subscriptions: ServerPushSubscriptionSummary[];
+  statusSummary: ServerPushStatusSummary | null;
+  serverWarning?: string;
+  localSubscriptionEndpoint: string | null;
+  localEndpointHash: string | null;
+  currentDeviceSubscription: ServerPushSubscriptionSummary | null;
 }
 
 export interface SmartAlertItem {
@@ -31,11 +91,11 @@ export interface SmartAlertItem {
   priority: number; // Maior = mais urgente
 }
 
-const PREFS_STORAGE_KEY = 'fii_tracker_push_prefs_v2';
+const LEGACY_PREFS_STORAGE_KEY = 'fii_tracker_push_prefs_v2';
+const SCOPED_PREFS_PREFIX = 'fii_tracker_push_prefs_v3';
 const SUBSCRIPTION_STORAGE_KEY = 'fii_tracker_push_sub';
-const SENT_ALERTS_STORAGE_KEY = 'fii_tracker_sent_alerts_v2';
 
-const DEFAULT_PREFS: PushPreferences = {
+export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   enabled: false,
   notifyPaymentDay: true,
   notifyExDate: true,
@@ -43,7 +103,68 @@ const DEFAULT_PREFS: PushPreferences = {
   notifyPriceOpportunity: true,
   notifyMarketBargain: true,
   notifyMentorConsensus: true,
+  dailyTime: '08:00',
+  timezone: 'America/Sao_Paulo',
+  privacyMode: 'discreet',
 };
+
+function resolveUserId(explicitUserId?: string | null): string | null {
+  if (explicitUserId !== undefined) return explicitUserId;
+  if (typeof window !== 'undefined') {
+    return getActiveAccount()?.id || null;
+  }
+  return null;
+}
+
+function getScopedPrefsKey(userId?: string | null): string {
+  const uid = resolveUserId(userId);
+  return uid ? `${SCOPED_PREFS_PREFIX}_${uid}` : LEGACY_PREFS_STORAGE_KEY;
+}
+
+function normalizePreferences(raw: Partial<PushPreferences> | null | undefined): PushPreferences {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PUSH_PREFERENCES };
+  const dailyTime =
+    typeof raw.dailyTime === 'string' && /^([01]\d|2[0-3]):([0-5]\d)$/.test(raw.dailyTime.trim())
+      ? raw.dailyTime.trim()
+      : DEFAULT_PUSH_PREFERENCES.dailyTime;
+  const timezone =
+    typeof raw.timezone === 'string' && raw.timezone.trim().length > 0
+      ? raw.timezone.trim()
+      : DEFAULT_PUSH_PREFERENCES.timezone;
+  const privacyMode: NotificationPrivacyMode =
+    raw.privacyMode === 'detailed' ? 'detailed' : 'discreet';
+
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_PUSH_PREFERENCES.enabled,
+    notifyPaymentDay:
+      typeof raw.notifyPaymentDay === 'boolean'
+        ? raw.notifyPaymentDay
+        : DEFAULT_PUSH_PREFERENCES.notifyPaymentDay,
+    notifyExDate:
+      typeof raw.notifyExDate === 'boolean'
+        ? raw.notifyExDate
+        : DEFAULT_PUSH_PREFERENCES.notifyExDate,
+    notifyConfirmedDividend:
+      typeof raw.notifyConfirmedDividend === 'boolean'
+        ? raw.notifyConfirmedDividend
+        : DEFAULT_PUSH_PREFERENCES.notifyConfirmedDividend,
+    notifyPriceOpportunity:
+      typeof raw.notifyPriceOpportunity === 'boolean'
+        ? raw.notifyPriceOpportunity
+        : DEFAULT_PUSH_PREFERENCES.notifyPriceOpportunity,
+    notifyMarketBargain:
+      typeof raw.notifyMarketBargain === 'boolean'
+        ? raw.notifyMarketBargain
+        : DEFAULT_PUSH_PREFERENCES.notifyMarketBargain,
+    notifyMentorConsensus:
+      typeof raw.notifyMentorConsensus === 'boolean'
+        ? raw.notifyMentorConsensus
+        : DEFAULT_PUSH_PREFERENCES.notifyMentorConsensus,
+    dailyTime,
+    timezone,
+    privacyMode,
+  };
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -56,21 +177,74 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export function getPushPreferences(): PushPreferences {
-  if (typeof window === 'undefined') return DEFAULT_PREFS;
+export async function computeClientEndpointHash(endpoint: string): Promise<string | null> {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) return null;
   try {
-    const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    const encoded = new TextEncoder().encode(endpoint);
+    const digest = await window.crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
   } catch {
-    return DEFAULT_PREFS;
+    return null;
   }
 }
 
-export function savePushPreferences(prefs: PushPreferences): void {
-  if (typeof window === 'undefined') return;
+export function detectDeviceLabel(): string {
+  if (typeof window === 'undefined') return 'Dispositivo Web';
+  const ua = window.navigator.userAgent || '';
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    Boolean((window.navigator as unknown as { standalone?: boolean }).standalone);
+  const suffix = isStandalone ? ' (PWA)' : ' (Navegador)';
+
+  if (/iphone/i.test(ua)) return `iPhone${suffix}`;
+  if (/ipad/i.test(ua)) return `iPad${suffix}`;
+  if (/android/i.test(ua)) return `Android${suffix}`;
+  if (/macintosh|mac os x/i.test(ua)) return `Mac${suffix}`;
+  if (/windows/i.test(ua)) return `Windows${suffix}`;
+  if (/linux/i.test(ua)) return `Linux${suffix}`;
+  return `Aparelho${suffix}`;
+}
+
+export function getPushPreferences(userId?: string | null): PushPreferences {
+  if (typeof window === 'undefined') return { ...DEFAULT_PUSH_PREFERENCES };
   try {
-    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+    const scopedKey = getScopedPrefsKey(userId);
+    const scopedRaw = localStorage.getItem(scopedKey);
+    if (scopedRaw) {
+      return normalizePreferences(JSON.parse(scopedRaw));
+    }
+    const legacyRaw = localStorage.getItem(LEGACY_PREFS_STORAGE_KEY);
+    if (legacyRaw) {
+      return normalizePreferences(JSON.parse(legacyRaw));
+    }
+    return { ...DEFAULT_PUSH_PREFERENCES };
+  } catch {
+    return { ...DEFAULT_PUSH_PREFERENCES };
+  }
+}
+
+export function hasLocalPushPreferencesToMigrate(userId?: string | null): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const scopedKey = getScopedPrefsKey(userId);
+    return Boolean(
+      localStorage.getItem(scopedKey) || localStorage.getItem(LEGACY_PREFS_STORAGE_KEY)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function savePushPreferences(prefs: PushPreferences, userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  const normalized = normalizePreferences(prefs);
+  try {
+    const scopedKey = getScopedPrefsKey(userId);
+    localStorage.setItem(scopedKey, JSON.stringify(normalized));
+    // Mantém compatibilidade com a chave legada para leitura rápida sem escopo
+    localStorage.setItem(LEGACY_PREFS_STORAGE_KEY, JSON.stringify(normalized));
   } catch {
     // ignore
   }
@@ -108,8 +282,199 @@ export function isWebPushSupported(): {
   };
 }
 
-export async function registerAndSubscribePush(): Promise<{
+export async function getBrowserPushSubscription(): Promise<PushSubscription | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    if (!registration || !registration.pushManager) return null;
+    return await registration.pushManager.getSubscription();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consulta o estado de Web Push no servidor para o usuário autenticado e
+ * migra preferências locais do localStorage de maneira compatível
+ * (usando migrateOnlyIfAbsent: true para NUNCA sobrescrever preferências remotas).
+ */
+export async function fetchServerPushState(userId?: string | null): Promise<ServerPushState> {
+  const localSub = await getBrowserPushSubscription();
+  const localEndpoint = localSub?.endpoint || null;
+  const localEndpointHash = localEndpoint ? await computeClientEndpointHash(localEndpoint) : null;
+
+  const fallbackState: ServerPushState = {
+    publicKey: '',
+    vapidConfigured: false,
+    cronConfigured: false,
+    authenticated: false,
+    preferences: null,
+    subscriptions: [],
+    statusSummary: null,
+    localSubscriptionEndpoint: localEndpoint,
+    localEndpointHash,
+    currentDeviceSubscription: null,
+  };
+
+  if (typeof window === 'undefined') return fallbackState;
+
+  try {
+    const res = await authenticatedFetch('/api/push', { method: 'GET' });
+    if (!res.ok) return fallbackState;
+    const data = await res.json();
+
+    let serverPrefs: ServerPushPreferencesResponse | null = data.preferences || null;
+    const subscriptions: ServerPushSubscriptionSummary[] = Array.isArray(data.subscriptions)
+      ? data.subscriptions
+      : [];
+
+    // Migração compatível: se autenticado e ainda não houver preferências remotas salvas no servidor,
+    // mas o usuário já tinha preferências no localStorage, migra com migrateOnlyIfAbsent=true.
+    if (data.authenticated && !serverPrefs && hasLocalPushPreferencesToMigrate(userId)) {
+      const localPrefs = getPushPreferences(userId);
+      const subJson = localSub?.toJSON();
+      const migratePayload: Record<string, unknown> = {
+        preferences: localPrefs,
+        migrateOnlyIfAbsent: true,
+      };
+      if (
+        localPrefs.enabled &&
+        subJson?.endpoint &&
+        subJson.keys?.p256dh &&
+        subJson.keys?.auth
+      ) {
+        migratePayload.subscription = {
+          endpoint: subJson.endpoint,
+          keys: {
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth,
+          },
+          deviceLabel: detectDeviceLabel(),
+        };
+      }
+
+      const migRes = await authenticatedFetch('/api/push', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(migratePayload),
+      });
+      if (migRes.ok) {
+        const migData = await migRes.json();
+        if (migData.preferences) {
+          serverPrefs = migData.preferences;
+        }
+        if (migData.subscription && !subscriptions.some((s) => s.id === migData.subscription.id)) {
+          subscriptions.push({
+            id: migData.subscription.id,
+            endpointHash: migData.subscription.endpointHash,
+            deviceLabel: detectDeviceLabel(),
+            isActive: migData.subscription.isActive,
+          });
+        }
+      }
+    }
+
+    // Se o servidor já possui preferências configuradas, sincroniza o cache local sem sobrescrever o servidor
+    if (serverPrefs) {
+      savePushPreferences(serverPrefs, userId);
+    }
+
+    const currentDeviceSubscription = localEndpointHash
+      ? subscriptions.find((s) => s.endpointHash === localEndpointHash) || null
+      : null;
+
+    return {
+      publicKey: data.publicKey || '',
+      vapidConfigured: Boolean(data.vapidConfigured),
+      cronConfigured: Boolean(data.cronConfigured),
+      authenticated: Boolean(data.authenticated),
+      preferences: serverPrefs,
+      subscriptions,
+      statusSummary: data.statusSummary || null,
+      serverWarning: data.serverWarning,
+      localSubscriptionEndpoint: localEndpoint,
+      localEndpointHash,
+      currentDeviceSubscription,
+    };
+  } catch {
+    return fallbackState;
+  }
+}
+
+export async function syncPushPreferencesToServer(
+  prefs: PushPreferences,
+  options?: { migrateOnlyIfAbsent?: boolean; userId?: string | null }
+): Promise<{
   ok: boolean;
+  syncedRemotely: boolean;
+  preferences: PushPreferences;
+  message?: string;
+}> {
+  const normalized = normalizePreferences(prefs);
+  savePushPreferences(normalized, options?.userId);
+
+  if (typeof window === 'undefined') {
+    return { ok: true, syncedRemotely: false, preferences: normalized };
+  }
+
+  try {
+    const res = await authenticatedFetch('/api/push', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preferences: normalized,
+        migrateOnlyIfAbsent: Boolean(options?.migrateOnlyIfAbsent),
+      }),
+    });
+
+    if (res.status === 401) {
+      return {
+        ok: true,
+        syncedRemotely: false,
+        preferences: normalized,
+        message:
+          'Preferências salvas neste aparelho. Conecte sua conta na nuvem para ativar o envio automático pelo servidor.',
+      };
+    }
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      return {
+        ok: false,
+        syncedRemotely: false,
+        preferences: normalized,
+        message:
+          errData.error || 'Preferências salvas localmente, mas houve falha ao atualizar o servidor.',
+      };
+    }
+
+    const data = await res.json();
+    const remotePrefs = data.preferences
+      ? normalizePreferences(data.preferences)
+      : normalized;
+    savePushPreferences(remotePrefs, options?.userId);
+
+    return {
+      ok: true,
+      syncedRemotely: true,
+      preferences: remotePrefs,
+    };
+  } catch {
+    return {
+      ok: false,
+      syncedRemotely: false,
+      preferences: normalized,
+      message: 'Sem conexão com o servidor no momento. Preferências salvas localmente.',
+    };
+  }
+}
+
+export async function registerAndSubscribePush(
+  customPrefs?: Partial<PushPreferences>,
+  userId?: string | null
+): Promise<{
+  ok: boolean;
+  syncedRemotely?: boolean;
   message: string;
 }> {
   const status = isWebPushSupported();
@@ -141,8 +506,9 @@ export async function registerAndSubscribePush(): Promise<{
     });
     await navigator.serviceWorker.ready;
 
-    const keyRes = await fetch('/api/push');
-    const { publicKey } = await keyRes.json();
+    const keyRes = await authenticatedFetch('/api/push', { method: 'GET' });
+    const keyData = await keyRes.json();
+    const publicKey = keyData.publicKey;
 
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription && publicKey) {
@@ -153,22 +519,151 @@ export async function registerAndSubscribePush(): Promise<{
       });
     }
 
-    if (subscription) {
-      localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscription.toJSON()));
+    if (!subscription) {
+      return {
+        ok: false,
+        message: 'Não foi possível obter a inscrição Push do navegador.',
+      };
     }
 
-    const prefs = getPushPreferences();
-    savePushPreferences({ ...prefs, enabled: true });
+    const subJson = subscription.toJSON();
+    try {
+      localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subJson));
+    } catch {
+      // ignore
+    }
+
+    const currentPrefs = getPushPreferences(userId);
+    const updatedPrefs = normalizePreferences({
+      ...currentPrefs,
+      ...customPrefs,
+      enabled: true,
+    });
+    savePushPreferences(updatedPrefs, userId);
+
+    if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+      return {
+        ok: false,
+        message: 'Chaves de criptografia Web Push ausentes neste navegador.',
+      };
+    }
+
+    const saveRes = await authenticatedFetch('/api/push', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preferences: updatedPrefs,
+        subscription: {
+          endpoint: subJson.endpoint,
+          keys: {
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth,
+          },
+          deviceLabel: detectDeviceLabel(),
+        },
+      }),
+    });
+
+    if (saveRes.status === 401) {
+      return {
+        ok: true,
+        syncedRemotely: false,
+        message:
+          'Permissão concedida neste aparelho! Faça login na Nuvem para receber alertas em segundo plano com o app fechado.',
+      };
+    }
+
+    if (!saveRes.ok) {
+      const errBody = await saveRes.json().catch(() => ({}));
+      return {
+        ok: false,
+        syncedRemotely: false,
+        message:
+          errBody.error ||
+          'Inscrição criada no navegador, mas não foi possível registrá-la no servidor.',
+      };
+    }
+
+    const saveData = await saveRes.json();
+    if (saveData.preferences) {
+      savePushPreferences(saveData.preferences, userId);
+    }
 
     return {
       ok: true,
-      message: 'Notificações Web Push ativadas com sucesso neste aparelho!',
+      syncedRemotely: true,
+      message: 'Inscrição Web Push registrada no servidor para este aparelho!',
     };
   } catch (err) {
     console.error('Erro ao ativar Web Push:', err);
     return {
       ok: false,
       message: 'Não foi possível registrar o Push. Verifique se o app está na Tela de Início.',
+    };
+  }
+}
+
+export async function unsubscribeDevicePush(options?: {
+  subscriptionId?: string;
+  disablePreferencesIfLast?: boolean;
+  userId?: string | null;
+}): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  if (typeof window === 'undefined') {
+    return { ok: false, message: 'Ambiente inválido.' };
+  }
+
+  try {
+    let targetEndpoint: string | undefined;
+    if (!options?.subscriptionId) {
+      const sub = await getBrowserPushSubscription();
+      if (sub) {
+        targetEndpoint = sub.endpoint;
+        await sub.unsubscribe().catch(() => {});
+      }
+      try {
+        localStorage.removeItem(SUBSCRIPTION_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+
+    const target = options?.subscriptionId || targetEndpoint;
+    if (target) {
+      const res = await authenticatedFetch('/api/push', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscriptionId: options?.subscriptionId,
+          endpoint: targetEndpoint,
+          disablePreferences: Boolean(options?.disablePreferencesIfLast),
+        }),
+      });
+
+      if (!res.ok && res.status !== 401) {
+        const errData = await res.json().catch(() => ({}));
+        return {
+          ok: false,
+          message: errData.error || 'Não foi possível remover a inscrição no servidor.',
+        };
+      }
+    }
+
+    if (options?.disablePreferencesIfLast) {
+      const prefs = getPushPreferences(options?.userId);
+      savePushPreferences({ ...prefs, enabled: false }, options?.userId);
+    }
+
+    return {
+      ok: true,
+      message: 'Inscrição deste aparelho removida com sucesso.',
+    };
+  } catch {
+    return {
+      ok: false,
+      message: 'Falha ao remover inscrição Web Push.',
     };
   }
 }
@@ -202,7 +697,7 @@ export async function sendPushNotificationNow(
       if (res.ok) return true;
     }
 
-    // Fallback via Service Worker local
+    // Fallback via Service Worker local para teste imediato quando sem sessão de nuvem
     if (registration.active) {
       registration.active.postMessage({
         type: 'SHOW_NOTIFICATION',
@@ -220,35 +715,50 @@ export async function sendPushNotificationNow(
 const formatBRL = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-// Escaneia tanto a Carteira do usuário quanto todas as Oportunidades da B3 em tempo real
+// Escaneia a Carteira e o Radar para visualização local e botão de teste
 export function scanSmartAlerts(
   positions: FiiPosition[],
   quotes: Record<string, QuoteData> = {}
 ): SmartAlertItem[] {
   const prefs = getPushPreferences();
+  const isDetailed = prefs.privacyMode === 'detailed';
   const alerts: SmartAlertItem[] = [];
   const now = new Date();
   const todayDay = now.getDate();
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const { events } = calculateMonthDividends(positions, now);
-  const evaluatedMarket = evaluateAllFiis(quotes, positions).filter(f => !f.isDistressedWarning && f.qualityTier !== 'ALERTA_RISCO' && Boolean(quotes[f.ticker]?.price));
+  const evaluatedMarket = evaluateAllFiis(quotes, positions).filter(
+    (f) => !f.isDistressedWarning && f.qualityTier !== 'ALERTA_RISCO' && Boolean(quotes[f.ticker]?.price)
+  );
   const { consensus } = evaluateMentorsRecommendations(quotes, positions, 400);
 
-  // 1. PAGAMENTO HOJE NA CONTA
+  // 1. PAGAMENTO ANUNCIADO PARA HOJE
   if (prefs.notifyPaymentDay && events.length > 0) {
     const payingToday = events.filter((ev) => ev.paymentDay === todayDay && ev.isOfficial);
     if (payingToday.length > 0) {
       const totalToday = payingToday.reduce((acc, e) => acc + e.totalValue, 0);
       const tickers = payingToday.map((e) => e.ticker).join(', ');
+      const firstTicker = payingToday[0].ticker;
       alerts.push({
         id: `pay-${yearMonth}-${todayDay}`,
         category: 'PAYMENT_DAY',
-        title: `💰 Pagamento anunciado para hoje (${formatBRL(totalToday)})`,
-        body: `${tickers} ${
-          payingToday.length === 1 ? 'paga' : 'pagam'
-        } ${formatBRL(totalToday)} anunciados para hoje. Confira o recebimento no extrato.`,
-        url: '/?tab=proventos',
+        ticker: firstTicker,
+        title: isDetailed
+          ? `💰 Pagamento anunciado para hoje (${formatBRL(totalToday)})`
+          : `💰 Pagamento anunciado para hoje (${tickers})`,
+        body: isDetailed
+          ? `${tickers} ${
+              payingToday.length === 1 ? 'tem' : 'têm'
+            } ${formatBRL(totalToday)} anunciados para hoje. Confira o lançamento no extrato.`
+          : `${tickers} ${
+              payingToday.length === 1 ? 'tem' : 'têm'
+            } pagamento de proventos anunciado para hoje. Confira o lançamento no extrato.`,
+        url: buildSafePushUrl({
+          tab: 'proventos',
+          ticker: firstTicker,
+          eventType: 'PAYMENT_REMINDER',
+        }),
         priority: 100,
       });
     }
@@ -256,9 +766,11 @@ export function scanSmartAlerts(
 
   // 2. ANÚNCIO OFICIAL DE DIVIDENDO E DATA-COM CONFIRMADA NA B3
   if (prefs.notifyConfirmedDividend) {
-    // Checa primeiro os FIIs da carteira que confirmaram comunicado oficial no mês
     const confirmedPositions = positions.filter(
-      (p) => p.dividendSource === 'B3_OFICIAL' && p.isCurrentMonthAnnounced && p.monthlyDividendPerShare > 0
+      (p) =>
+        p.dividendSource === 'B3_OFICIAL' &&
+        p.isCurrentMonthAnnounced &&
+        p.monthlyDividendPerShare > 0
     );
 
     for (const pos of confirmedPositions) {
@@ -267,20 +779,29 @@ export function scanSmartAlerts(
         category: 'CONFIRMED_DIVIDEND',
         ticker: pos.ticker,
         title: `📢 ${pos.ticker} Confirmou Rendimento: ${formatBRL(pos.monthlyDividendPerShare)}/cota`,
-        body: `Comunicado B3 confirmado! Data-Com: ${
+        body: `Comunicado confirmado! Data-Com: ${
           pos.dividendExDate || 'neste mês'
         } • Pagamento: ${
           pos.dividendPaymentDate || `dia ${pos.dividendPaymentDay || 15}`
-        }. Confira as cotas elegíveis e o valor no calendário.`,
-        url: '/?tab=proventos',
+        }. Toque para abrir em Proventos.`,
+        url: buildSafePushUrl({
+          tab: 'proventos',
+          ticker: pos.ticker,
+          eventType: 'DIVIDEND_ANNOUNCED',
+        }),
         priority: 92,
       });
     }
 
-    // Checa também FIIs do Radar que anunciaram dividendo oficial na B3
     for (const [ticker, q] of Object.entries(quotes)) {
       const alreadyInCarteira = confirmedPositions.some((p) => p.ticker === ticker);
-      if (!alreadyInCarteira && q.dividendSource === 'B3_OFICIAL' && q.isCurrentMonthAnnounced && q.lastDividend && q.lastDividend > 0) {
+      if (
+        !alreadyInCarteira &&
+        q.dividendSource === 'B3_OFICIAL' &&
+        q.isCurrentMonthAnnounced &&
+        q.lastDividend &&
+        q.lastDividend > 0
+      ) {
         const yieldPct = q.price > 0 ? ((q.lastDividend / q.price) * 100).toFixed(2) : '0.90';
         alerts.push({
           id: `confirmed-radar-${yearMonth}-${ticker}-${q.lastDividend}`,
@@ -297,7 +818,7 @@ export function scanSmartAlerts(
     }
   }
 
-  // 3. DATA-COM PRÓXIMA (Carteira + FIIs Descontados no Radar para dar tempo de comprar!)
+  // 3. DATA-COM PRÓXIMA
   if (prefs.notifyExDate) {
     const getExDay = (ticker: string, announcementDate?: string) => {
       if (announcementDate && /^\d{2}\/\d{2}/.test(announcementDate)) {
@@ -313,21 +834,30 @@ export function scanSmartAlerts(
 
     if (exSoonCarteira.length > 0) {
       const tickers = exSoonCarteira.map((e) => e.ticker).join(', ');
+      const firstTicker = exSoonCarteira[0].ticker;
       const isToday = exSoonCarteira.some(
         (e) => getExDay(e.ticker, e.announcementDate) === todayDay
       );
       alerts.push({
         id: `ex-carteira-${yearMonth}-${todayDay}`,
         category: 'EX_DATE',
+        ticker: firstTicker,
         title: `⚡ ${isToday ? 'Data-Com Hoje na B3!' : 'Data-Com nos Próximos Dias!'}`,
-        body: `Quem comprar cotas de ${tickers} até o fechamento da Data-Com deve conferir as regras e a data de corte do próximo provento.`,
-        url: '/?tab=radar',
+        body: `FIIs da carteira (${tickers}) com Data-Com próxima. Confira as datas de corte e pagamento em Proventos.`,
+        url: buildSafePushUrl({
+          tab: 'proventos',
+          ticker: firstTicker,
+          eventType: 'EX_DATE_REMINDER',
+        }),
         priority: 90,
       });
     } else {
-      // Verifica se há algum FII barato no Radar com Data-Com em até 3 dias
       const radarExSoon = evaluatedMarket.filter(
-        (f) => Boolean(quotes[f.ticker]?.isCurrentMonthAnnounced && quotes[f.ticker]?.dividendExDate) && f.daysUntilExDate <= 3 && f.pvp <= 1.0 && f.monthlyYieldPercent >= 0.85
+        (f) =>
+          Boolean(quotes[f.ticker]?.isCurrentMonthAnnounced && quotes[f.ticker]?.dividendExDate) &&
+          f.daysUntilExDate <= 3 &&
+          f.pvp <= 1.0 &&
+          f.monthlyYieldPercent >= 0.85
       );
       if (radarExSoon.length > 0) {
         const top = radarExSoon[0];
@@ -348,7 +878,7 @@ export function scanSmartAlerts(
     }
   }
 
-  // 4. SUPER OPORTUNIDADE / BARGANHA NA B3 (Mesmo com meta batida, avisa quando um FII fica muito barato!)
+  // 4. SUPER OPORTUNIDADE / BARGANHA NA B3
   if (prefs.notifyMarketBargain) {
     const bargains = evaluatedMarket
       .filter(
@@ -375,7 +905,7 @@ export function scanSmartAlerts(
     }
   }
 
-  // 5. CONSENSO DOS MENTORES (Aprovado simultaneamente por Barsi / Buffett / Graham / Baroni)
+  // 5. CONSENSO DOS MENTORES
   if (prefs.notifyMentorConsensus && consensus.length > 0) {
     const topConsensus = consensus[0];
     const mentorNames = topConsensus.mentors
@@ -397,7 +927,7 @@ export function scanSmartAlerts(
     });
   }
 
-  // 6. QUEDA ABAIXO DO SEU PREÇO MÉDIO NA CARTEIRA
+  // 6. QUEDA ABAIXO DO PREÇO MÉDIO NA CARTEIRA (respeita privacidade discreta)
   if (prefs.notifyPriceOpportunity && positions.length > 0) {
     const belowPm = positions
       .filter((p) => p.currentPrice < p.averagePrice * 0.995)
@@ -416,10 +946,14 @@ export function scanSmartAlerts(
         id: `below-pm-${yearMonth}-${top.ticker}-${top.currentPrice.toFixed(1)}`,
         category: 'BELOW_PM',
         ticker: top.ticker,
-        title: `📉 ${top.ticker} está ${dropPct}% abaixo do seu Preço Médio`,
-        body: `Cotado hoje a ${formatBRL(top.currentPrice)} na B3 (seu PM é ${formatBRL(
-          top.averagePrice
-        )}). Reavalie os fundamentos antes de decidir sobre novos aportes.`,
+        title: `📉 ${top.ticker} está abaixo da sua referência de preço`,
+        body: isDetailed
+          ? `Cotado hoje a ${formatBRL(top.currentPrice)} na B3 (${dropPct}% abaixo do seu PM de ${formatBRL(
+              top.averagePrice
+            )}).`
+          : `${top.ticker} é negociado hoje a ${formatBRL(
+              top.currentPrice
+            )} na B3. Abra o app para revisar os fundamentos.`,
         url: '/?tab=portfolio',
         priority: 85,
       });
@@ -429,7 +963,7 @@ export function scanSmartAlerts(
   return alerts.sort((a, b) => b.priority - a.priority);
 }
 
-// Retorna o alerta mais importante do momento para disparo imediato ou teste na Tela Bloqueada
+// Retorna o alerta para teste manual do botão de notificações (respeitando o modo discreto por padrão)
 export function buildPortfolioDailyAlert(
   positions: FiiPosition[],
   quotes: Record<string, QuoteData> = {}
@@ -451,82 +985,43 @@ export function buildPortfolioDailyAlert(
   }
 
   if (positions.length === 0) return null;
-  const { summary } = calculateMonthDividends(positions, new Date());
+  const prefs = getPushPreferences();
+  const firstTicker = positions[0]?.ticker;
+  const targetUrl = buildSafePushUrl({
+    tab: 'proventos',
+    ticker: firstTicker,
+  });
+
+  if (prefs.privacyMode === 'detailed') {
+    const { summary } = calculateMonthDividends(positions, new Date());
+    return {
+      title: `📊 Teste FII Tracker • ${formatBRL(summary.totalExpected)}/mês`,
+      body: `Sua carteira de ${positions.length} FIIs projeta ${formatBRL(
+        summary.totalExpected
+      )} no calendário atual. Toque para abrir em Proventos.`,
+      tag: 'fii-summary-daily-test',
+      url: targetUrl,
+    };
+  }
+
   return {
-    title: `📊 Resumo FII Tracker • ${formatBRL(summary.totalExpected)}/mês`,
-    body: `Sua carteira de ${positions.length} FIIs projeta ${formatBRL(
-      summary.totalExpected
-    )} de dividendos estimados neste mês.`,
-    tag: 'fii-summary-daily',
-    url: '/?tab=proventos',
+    title: '📊 Teste FII Tracker • Notificação Discreta',
+    body: 'Seus alertas de proventos estão configurados. Toque para abrir o calendário de Proventos.',
+    tag: 'fii-summary-daily-test',
+    url: targetUrl,
   };
 }
 
-const LAST_DAILY_PUSH_DATE_KEY = 'fii_tracker_last_daily_push_date_v3';
-let hasCheckedAutoPushInSession = false;
-
-// Verifica apenas 1 única vez por dia (com trava síncrona imediata para NUNCA disparar várias notificações ao abrir o app)
+/**
+ * O envio automático diário foi transferido para o servidor (/api/push/cron)
+ * para funcionar com o PWA fechado e evitar disparos duplicados pelo cliente.
+ * Mantido como no-op por compatibilidade de assinatura.
+ */
 export async function runAutoDailyPushCheck(
-  positions: FiiPosition[],
-  quotes: Record<string, QuoteData> = {}
+  _positions?: FiiPosition[],
+  _quotes?: Record<string, QuoteData>
 ): Promise<void> {
-  if (typeof window === 'undefined') return;
-  if (hasCheckedAutoPushInSession) return;
-
-  const prefs = getPushPreferences();
-  if (!prefs.enabled) return;
-
-  const todayIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-  try {
-    const lastDate = localStorage.getItem(LAST_DAILY_PUSH_DATE_KEY);
-    if (lastDate === todayIso) {
-      hasCheckedAutoPushInSession = true;
-      return;
-    }
-  } catch {
-    return;
-  }
-
-  const alerts = scanSmartAlerts(positions, quotes);
-  if (alerts.length === 0) return;
-
-  // Trava SÍNCRONA imediata ANTES do await para impedir disparos múltiplos em re-renderizações!
-  hasCheckedAutoPushInSession = true;
-  try {
-    localStorage.setItem(LAST_DAILY_PUSH_DATE_KEY, todayIso);
-  } catch {
-    return;
-  }
-
-  let sentMap: Record<string, string> = {};
-  try {
-    const raw = localStorage.getItem(SENT_ALERTS_STORAGE_KEY);
-    if (raw) sentMap = JSON.parse(raw);
-  } catch {
-    sentMap = {};
-  }
-
-  const nextAlert = alerts.find((a) => sentMap[a.id] !== todayIso) || alerts[0];
-  if (!nextAlert) return;
-
-  // Marca todos os alertas do lote atual como vistos hoje para não enfileirar vários
-  for (const a of alerts) {
-    sentMap[a.id] = todayIso;
-  }
-  try {
-    localStorage.setItem(SENT_ALERTS_STORAGE_KEY, JSON.stringify(sentMap));
-  } catch {
-    // ignore
-  }
-
-  await sendPushNotificationNow(
-    {
-      title: nextAlert.title,
-      body: nextAlert.body,
-      tag: 'fii-daily-smart-alert',
-      url: nextAlert.url,
-    },
-    0
-  );
+  void _positions;
+  void _quotes;
+  return;
 }
-

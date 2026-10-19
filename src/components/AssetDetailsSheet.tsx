@@ -22,6 +22,7 @@ import { EmptyState } from './ui/Feedback';
 
 interface AssetDetailsSheetProps {
   ticker: string | null;
+  initialSection?: 'summary' | 'dividends' | 'indicators';
   positions: FiiPosition[];
   quotes: Record<string, QuoteData>;
   transactions: Transaction[];
@@ -46,6 +47,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export function AssetDetailsSheet({
   ticker,
+  initialSection = 'summary',
   positions,
   quotes,
   transactions,
@@ -61,7 +63,7 @@ export function AssetDetailsSheet({
   const inputId = useId();
   const [section, setSection] = useState<
     'summary' | 'dividends' | 'indicators'
-  >('summary');
+  >(initialSection);
   const [editing, setEditing] = useState(false);
   const [dividendInput, setDividendInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);

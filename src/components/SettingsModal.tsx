@@ -2,7 +2,7 @@
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Save,
@@ -21,6 +21,8 @@ import {
   Copy,
   LayoutGrid,
   ShieldCheck,
+  Clock,
+  Lock,
 } from 'lucide-react';
 import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
 import {
@@ -32,14 +34,18 @@ import {
 } from '../lib/supabase';
 import {
   getPushPreferences,
-  savePushPreferences,
   isWebPushSupported,
   registerAndSubscribePush,
+  unsubscribeDevicePush,
+  fetchServerPushState,
+  syncPushPreferencesToServer,
   sendPushNotificationNow,
   buildPortfolioDailyAlert,
   scanSmartAlerts,
   PushPreferences,
+  ServerPushState,
   SmartAlertItem,
+  NotificationPrivacyMode,
 } from '../lib/pushNotifications';
 import {
   buildWidgetPreviewData,
@@ -55,6 +61,7 @@ interface SettingsModalProps {
   quotes?: Record<string, QuoteData>;
   isCloudConnected: boolean;
   isSyncingCloud: boolean;
+  pendingChanges?: number;
   onClose: () => void;
   onUpdateGoals: (newGoals: Partial<PortfolioGoals>) => void;
   onExportBackup: () => string;
@@ -64,6 +71,60 @@ interface SettingsModalProps {
   onSyncCloud: () => void;
 }
 
+const IANA_TIMEZONE_OPTIONS = [
+  { value: 'America/Sao_Paulo', label: 'Brasília (America/Sao_Paulo)' },
+  { value: 'America/Manaus', label: 'Amazonas (America/Manaus)' },
+  { value: 'America/Cuiaba', label: 'Mato Grosso (America/Cuiaba)' },
+  { value: 'America/Fortaleza', label: 'Nordeste (America/Fortaleza)' },
+  { value: 'America/Recife', label: 'Pernambuco (America/Recife)' },
+  { value: 'America/Belem', label: 'Pará (America/Belem)' },
+  { value: 'America/Rio_Branco', label: 'Acre (America/Rio_Branco)' },
+  { value: 'America/Noronha', label: 'Fernando de Noronha (America/Noronha)' },
+  { value: 'America/New_York', label: 'Nova York (America/New_York)' },
+  { value: 'Europe/Lisbon', label: 'Lisboa (Europe/Lisbon)' },
+  { value: 'Europe/London', label: 'Londres (Europe/London)' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+function formatProcessStatusLabel(status?: string | null): string {
+  switch (status) {
+    case 'sent':
+      return 'Resumo processado e enviado';
+    case 'no_events':
+      return 'Verificado (sem novos eventos confirmados)';
+    case 'queued':
+      return 'Em fila de reenvio';
+    case 'partial_failure':
+      return 'Enviado parcialmente entre aparelhos';
+    case 'skipped_no_devices':
+      return 'Sem aparelho ativo inscrito';
+    case 'failed':
+      return 'Falha no envio';
+    case 'idle':
+      return 'Aguardando próximo ciclo';
+    default:
+      return status || 'Ainda não processado';
+  }
+}
+
+function formatDeliveryStatusLabel(status?: string | null): string {
+  switch (status) {
+    case 'accepted':
+      return 'Envio aceito pelo serviço Push (APNs/FCM)';
+    case 'retry_pending':
+      return 'Falha transitória (retentativa agendada)';
+    case 'expired_subscription':
+      return 'Inscrição expirada (404/410) — reative neste aparelho';
+    case 'failed_permanent':
+      return 'Falha permanente no envio';
+    case 'sending':
+    case 'pending':
+      return 'Envio em andamento';
+    default:
+      return status || 'Sem registro de envio';
+  }
+}
+
 export function SettingsModal({
   isOpen,
   goals,
@@ -71,6 +132,7 @@ export function SettingsModal({
   quotes = {},
   isCloudConnected,
   isSyncingCloud,
+  pendingChanges = 0,
   onClose,
   onUpdateGoals,
   onExportBackup,
@@ -93,10 +155,13 @@ export function SettingsModal({
   const [cloudTestResult, setCloudTestResult] = useState<string | null>(null);
   const cloudManagedByEnvironment = isEnvironmentSupabaseConfigured();
 
-  // Estados de Web Push API (iPhone / PWA)
+  // Estados de Web Push API (Servidor + Dispositivo)
   const [pushPrefs, setPushPrefs] = useState<PushPreferences>(() => getPushPreferences());
-  const [pushSupport] = useState(() => isWebPushSupported());
+  const [pushSupport, setPushSupport] = useState(() => isWebPushSupported());
+  const [serverPushState, setServerPushState] = useState<ServerPushState | null>(null);
+  const [isLoadingPushState, setIsLoadingPushState] = useState<boolean>(false);
   const [isEnablingPush, setIsEnablingPush] = useState<boolean>(false);
+  const [isRemovingPush, setIsRemovingPush] = useState<boolean>(false);
   const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
   const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
 
@@ -105,6 +170,37 @@ export function SettingsModal({
   const [showWidgetSteps, setShowWidgetSteps] = useState<boolean>(false);
 
   const dialogRef = useModalAccessibility(isOpen, onClose);
+
+  const refreshPushState = useCallback(async () => {
+    setIsLoadingPushState(true);
+    try {
+      setPushSupport(isWebPushSupported());
+      const state = await fetchServerPushState();
+      setServerPushState(state);
+      if (state.preferences) {
+        setPushPrefs(getPushPreferences());
+      }
+    } finally {
+      setIsLoadingPushState(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    void fetchServerPushState().then((state) => {
+      if (cancelled) return;
+      setPushSupport(isWebPushSupported());
+      setServerPushState(state);
+      if (state.preferences) {
+        setPushPrefs(getPushPreferences());
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const detectedAlerts = scanSmartAlerts(positions, quotes);
@@ -130,27 +226,66 @@ export function SettingsModal({
   const handleEnablePush = async () => {
     setIsEnablingPush(true);
     setPushStatusMsg(null);
-    const result = await registerAndSubscribePush();
+    const result = await registerAndSubscribePush(pushPrefs);
+    setPushSupport(isWebPushSupported());
     setIsEnablingPush(false);
     setPushStatusMsg(result.message);
     if (result.ok) {
       setPushPrefs(getPushPreferences());
+      await refreshPushState();
       showBanner('success', result.message);
     } else {
       showBanner('error', result.message);
     }
   };
 
-  const handleTogglePushPref = (key: keyof PushPreferences) => {
-    const next = { ...pushPrefs, [key]: !pushPrefs[key] };
+  const handleUnsubscribeDevice = async (subscriptionId?: string) => {
+    setIsRemovingPush(true);
+    setPushStatusMsg(null);
+    const activeCount =
+      serverPushState?.subscriptions.filter((s) => s.isActive).length ?? 0;
+    const isLastDevice = activeCount <= 1;
+    const res = await unsubscribeDevicePush({
+      subscriptionId,
+      disablePreferencesIfLast: isLastDevice,
+    });
+    setIsRemovingPush(false);
+    setPushStatusMsg(res.message);
+    if (res.ok) {
+      setPushPrefs(getPushPreferences());
+      await refreshPushState();
+      showBanner('success', res.message);
+    } else {
+      showBanner('error', res.message);
+    }
+  };
+
+  const handleUpdatePushPref = async (patch: Partial<PushPreferences>) => {
+    const next: PushPreferences = { ...pushPrefs, ...patch };
     setPushPrefs(next);
-    savePushPreferences(next);
+    const res = await syncPushPreferencesToServer(next);
+    if (res.message) {
+      setPushStatusMsg(res.message);
+    }
+  };
+
+  const handleTogglePushPref = (
+    key:
+      | 'enabled'
+      | 'notifyConfirmedDividend'
+      | 'notifyPaymentDay'
+      | 'notifyExDate'
+      | 'notifyMarketBargain'
+      | 'notifyMentorConsensus'
+      | 'notifyPriceOpportunity'
+  ) => {
+    void handleUpdatePushPref({ [key]: !pushPrefs[key] });
   };
 
   const handleTestLockScreenPush = async (customAlert?: SmartAlertItem) => {
     setIsSendingTestPush(true);
     setPushStatusMsg(
-      '📲 Bloqueie a tela do seu iPhone agora! O alerta chegará em 5 segundos...'
+      '📲 Bloqueie a tela do seu aparelho agora! O alerta de teste chegará em 5 segundos...'
     );
 
     const sampleAlert = customAlert
@@ -161,10 +296,10 @@ export function SettingsModal({
           url: customAlert.url,
         }
       : buildPortfolioDailyAlert(positions, quotes) || {
-          title: '🔔 FII Tracker • Alerta Ativo',
-          body: 'As notificações na Tela de Bloqueio estão funcionando perfeitamente!',
+          title: '🔔 FII Tracker • Teste de Notificação',
+          body: 'Notificação de teste enviada. Toque para abrir a aba Proventos.',
           tag: 'fii-test-lockscreen',
-          url: '/?tab=radar',
+          url: '/?tab=proventos',
         };
 
     const ok = await sendPushNotificationNow(
@@ -172,7 +307,7 @@ export function SettingsModal({
         title: sampleAlert.title,
         body: sampleAlert.body,
         tag: sampleAlert.tag,
-        url: sampleAlert.url || '/?tab=radar',
+        url: sampleAlert.url || '/?tab=proventos',
       },
       5
     );
@@ -180,8 +315,8 @@ export function SettingsModal({
     setIsSendingTestPush(false);
     setPushStatusMsg(
       ok
-        ? '✅ Notificação disparada com sucesso pelo Web Push!'
-        : 'Ative primeiro a permissão de notificações acima.'
+        ? '✅ Envio de teste aceito pelo serviço Push / Service Worker!'
+        : 'Ative primeiro a inscrição de notificações neste aparelho.'
     );
   };
 
@@ -225,6 +360,7 @@ export function SettingsModal({
     if (status === 'connected') {
       setCloudTestResult('Sucesso! Conectado ao Supabase com segurança.');
       onSyncCloud();
+      void refreshPushState();
     } else if (status === 'not-authenticated') {
       setCloudTestResult('Configuração encontrada. Entre na sua conta para sincronizar esta carteira.');
     } else if (status === 'missing-config') {
@@ -273,6 +409,30 @@ export function SettingsModal({
     reader.readAsText(file);
   };
 
+  const currentDeviceRecord = serverPushState?.currentDeviceSubscription || null;
+  const activeDevices = (serverPushState?.subscriptions || []).filter((s) => s.isActive);
+  const hasBrowserSubscription = Boolean(serverPushState?.localSubscriptionEndpoint);
+  const isCurrentDeviceActiveOnServer = Boolean(currentDeviceRecord?.isActive);
+
+  const lastProcessedAt =
+    serverPushState?.preferences?.lastProcessedAt ||
+    serverPushState?.statusSummary?.lastDigest?.sentAt ||
+    null;
+  const lastProcessStatus =
+    serverPushState?.preferences?.lastProcessStatus ||
+    serverPushState?.statusSummary?.lastDigest?.status ||
+    null;
+  const lastProcessMessage =
+    serverPushState?.preferences?.lastProcessMessage ||
+    serverPushState?.statusSummary?.lastDigest?.lastError ||
+    null;
+  const lastPushAcceptedAt =
+    serverPushState?.preferences?.lastPushAcceptedAt ||
+    serverPushState?.statusSummary?.lastDelivery?.acceptedAt ||
+    currentDeviceRecord?.lastAcceptedAt ||
+    null;
+  const lastDelivery = serverPushState?.statusSummary?.lastDelivery || null;
+
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
@@ -307,64 +467,215 @@ export function SettingsModal({
           </div>
         )}
 
-        {/* 0. SEÇÃO WEB PUSH API */}
+        {/* 0. SEÇÃO WEB PUSH API (PROCESSAMENTO NO SERVIDOR) */}
         <div className="mb-6 p-4 rounded-2xl bg-[#1c1c1f]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Bell className={`w-4 h-4 ${pushPrefs.enabled ? 'text-[#f5b800]' : 'text-zinc-400'}`} />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Alertas B3 & Oportunidades (Web Push)
+                Alertas Diários no Servidor (Web Push)
               </h3>
             </div>
             <span
               className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                pushPrefs.enabled
+                pushPrefs.enabled && isCurrentDeviceActiveOnServer
+                  ? 'bg-emerald-500/15 text-emerald-400'
+                  : pushPrefs.enabled
                   ? 'bg-[#2b2512] text-[#f5b800]'
                   : 'bg-white/[0.06] text-zinc-400'
               }`}
             >
-              {pushPrefs.enabled ? 'Ativado (APNs)' : 'Desativado'}
+              {pushPrefs.enabled && isCurrentDeviceActiveOnServer
+                ? 'Ativo no Servidor'
+                : pushPrefs.enabled
+                ? 'Ativo (Local)'
+                : 'Desativado'}
             </span>
           </div>
 
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
-            Receba alertas de{' '}
-            <strong className="text-white">Data-Com confirmada</strong>, <strong className="text-white">Barganhas na B3</strong> e{' '}
-            <strong className="text-white">Consenso dos Mentores</strong> direto na tela bloqueada do iPhone.
+            Receba um <strong className="text-white">resumo diário</strong> com o PWA fechado quando houver{' '}
+            <strong className="text-white">novo anúncio confirmado</strong>,{' '}
+            <strong className="text-white">alteração de provento</strong>,{' '}
+            <strong className="text-white">Data-Com</strong> ou{' '}
+            <strong className="text-white">pagamento anunciado para hoje</strong>.
           </p>
+
+          {/* Aviso sobre carteira sincronizada */}
+          <div
+            className={`mb-3 p-2.5 rounded-xl border text-[11px] leading-relaxed ${
+              !isCloudConnected || pendingChanges > 0
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                : 'bg-[#121215] border-white/[0.06] text-zinc-400'
+            }`}
+          >
+            {!isCloudConnected ? (
+              <span>
+                ⚠️ <strong>Conta offline:</strong> O servidor processa exclusivamente as carteiras sincronizadas na nuvem. Conecte sua conta para receber alertas com o app fechado.
+              </span>
+            ) : pendingChanges > 0 ? (
+              <span>
+                ⚠️ <strong>{pendingChanges} alteração(ões) ainda não sincronizada(s):</strong> Lançamentos locais pendentes não participam dos alertas do servidor até a sincronização concluir.
+              </span>
+            ) : (
+              <span>
+                ☁️ O servidor processa sua carteira sincronizada na nuvem. Alterações locais ainda não sincronizadas não participam dos alertas.
+              </span>
+            )}
+          </div>
 
           {pushSupport.isIosNeedInstall && (
             <div className="mb-3 p-2.5 rounded-xl bg-[#2b2512] text-[11px] text-[#f5b800]">
-              📱 No iPhone, toque em <strong>Compartilhar → Adicionar à Tela de Início</strong> e abra o app pela Tela de Início para liberar o Web Push da Apple.
+              📱 No iPhone, toque em <strong>Compartilhar → Adicionar à Tela de Início</strong> e abra o app pela Tela de Início para liberar o Web Push da Apple (iOS 16.4+).
             </div>
           )}
 
-          {/* 6 Categorias de Alerta */}
+          {pushSupport.permission === 'denied' && (
+            <div className="mb-3 p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-[11px] text-rose-300">
+              🚫 <strong>Permissão negada no aparelho:</strong> Abra os Ajustes do sistema ou configurações do navegador para permitir notificações deste app e toque em Revalidar Push.
+            </div>
+          )}
+
+          {serverPushState?.serverWarning && (
+            <div className="mb-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300">
+              ⚙️ {serverPushState.serverWarning}
+            </div>
+          )}
+
+          {serverPushState && !serverPushState.vapidConfigured && (
+            <div className="mb-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-300">
+              ⚙️ <strong>Configuração ausente no servidor:</strong> Defina <code>VAPID_PRIVATE_KEY</code> no ambiente do servidor para habilitar disparos Web Push em segundo plano.
+            </div>
+          )}
+
+          {/* Controle de ativação geral */}
+          <label className="flex items-center justify-between gap-2 p-2.5 mb-2.5 rounded-xl bg-[#121215] border border-white/[0.06] cursor-pointer text-xs font-semibold text-white">
+            <span>Receber resumo diário de notificações</span>
+            <input
+              type="checkbox"
+              checked={pushPrefs.enabled}
+              onChange={() => handleTogglePushPref('enabled')}
+              className="accent-[#f5b800] w-4 h-4 rounded shrink-0"
+            />
+          </label>
+
+          {/* Horário Diário e Fuso Horário IANA */}
+          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2.5">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
+              <Clock className="w-3.5 h-3.5 text-[#f5b800]" />
+              <span>Horário e Fuso do Resumo Diário</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label htmlFor="push-daily-time" className="text-[10px] text-zinc-400 block mb-1">
+                  Horário preferido
+                </label>
+                <input
+                  id="push-daily-time"
+                  type="time"
+                  value={pushPrefs.dailyTime || '08:00'}
+                  onChange={(e) => void handleUpdatePushPref({ dailyTime: e.target.value || '08:00' })}
+                  className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-xs text-white font-semibold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="push-timezone" className="text-[10px] text-zinc-400 block mb-1">
+                  Fuso horário (IANA)
+                </label>
+                <select
+                  id="push-timezone"
+                  value={pushPrefs.timezone || 'America/Sao_Paulo'}
+                  onChange={(e) => void handleUpdatePushPref({ timezone: e.target.value })}
+                  className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5b800]/60"
+                >
+                  {IANA_TIMEZONE_OPTIONS.map((tz) => (
+                    <option key={tz.value} value={tz.value} className="bg-[#121215] text-white">
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-zinc-500 leading-relaxed">
+              O servidor verifica novos eventos a partir do horário configurado conforme a janela de execução do agendador (ex.: a cada 5–15 min), enviando apenas quando existirem eventos relevantes.
+            </p>
+          </div>
+
+          {/* Privacidade na Tela Bloqueada */}
+          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
+                <Lock className="w-3.5 h-3.5 text-[#f5b800]" />
+                <span>Privacidade na Tela Bloqueada</span>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-400">
+                {pushPrefs.privacyMode === 'discreet' ? 'Discreto (Padrão)' : 'Detalhado'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                {
+                  mode: 'discreet' as NotificationPrivacyMode,
+                  title: 'Discreto',
+                  desc: 'Oculta patrimônio, cotas e valores pessoais',
+                },
+                {
+                  mode: 'detailed' as NotificationPrivacyMode,
+                  title: 'Detalhado',
+                  desc: 'Exibe cotas elegíveis e total pessoal',
+                },
+              ]).map((item) => {
+                const selected = pushPrefs.privacyMode === item.mode;
+                return (
+                  <button
+                    key={item.mode}
+                    type="button"
+                    onClick={() => void handleUpdatePushPref({ privacyMode: item.mode })}
+                    aria-pressed={selected}
+                    className={`p-2 rounded-xl border text-left transition-all ${
+                      selected
+                        ? 'bg-[#2b2512] border-[#f5b800]/50 text-white'
+                        : 'bg-[#1c1c1f] border-white/[0.06] text-zinc-400'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold">{item.title}</div>
+                    <div className="text-[10px] opacity-80 leading-tight mt-0.5">{item.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Categorias de Alerta */}
           <div className="space-y-1.5 mb-3">
             {[
               {
                 key: 'notifyConfirmedDividend' as const,
-                label: '📢 Quando um FII confirmar valor de dividendo e Data-Com na B3',
-              },
-              {
-                key: 'notifyMarketBargain' as const,
-                label: 'Oportunidade na B3 (FII muito descontado mesmo após bater meta)',
-              },
-              {
-                key: 'notifyMentorConsensus' as const,
-                label: 'Quando um FII entrar no Consenso dos Mentores (Barsi + Buffett)',
-              },
-              {
-                key: 'notifyExDate' as const,
-                label: 'Véspera e dia de Data-Com (para dar tempo de comprar e receber)',
-              },
-              {
-                key: 'notifyPriceOpportunity' as const,
-                label: 'Quando um FII da minha carteira cair abaixo do meu Preço Médio',
+                label: '📢 Novo anúncio confirmado ou alteração em anúncio de proventos da carteira',
               },
               {
                 key: 'notifyPaymentDay' as const,
-                label: 'Dia em que o dividendo cair na conta da corretora',
+                label: '💰 Lembrete de pagamento anunciado para hoje (até constar recebido no extrato)',
+              },
+              {
+                key: 'notifyExDate' as const,
+                label: '⚡ Lembretes de véspera e dia de Data-Com',
+              },
+              {
+                key: 'notifyMarketBargain' as const,
+                label: '🔥 Oportunidade na B3 (FII descontado no Radar local)',
+              },
+              {
+                key: 'notifyMentorConsensus' as const,
+                label: '🏆 Consenso dos Mentores (Barsi + Buffett + Graham)',
+              },
+              {
+                key: 'notifyPriceOpportunity' as const,
+                label: '📉 FII da carteira abaixo do Preço Médio',
               },
             ].map((opt) => (
               <label
@@ -382,13 +693,149 @@ export function SettingsModal({
             ))}
           </div>
 
+          {/* Estado da Inscrição do Dispositivo e Último Processamento / Envio */}
+          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-zinc-300">Estado deste aparelho</span>
+              <span
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  isCurrentDeviceActiveOnServer
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : currentDeviceRecord && !currentDeviceRecord.isActive
+                    ? 'bg-rose-500/15 text-rose-300'
+                    : hasBrowserSubscription
+                    ? 'bg-amber-500/15 text-amber-300'
+                    : 'bg-white/[0.06] text-zinc-400'
+                }`}
+              >
+                {isLoadingPushState
+                  ? 'Consultando...'
+                  : isCurrentDeviceActiveOnServer
+                  ? 'Inscrito no servidor'
+                  : currentDeviceRecord && !currentDeviceRecord.isActive
+                  ? 'Inscrição expirada'
+                  : hasBrowserSubscription
+                  ? 'Apenas no navegador'
+                  : 'Não inscrito'}
+              </span>
+            </div>
+
+            <div className="text-[10px] text-zinc-400 space-y-1">
+              <div>
+                Permissão do navegador:{' '}
+                <strong className="text-zinc-200">
+                  {pushSupport.permission === 'granted'
+                    ? 'Concedida'
+                    : pushSupport.permission === 'denied'
+                    ? 'Negada'
+                    : pushSupport.permission === 'default'
+                    ? 'Pendente'
+                    : 'Não suportada'}
+                </strong>
+                {serverPushState?.authenticated && (
+                  <>
+                    {' • '}Aparelhos ativos na conta:{' '}
+                    <strong className="text-zinc-200">{activeDevices.length}</strong>
+                  </>
+                )}
+              </div>
+
+              {currentDeviceRecord?.deactivatedReason && !currentDeviceRecord.isActive && (
+                <div className="text-rose-300">
+                  Motivo da desativação: {currentDeviceRecord.deactivatedReason}. Toque em Revalidar Push para renovar.
+                </div>
+              )}
+
+              <div className="pt-1 border-t border-white/[0.05]">
+                <div>
+                  Último processamento:{' '}
+                  <strong className="text-zinc-200">
+                    {lastProcessedAt
+                      ? `${new Date(lastProcessedAt).toLocaleString('pt-BR')} (${formatProcessStatusLabel(
+                          lastProcessStatus
+                        )})`
+                      : 'Aguardando primeira execução do agendador'}
+                  </strong>
+                </div>
+                {lastProcessMessage && (
+                  <div className="text-zinc-500">Detalhe: {lastProcessMessage}</div>
+                )}
+              </div>
+
+              <div className="pt-1 border-t border-white/[0.05]">
+                <div>
+                  Último envio:{' '}
+                  <strong className="text-zinc-200">
+                    {lastDelivery
+                      ? `${formatDeliveryStatusLabel(lastDelivery.status)}${
+                          lastPushAcceptedAt
+                            ? ` em ${new Date(lastPushAcceptedAt).toLocaleString('pt-BR')}`
+                            : ''
+                        }`
+                      : lastPushAcceptedAt
+                      ? `Envio aceito pelo serviço Push em ${new Date(
+                          lastPushAcceptedAt
+                        ).toLocaleString('pt-BR')}`
+                      : 'Nenhum envio registrado ainda'}
+                  </strong>
+                </div>
+                {lastDelivery?.lastError && (
+                  <div className="text-rose-300">Último erro: {lastDelivery.lastError}</div>
+                )}
+                <div className="text-[10px] text-zinc-500 mt-0.5">
+                  Nota: &ldquo;Envio aceito pelo serviço Push&rdquo; indica que a fila APNs/FCM recebeu a mensagem, sem confirmar leitura ou recebimento imediato no aparelho.
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de dispositivos inscritos na conta */}
+            {serverPushState && serverPushState.subscriptions.length > 0 && (
+              <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
+                <div className="text-[10px] font-semibold text-zinc-400">
+                  Dispositivos vinculados a esta conta ({serverPushState.subscriptions.length})
+                </div>
+                {serverPushState.subscriptions.map((sub) => {
+                  const isThisDevice =
+                    Boolean(serverPushState.localEndpointHash) &&
+                    sub.endpointHash === serverPushState.localEndpointHash;
+                  return (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-[#1c1c1f] px-2.5 py-1.5 text-[10px]"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-semibold text-zinc-200">
+                          {sub.deviceLabel || 'Dispositivo Web'}
+                          {isThisDevice ? ' (Este aparelho)' : ''}
+                        </span>
+                        <span className="ml-1.5 text-zinc-500">
+                          • {sub.isActive ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isRemovingPush}
+                        onClick={() =>
+                          void handleUnsubscribeDevice(isThisDevice ? undefined : sub.id)
+                        }
+                        className="text-rose-400 hover:text-rose-300 font-semibold shrink-0"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {pushStatusMsg && (
             <div className="mb-3 p-2.5 rounded-xl bg-[#121215] text-[11px] text-[#f5b800]">
               {pushStatusMsg}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <div className="grid grid-cols-2 gap-2.5 mb-2">
             <button
               type="button"
               onClick={handleEnablePush}
@@ -398,9 +845,9 @@ export function SettingsModal({
               <Bell className="w-3.5 h-3.5" />
               {isEnablingPush
                 ? 'Ativando...'
-                : pushPrefs.enabled
+                : isCurrentDeviceActiveOnServer
                 ? 'Revalidar Push'
-                : 'Ativar Alertas'}
+                : 'Ativar neste Aparelho'}
             </button>
 
             <button
@@ -408,12 +855,27 @@ export function SettingsModal({
               onClick={() => handleTestLockScreenPush()}
               disabled={isSendingTestPush}
               className="py-2.5 px-3 rounded-full bg-[#2b2512] disabled:opacity-50 text-[#f5b800] font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-              title="Dispara a principal oportunidade/alerta de hoje em 5 segundos para sua Tela de Bloqueio"
+              title="Dispara uma notificação de teste em 5 segundos para sua Tela de Bloqueio"
             >
               <Smartphone className="w-3.5 h-3.5" />
               {isSendingTestPush ? 'Aguarde 5s...' : 'Testar Bloq. (5s)'}
             </button>
           </div>
+
+          {(hasBrowserSubscription || isCurrentDeviceActiveOnServer) && (
+            <div className="mb-2 text-right">
+              <button
+                type="button"
+                disabled={isRemovingPush}
+                onClick={() => void handleUnsubscribeDevice()}
+                className="text-[11px] text-zinc-400 hover:text-rose-400 underline"
+              >
+                {isRemovingPush
+                  ? 'Removendo inscrição...'
+                  : 'Desativar e remover inscrição deste aparelho'}
+              </button>
+            </div>
+          )}
 
           {/* Prévia Ao Vivo dos Alertas Detectados Hoje na B3 */}
           {detectedAlerts.length > 0 && (
@@ -422,7 +884,7 @@ export function SettingsModal({
                 <span className="text-[10px] font-bold text-[#f5b800] uppercase tracking-wider">
                   Radar de Alertas Hoje ({detectedAlerts.length})
                 </span>
-                <span className="text-[11px] text-zinc-500">Toque para enviar p/ tela bloq.</span>
+                <span className="text-[11px] text-zinc-500">Toque para enviar teste</span>
               </div>
 
               <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
