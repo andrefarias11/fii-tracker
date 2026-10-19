@@ -1,4 +1,5 @@
 'use client';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState } from 'react';
 import {
@@ -44,9 +45,11 @@ export function B3ImportModal({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   const handleFileChange = async (selectedFile: File, onlyFiis = filterOnlyFIIs) => {
+    if (selectedFile.size > 10_000_000) { setErrorMessage('Arquivo maior que 10 MB. Divida o extrato em períodos menores.'); return; }
     setFile(selectedFile);
     setIsProcessing(true);
     setParseResult(null);
@@ -120,7 +123,7 @@ export function B3ImportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className="w-full max-w-lg bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}

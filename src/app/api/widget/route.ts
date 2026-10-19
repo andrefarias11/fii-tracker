@@ -1,12 +1,13 @@
+import { calculateMonthDividends } from '../../../data/fiiDividendCalendar';
+import { evaluateAllFiis } from '../../../lib/recommendationEngine';
+import { createHash, randomBytes } from 'node:crypto';
+import { protectedApi, serverDatabase, authenticateRequest, consumeRateLimit } from '../../../lib/serverSecurity';
+import { Transaction } from '../../../types/portfolio';
 import { NextResponse } from 'next/server';
-import { findFiiInfo, FII_DATABASE } from '../../../data/fiiDatabase';
+import { findFiiInfo } from '../../../data/fiiDatabase';
 import { QuoteData } from '../../../types/portfolio';
 import { calculatePortfolioPositions } from '../../../domain/portfolioEngine';
-import {
-  fetchRemoteTransactions,
-  fetchRemoteGoals,
-  fetchRemoteDividends,
-} from '../../../lib/supabase';
+
 
 export interface WidgetSummaryResponse {
   equity: number;
@@ -28,45 +29,6 @@ interface ParsedHolding {
   ticker: string;
   shares: number;
   avgPrice: number;
-}
-
-// Cache em memória complementar para quando o Supabase não estiver ativo
-let latestAppSyncedState: {
-  portfolioParam: string;
-  incomeGoal: number;
-  updatedAtMs: number;
-} | null = null;
-
-function parsePortfolioParam(param: string | null): ParsedHolding[] {
-  const effectiveParam =
-    latestAppSyncedState?.portfolioParam && latestAppSyncedState.portfolioParam.trim()
-      ? latestAppSyncedState.portfolioParam
-      : param;
-
-  if (!effectiveParam || !effectiveParam.trim()) {
-    return [
-      { ticker: 'MXRF11', shares: 11, avgPrice: 9.42 },
-      { ticker: 'VGIR11', shares: 10, avgPrice: 9.6 },
-    ];
-  }
-
-  const holdings: ParsedHolding[] = [];
-  const entries = effectiveParam.split(',');
-  for (const entry of entries) {
-    const [rawTicker, rawShares, rawAvg] = entry.split(':');
-    const ticker = (rawTicker || '').trim().toUpperCase();
-    const shares = parseFloat(rawShares || '0');
-    const avgPrice = parseFloat(rawAvg || '0');
-    if (ticker && shares > 0) {
-      holdings.push({
-        ticker,
-        shares,
-        avgPrice: avgPrice > 0 ? avgPrice : findFiiInfo(ticker).vp,
-      });
-    }
-  }
-
-  return holdings;
 }
 
 function isB3MarketOpenNow(): boolean {
@@ -94,53 +56,55 @@ function getBrasiliaTimeHHMM(): string {
   }
 }
 
-// Sincroniza a carteira ativa do app com o endpoint do Widget
+// One read-only credential per account. Issuing a new token revokes the previous one.
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    if (typeof body.p === 'string') {
-      latestAppSyncedState = {
-        portfolioParam: body.p,
-        incomeGoal: Math.max(1, Number(body.goal) || 10),
-        updatedAtMs: Date.now(),
-      };
-    }
-    return NextResponse.json({ ok: true, syncedAt: getBrasiliaTimeHHMM() });
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
-  }
+  const access = await protectedApi(request, 'widget-token', 10);
+  if (access.response) return access.response;
+  const token = randomBytes(32).toString('hex');
+  const { error } = await serverDatabase().from('widget_tokens').upsert({
+    user_id: access.user.id, token_hash: createHash('sha256').update(token).digest('hex'), created_at: new Date().toISOString(),
+  });
+  if (error) return NextResponse.json({ error: 'Não foi possível criar o widget.' }, { status: 503 });
+  return NextResponse.json({ token }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
+export async function DELETE(request: Request) {
+  const user = await authenticateRequest(request);
+  if (!user) return NextResponse.json({ error: 'Faça login.' }, { status: 401 });
+  const { error } = await serverDatabase().from('widget_tokens').delete().eq('user_id', user.id);
+  return NextResponse.json({ ok: !error }, { status: error ? 503 : 200 });
 }
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-
-  // 1. Tenta ler diretamente do banco de dados Supabase (fonte primária da verdade no Serverless)
-  const [remoteTxs, remoteGoals, remoteDivs] = await Promise.all([
-    fetchRemoteTransactions().catch(() => null),
-    fetchRemoteGoals().catch(() => null),
-    fetchRemoteDividends().catch(() => null),
-  ]);
-
+  const { origin } = new URL(request.url);
+  const token = request.headers.get('authorization')?.replace(/^Bearer /, '') || '';
+  if (!/^[a-f0-9]{64}$/.test(token)) return NextResponse.json({ error: 'Widget não autorizado.' }, { status: 401 });
   let holdings: ParsedHolding[] = [];
-  if (remoteTxs && remoteTxs.length > 0) {
-    const dbPositions = calculatePortfolioPositions(
-      remoteTxs,
-      {},
-      remoteDivs || {}
-    );
-    holdings = dbPositions.map((p) => ({
-      ticker: p.ticker,
-      shares: p.totalShares,
-      avgPrice: p.averagePrice,
-    }));
-  } else {
-    holdings = parsePortfolioParam(searchParams.get('p'));
+  const transactions: Transaction[] = [];
+  let remoteDivs: Record<string, number> = {};
+  let incomeGoal = 10;
+  try {
+    const db = serverDatabase();
+    const { data: credential, error } = await db.from('widget_tokens').select('user_id').eq('token_hash', createHash('sha256').update(token).digest('hex')).maybeSingle();
+    if (error || !credential) return NextResponse.json({ error: 'Token expirado ou revogado.' }, { status: 401 });
+    if (!await consumeRateLimit(`widget:${credential.user_id}`, 120, 3600)) return NextResponse.json({ error: 'Aguarde.' }, { status: 429 });
+    for (let offset = 0; ; offset += 1000) {
+      const page = await db.from('transactions').select('*').eq('user_id', credential.user_id).order('id').range(offset, offset + 999);
+      if (page.error) throw new Error('Consulta indisponível');
+      transactions.push(...(page.data || []).map(row => ({ ...row, splitAdjustment: row.split_adjustment } as Transaction)));
+      if ((page.data?.length || 0) < 1000) break;
+    }
+    const [goals, divs] = await Promise.all([
+      db.from('portfolio_goals').select('monthly_income_target').eq('user_id', credential.user_id).maybeSingle(),
+      db.from('custom_dividends').select('ticker,dividend').eq('user_id', credential.user_id),
+    ]);
+    if (goals.error || divs.error) throw new Error('Consulta indisponível');
+    remoteDivs = Object.fromEntries((divs.data || []).map(d => [d.ticker, Number(d.dividend)]));
+    const positions = calculatePortfolioPositions(transactions, {}, remoteDivs);
+    holdings = positions.map(p => ({ ticker: p.ticker, shares: p.totalShares, avgPrice: p.averagePrice }));
+    incomeGoal = Number(goals.data?.monthly_income_target) || 10;
+  } catch {
+    return NextResponse.json({ error: 'Widget indisponível. Verifique a configuração segura.' }, { status: 503 });
   }
-
-  const incomeGoal =
-    remoteGoals?.monthlyIncomeTarget ||
-    latestAppSyncedState?.incomeGoal ||
-    Math.max(1, parseFloat(searchParams.get('goal') || '10'));
 
   const radarTickers = [
     'MXRF11',
@@ -173,12 +137,6 @@ export async function GET(request: Request) {
   let equity = 0;
   let invested = 0;
   let monthlyIncome = 0;
-  let nextEvent = 'Aguardando próximos anúncios B3';
-  let bestDaysUntil = 999;
-
-  const now = new Date();
-  const todayDay = now.getDate();
-
   for (const h of holdings) {
     const info = findFiiInfo(h.ticker);
     const live = quotesMap[h.ticker];
@@ -199,42 +157,18 @@ export async function GET(request: Request) {
     equity += posEquity;
     monthlyIncome += posDiv;
 
-    const payDay = live?.dividendPaymentDay || info.paymentDay || 15;
-    const distance = payDay >= todayDay ? payDay - todayDay : 30 - todayDay + payDay;
-
-    if (distance < bestDaysUntil) {
-      bestDaysUntil = distance;
-      const payLabel = live?.dividendPaymentDate
-        ? live.dividendPaymentDate.slice(0, 5)
-        : `dia ${payDay}`;
-      const confirmedBadge = live?.isCurrentMonthAnnounced ? '✓' : 'est.';
-      nextEvent = `${h.ticker}: R$ ${posDiv.toFixed(2).replace('.', ',')} (${payLabel} ${confirmedBadge})`;
-    }
   }
+
+  const positions = calculatePortfolioPositions(transactions, quotesMap, remoteDivs);
+  const calendar = calculateMonthDividends(positions, new Date(), {}, transactions);
+  const event = calendar.events.find(item => item.status !== 'PAID');
+  const nextEvent = event
+    ? `${event.ticker}: R$ ${event.totalValue.toFixed(2).replace('.', ',')} (${event.paymentDateFormatted} ${event.status === 'CONFIRMED' ? 'anunciado' : 'estimativa'})`
+    : 'Sem pagamento pendente neste mês';
 
   // Encontrar a melhor oportunidade/barganha na B3 hoje para exibir no Widget
-  let topBargain = 'Mercado estável no momento';
-  let bestBargainScore = -999;
-
-  for (const cat of FII_DATABASE) {
-    const q = quotesMap[cat.ticker];
-    const price = q?.price || cat.vp;
-    const vp = q?.vp || cat.vp;
-    const div =
-      q?.lastDividend && q.lastDividend > 0
-        ? q.lastDividend
-        : cat.estimatedMonthlyDividend;
-    const pvp = vp > 0 ? price / vp : 1;
-    const dy = price > 0 ? (div / price) * 100 : 0;
-
-    if (pvp <= 0.99 && dy >= 0.8) {
-      const score = (1 - pvp) * 100 + dy * 12;
-      if (score > bestBargainScore) {
-        bestBargainScore = score;
-        topBargain = `${cat.ticker} R$ ${price.toFixed(2).replace('.', ',')} (P/VP ${pvp.toFixed(2).replace('.', ',')} • DY ${dy.toFixed(2).replace('.', ',')}%)`;
-      }
-    }
-  }
+  const candidate = evaluateAllFiis(quotesMap).find(f => !f.isDistressedWarning && f.qualityTier !== 'ALERTA_RISCO' && Boolean(quotesMap[f.ticker]?.price) && f.status === 'OPPORTUNITY');
+  const topBargain = candidate ? `${candidate.ticker} • P/VP ${candidate.pvp}` : 'Sem oportunidade elegível';
 
   const profit = Number((equity - invested).toFixed(2));
   const profitPct = invested > 0 ? Number(((profit / invested) * 100).toFixed(2)) : 0;

@@ -1,4 +1,5 @@
 'use client';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState } from 'react';
 import {
@@ -124,6 +125,7 @@ export function AddFixedIncomeModal({
   const [notes, setNotes] = useState(editingAsset?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   const handleApplyPreset = (preset: PresetOption) => {
@@ -191,7 +193,7 @@ export function AddFixedIncomeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
         className="relative w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl overflow-y-auto max-h-[88dvh] space-y-5"
         onClick={(e) => e.stopPropagation()}

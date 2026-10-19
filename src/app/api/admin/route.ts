@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse, connection } from 'next/server';
+import { serverDatabase } from '../../../lib/serverSecurity';
 import {
   Transaction,
   FixedIncomeAsset,
@@ -10,8 +10,8 @@ import {
   calculatePortfolioPositions,
   calculateUnifiedPortfolioSummary,
 } from '../../../domain/portfolioEngine';
-import { normalizeB3Ticker } from '../../../lib/b3Parser';
-import { getSupabaseConfig } from '../../../lib/supabase';
+import { normalizeB3Ticker } from '../../../lib/ticker';
+
 import {
   verifyAdminToken,
   extractAdminTokenFromRequest,
@@ -60,7 +60,12 @@ export interface AdminDashboardData {
   updatedAt: string;
 }
 
+interface RawTransaction extends Transaction { user_id?: string }
+interface RawFixedIncome { id: string; user_id?: string; name: string; type: FixedIncomeAsset['type']; institution: string; invested_amount: number; current_balance: number; rate_type: FixedIncomeAsset['rateType']; rate_percent: number; is_exempt: boolean; maturity_date?: string; notes?: string; updated_at: string }
+interface RawAccount { user_id: string; email?: string; display_name?: string; avatar_url?: string; created_at?: string; last_sign_in_at?: string; transactions: RawTransaction[]; fixed_income: RawFixedIncome[]; goals?: unknown }
+
 export async function GET(request: Request) {
+  await connection();
   try {
     // 0. Proteção Estrita: Verifica autenticação administrativa
     const token = extractAdminTokenFromRequest(request);
@@ -72,20 +77,9 @@ export async function GET(request: Request) {
     }
 
     const { origin } = new URL(request.url);
-    const { url, key } = getSupabaseConfig();
+    const supabase = serverDatabase();
 
-    if (!url || !key) {
-      return NextResponse.json(
-        { error: 'Credenciais do Supabase não configuradas' },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    let rawAccounts: any[] = [];
+    let rawAccounts: RawAccount[] = [];
     let usedRpc = false;
 
     // 1. Tenta chamar a RPC get_admin_accounts_overview
@@ -103,19 +97,17 @@ export async function GET(request: Request) {
 
     // 2. Fallback seguro caso a RPC falhe ou não exista
     if (!usedRpc || rawAccounts.length === 0) {
-      const [txsRes, fiRes, goalsRes, divsRes] = await Promise.all([
+      const [txsRes, fiRes] = await Promise.all([
         supabase.from('transactions').select('*').order('date', { ascending: false }),
         supabase.from('fixed_income_assets').select('*'),
-        supabase.from('portfolio_goals').select('*'),
-        supabase.from('custom_dividends').select('*'),
       ]);
 
       const txs = txsRes.data || [];
       const fi = fiRes.data || [];
-      const goals = goalsRes.data || [];
+
 
       // Agrupa registros por user_id
-      const userMap = new Map<string, any>();
+      const userMap = new Map<string, RawAccount>();
 
       // Adiciona contas encontradas em transações
       for (const t of txs) {
@@ -130,7 +122,7 @@ export async function GET(request: Request) {
             goals: null,
           });
         }
-        userMap.get(uid).transactions.push(t);
+        userMap.get(uid)!.transactions.push(t);
       }
 
       // Adiciona caixinhas
@@ -146,7 +138,7 @@ export async function GET(request: Request) {
             goals: null,
           });
         }
-        userMap.get(uid).fixed_income.push(f);
+        userMap.get(uid)!.fixed_income.push(f);
       }
 
       rawAccounts = Array.from(userMap.values());
@@ -192,11 +184,11 @@ export async function GET(request: Request) {
     const currentYearMonth = new Date().toISOString().slice(0, 7);
 
     // 5. Calcula métricas contábeis para cada conta
-    const accountsOverview: AdminAccountOverview[] = rawAccounts.map((acc: any) => {
+    const accountsOverview: AdminAccountOverview[] = rawAccounts.map((acc: RawAccount) => {
       const rawTxs = Array.isArray(acc.transactions) ? acc.transactions : [];
       const rawFi = Array.isArray(acc.fixed_income) ? acc.fixed_income : [];
 
-      const normalizedTxs: Transaction[] = rawTxs.map((t: any) => ({
+      const normalizedTxs: Transaction[] = rawTxs.map((t: RawTransaction) => ({
         id: t.id,
         ticker: String(t.ticker || '').toUpperCase().trim(),
         type: t.type === 'SELL' ? 'SELL' : t.type === 'DIVIDEND' ? 'DIVIDEND' : 'BUY',
@@ -208,7 +200,7 @@ export async function GET(request: Request) {
         notes: t.notes || undefined,
       }));
 
-      const normalizedFi: FixedIncomeAsset[] = rawFi.map((f: any) => ({
+      const normalizedFi: FixedIncomeAsset[] = rawFi.map((f: RawFixedIncome) => ({
         id: f.id,
         name: f.name || 'Aplicação Renda Fixa',
         type: f.type || 'CAIXINHA',
@@ -296,13 +288,10 @@ export async function GET(request: Request) {
         'Cache-Control': 'no-store, max-age=0',
       },
     });
-  } catch (err: any) {
-    if (err?.digest?.startsWith('NEXT_') || err?.message?.includes('bail out of prerendering')) {
-      throw err;
-    }
+  } catch (err: unknown) {
     console.error('Erro no endpoint /api/admin:', err);
     return NextResponse.json(
-      { error: err?.message || 'Erro interno no servidor administrativo' },
+      { error: 'Serviço administrativo indisponível.' },
       { status: 500 }
     );
   }

@@ -1,4 +1,6 @@
 'use client';
+import Image from 'next/image';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState, useEffect } from 'react';
 import {
@@ -12,7 +14,6 @@ import {
   Lock,
   AlertCircle,
   Loader2,
-  User,
   ShieldCheck,
 } from 'lucide-react';
 import {
@@ -87,7 +88,7 @@ function AccountAvatar({
 
   if (account.avatarUrl && !imageFailed) {
     return (
-      <img
+      <Image width={48} height={48} unoptimized
         src={account.avatarUrl}
         alt={account.displayName}
         onError={() => setImageFailed(true)}
@@ -123,9 +124,6 @@ export function AccountSwitcherModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setAccounts(getSavedAccounts());
-    setActiveAccount(getActiveAccount());
-
     const unsubscribe = subscribeAuthAccounts((accs, act) => {
       setAccounts(accs);
       setActiveAccount(act);
@@ -137,6 +135,8 @@ export function AccountSwitcherModal({
   useEffect(() => {
     if (isOpen) {
       const current = getSavedAccounts();
+      // Reset the form when opening this external session dialog.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAccounts(current);
       setActiveAccount(getActiveAccount());
       setView(current.length === 0 ? 'add' : 'list');
@@ -148,12 +148,13 @@ export function AccountSwitcherModal({
     }
   }, [isOpen]);
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   const handleSwitch = async (userId: string) => {
     if (activeAccount?.id === userId) return;
     triggerHaptic('medium');
-    await switchAccount(userId);
+    if (!await switchAccount(userId)) { setErrorMessage('Não foi possível entrar nesta conta. Faça login novamente.'); return; }
     onAccountChanged?.();
     onClose();
   };
@@ -183,8 +184,8 @@ export function AccountSwitcherModal({
         setIsLoadingGoogle(false);
       }
       // O redirect OAuth levará ao Google e retornará à aplicação
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Erro inesperado no login Google');
+    } catch (err: unknown) {
+      setErrorMessage((err instanceof Error ? err.message : '') || 'Erro inesperado no login Google');
       setIsLoadingGoogle(false);
     }
   };
@@ -211,15 +212,15 @@ export function AccountSwitcherModal({
 
       onAccountChanged?.();
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Erro ao autenticar com e-mail.');
+    } catch (err: unknown) {
+      setErrorMessage((err instanceof Error ? err.message : '') || 'Erro ao autenticar com e-mail.');
     } finally {
       setIsLoadingEmail(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#1c1c1e] border-t sm:border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[88dvh] overflow-hidden pb-safe-modal">
         {/* Top Handle visual para iOS */}
         <div className="w-full flex justify-center pt-2.5 pb-1 sm:hidden">

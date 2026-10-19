@@ -1,3 +1,4 @@
+import { protectedApi, readLimitedJson } from '../../../lib/serverSecurity';
 import { NextResponse, connection } from 'next/server';
 import { FII_FUNDAMENTALS } from '../../../data/fiiFundamentals';
 import { FII_PROPERTIES_CATALOG } from '../../../data/fiiProperties';
@@ -571,8 +572,18 @@ async function tryGenerateWithGeminiOrGroq(
 
 export async function POST(request: Request) {
   await connection();
+  const access = await protectedApi(request, 'ai', 15);
+  if (access.response) return access.response;
   try {
-    const body: RequestPayload = await request.json();
+    const body = await readLimitedJson(request) as RequestPayload;
+    if (!body || !Array.isArray(body.positions) || body.positions.length > 100 ||
+      body.positions.some(p => !p || !/^[A-Z]{4}\d{1,2}B?$/.test(p.ticker) ||
+        !['name', 'segment'].every(k => typeof p[k as 'name' | 'segment'] === 'string') ||
+        ![p.totalShares, p.averagePrice, p.currentPrice, p.currentTotal, p.totalMonthlyDividend, p.yieldOnCostPercent, p.pvp, p.allocationPercent].every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)) ||
+      (body.customQuestion !== undefined && (typeof body.customQuestion !== 'string' || body.customQuestion.length > 2000)) ||
+      (body.customApiKey !== undefined && (typeof body.customApiKey !== 'string' || body.customApiKey.length > 512))) {
+      return NextResponse.json({ error: 'Dados de análise inválidos.' }, { status: 400 });
+    }
     const positions = Array.isArray(body.positions) ? body.positions : [];
     const fixedIncomeTotal = Number(body.fixedIncomeTotal) || 0;
     const selicAnnual = Number(body.selicAnnual) || 10.75;

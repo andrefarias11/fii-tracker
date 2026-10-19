@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
@@ -10,7 +11,6 @@ import {
   EyeOff,
   Search,
   Users,
-  Wallet,
   Coins,
   TrendingUp,
   TrendingDown,
@@ -18,12 +18,10 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
-  ExternalLink,
   ShieldCheck,
   Building2,
   Calendar,
   Layers,
-  Sparkles,
   ArrowRight,
   Loader2,
   Lock,
@@ -166,6 +164,8 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
+    // Read the external session vault once on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalAccounts(getSavedAccounts());
     setActiveAccount(getActiveAccount());
     checkAuth().then((authed) => {
@@ -754,7 +754,7 @@ export default function AdminDashboardPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {acc.avatarUrl ? (
-                          <img
+                          <Image width={48} height={48} unoptimized
                             src={acc.avatarUrl}
                             alt={acc.displayName}
                             className="w-12 h-12 rounded-full object-cover border border-white/[0.1] shrink-0 shadow-sm"

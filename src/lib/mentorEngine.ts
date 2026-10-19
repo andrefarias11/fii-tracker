@@ -46,7 +46,7 @@ export function evaluateMentorsRecommendations(
   consensus: MentorConsensusItem[];
 } {
   const allFiis = evaluateAllFiis(quotes, positions);
-  const effectiveBudget = Math.max(100, monthlyBudget);
+  const effectiveBudget = Math.max(0, Number.isFinite(monthlyBudget) ? monthlyBudget : 0);
 
   // Cálculo de pesos atuais da carteira para o diagnóstico do Prof. Baroni
   const totalEquity = positions.reduce((acc, p) => acc + p.currentTotal, 0);
@@ -62,7 +62,7 @@ export function evaluateMentorsRecommendations(
 
   // Filtra apenas ativos aprovados no Quality Gate (sem alerta de Value Trap / estresse de crédito)
   const safeFiis = allFiis.filter((f) => !f.isDistressedWarning);
-  const candidatePool = safeFiis.length >= 3 ? safeFiis : allFiis;
+  const candidatePool = safeFiis.filter(f => f.currentPrice > 0 && f.currentPrice <= effectiveBudget && Boolean(quotes[f.ticker]?.price));
 
   // ============================================================================
   // 1. LUIZ BARSI FILHO — "O Rei dos Dividendos & Carteira Previdenciária"
@@ -94,7 +94,7 @@ export function evaluateMentorsRecommendations(
         score += 10;
       }
 
-      const sharesForBudget = Math.max(1, Math.floor(effectiveBudget / fii.currentPrice));
+      const sharesForBudget = Math.max(0, Math.floor(effectiveBudget / fii.currentPrice));
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [
@@ -165,7 +165,7 @@ export function evaluateMentorsRecommendations(
       else if (fii.pvp <= 1.03) score += 8;
       else score -= 20;
 
-      const sharesForBudget = Math.max(1, Math.floor(effectiveBudget / fii.currentPrice));
+      const sharesForBudget = Math.max(0, Math.floor(effectiveBudget / fii.currentPrice));
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [
@@ -211,7 +211,7 @@ export function evaluateMentorsRecommendations(
       // Exige que o ativo também pague bons dividendos recorrentes
       score += fii.monthlyYieldPercent * 12;
 
-      const sharesForBudget = Math.max(1, Math.floor(effectiveBudget / fii.currentPrice));
+      const sharesForBudget = Math.max(0, Math.floor(effectiveBudget / fii.currentPrice));
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
       const discountPerShare = Number(Math.max(0, fii.vp - fii.currentPrice).toFixed(2));
 
@@ -264,7 +264,7 @@ export function evaluateMentorsRecommendations(
       if (fii.rebalancesPortfolio) score += 15;
       if (fii.isBelowAveragePrice) score += 10;
 
-      const sharesForBudget = Math.max(1, Math.floor(effectiveBudget / fii.currentPrice));
+      const sharesForBudget = Math.max(0, Math.floor(effectiveBudget / fii.currentPrice));
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [

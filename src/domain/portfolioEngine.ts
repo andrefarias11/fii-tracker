@@ -8,7 +8,7 @@ import {
   BcbIndicators,
 } from '../types/portfolio';
 import { findFiiInfo } from '../data/fiiDatabase';
-import { normalizeB3Ticker } from '../lib/b3Parser';
+import { normalizeB3Ticker } from '../lib/ticker';
 
 export interface PortfolioSummaryData {
   totalInvested: number;
@@ -23,58 +23,15 @@ export interface PortfolioSummaryData {
   incomeGoalProgressPercent: number;
 }
 
-// Fatores de desdobramento conhecidos na B3 (ex: 1:10 ou 1:8) para normalizar compras antigas pré-split
-const HISTORICAL_SPLIT_FACTORS: Record<string, number> = {
-  BCFF11: 8,
-  CPTS11: 10,
-  GALG11: 10,
-  HGBS11: 10,
-  ALZR11: 10,
-  GGRC11: 10,
-  KNSC11: 10,
-  VIUR11: 10,
-  VINO11: 5,
-  RBVA11: 10,
-  BTCI11: 10,
-};
-
-/**
- * Normaliza uma transação caso ela tenha sido registrada na B3 antes de um desdobramento (Split Base 100 -> Base 10)
- */
-export function normalizeTransactionForSplit(tx: Transaction): {
-  shares: number;
-  price: number;
-  total: number;
-} {
-  const cleanTicker = normalizeB3Ticker(tx.ticker);
-  const info = findFiiInfo(cleanTicker);
-  const absShares = Math.abs(Number(tx.shares));
-  const absPrice = Math.abs(Number(tx.price));
-  const absTotal = Math.abs(Number(tx.total)) || Number((absShares * absPrice).toFixed(2));
-
-  // Aplica o fator de desdobramento APENAS se cleanTicker existir explicitamente como chave
-  // dentro do dicionário HISTORICAL_SPLIT_FACTORS e absPrice >= info.vp * 4.5.
-  // Nunca aplica split automático para tickers genéricos fora de HISTORICAL_SPLIT_FACTORS.
-  const splitFactor = HISTORICAL_SPLIT_FACTORS[cleanTicker];
-  if (
-    splitFactor !== undefined &&
-    info.assetClass !== 'ACAO' &&
-    absPrice >= info.vp * 4.5
-  ) {
-    const adjustedShares = Math.round(absShares * splitFactor);
-    const adjustedPrice = Number((absPrice / splitFactor).toFixed(2));
-    return {
-      shares: adjustedShares,
-      price: adjustedPrice,
-      total: Number(absTotal.toFixed(2)),
-    };
-  }
-
-  return {
-    shares: absShares,
-    price: absPrice,
-    total: Number(absTotal.toFixed(2)),
-  };
+/** Explicit, auditable corporate action. Never infer a split from price or current NAV. */
+export function normalizeTransactionForSplit(tx: Transaction, asOf = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })): { shares: number; price: number; total: number } {
+  const shares = Math.abs(Number(tx.shares));
+  const price = Math.abs(Number(tx.price));
+  const total = Math.abs(Number(tx.total));
+  const action = tx.splitAdjustment;
+  const factor = action && action.source.trim() && action.effectiveDate > tx.date && action.effectiveDate <= asOf &&
+    Number.isFinite(action.factor) && action.factor > 0 ? action.factor : 1;
+  return { shares: shares * factor, price: price / factor, total: Number(total.toFixed(2)) };
 }
 
 const PT_SHORT_MONTHS = [
@@ -157,7 +114,7 @@ function buildMonthSequence(startYm: string, endYm: string): string[] {
       m = 1;
       y++;
     }
-    if (months.length > 60) break; // Limite de segurança de 5 anos
+    if (months.length > 1200) break; // Limite de segurança de 100 anos
   }
 
   return months.length > 0 ? months : [endYm];
@@ -178,29 +135,15 @@ export function calculatePortfolioPositions(
   }
 
   const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
-  const realDividendsByTickerMonth = new Map<string, Map<string, number>>();
-  const firstBuyMonthByTicker = new Map<string, string>();
 
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
-  const latestTxYm =
-    chronologicalTxs[chronologicalTxs.length - 1]?.date?.slice(0, 7) || '2026-10';
-  const nowYm =
-    currentYearMonth ||
-    (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 7) : latestTxYm);
+  const nowYm = currentYearMonth || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
 
   for (const tx of chronologicalTxs) {
     const cleanTicker = normalizeB3Ticker(tx.ticker);
     if (!cleanTicker) continue;
 
-    const ym = tx.date && tx.date.length >= 7 ? tx.date.slice(0, 7) : nowYm;
-
-    // Se for provento real importado da aba Movimentação da B3, acumula no histórico de dividendos pagos
-    if (tx.type === 'DIVIDEND') {
-      const tickerDivMap = realDividendsByTickerMonth.get(cleanTicker) || new Map<string, number>();
-      tickerDivMap.set(ym, (tickerDivMap.get(ym) || 0) + Math.abs(Number(tx.total)));
-      realDividendsByTickerMonth.set(cleanTicker, tickerDivMap);
-      continue;
-    }
+    if (tx.type === 'DIVIDEND') continue;
 
     const normalized = normalizeTransactionForSplit(tx);
     const current = map.get(cleanTicker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
@@ -212,9 +155,6 @@ export function calculatePortfolioPositions(
       // Na venda, o Preço Médio fiscal não se altera; reduz-se o custo proporcionalmente
       current.totalInvested = Number((current.totalShares * current.avgPrice).toFixed(2));
     } else {
-      if (!firstBuyMonthByTicker.has(cleanTicker)) {
-        firstBuyMonthByTicker.set(cleanTicker, ym);
-      }
       current.totalShares += normalized.shares;
       current.totalInvested += normalized.total;
       current.avgPrice =
@@ -280,39 +220,10 @@ export function calculatePortfolioPositions(
       Math.round((data.totalShares / magicNumber) * 100)
     );
 
-    // Cálculo de Payback do Ativo (Quanto já retornou em dividendos desde o 1º aporte na B3)
-    const firstBuyYm = firstBuyMonthByTicker.get(ticker) || nowYm;
-    const tickerMonthSeq = buildMonthSequence(firstBuyYm, nowYm);
-    const tickerRealDivMap = realDividendsByTickerMonth.get(ticker);
-    let accumulatedPayback = 0;
-
-    for (const ym of tickerMonthSeq) {
-      const realPaidInMonth = tickerRealDivMap?.get(ym) || 0;
-      if (realPaidInMonth > 0) {
-        accumulatedPayback += realPaidInMonth;
-      } else if (!isStock) {
-        // Para FIIs, que pagam proventos mensalmente por regra, projeta com base nas cotas daquele mês.
-        // Para AÇÕES (assetClass === 'ACAO'), não projeta dividendos mensais fictícios nos meses passados sem registro DIVIDEND.
-        let sharesInMonth = 0;
-        for (const tx of chronologicalTxs) {
-          if (tx.type === 'DIVIDEND') continue;
-          if (normalizeB3Ticker(tx.ticker) !== ticker) continue;
-          if (tx.date.slice(0, 7) <= ym) {
-            const norm = normalizeTransactionForSplit(tx);
-            if (tx.type === 'SELL') {
-              sharesInMonth = Math.max(0, sharesInMonth - norm.shares);
-            } else {
-              sharesInMonth += norm.shares;
-            }
-          }
-        }
-        if (sharesInMonth > 0) {
-          accumulatedPayback += sharesInMonth * monthlyDividendPerShare;
-        }
-      }
-    }
-
-    const paybackReceived = Number(accumulatedPayback.toFixed(2));
+    // Only ledger receipts, never extrapolated dividends.
+    const paybackReceived = Number(chronologicalTxs
+      .filter(tx => tx.type === 'DIVIDEND' && normalizeB3Ticker(tx.ticker) === ticker && tx.date.slice(0, 7) <= nowYm)
+      .reduce((sum, tx) => sum + Math.abs(tx.total), 0).toFixed(2));
     const paybackPercent =
       data.totalInvested > 0
         ? Number(Math.min(100, (paybackReceived / data.totalInvested) * 100).toFixed(1))
@@ -344,6 +255,7 @@ export function calculatePortfolioPositions(
       paybackPercent,
       dailyChangePercent: liveQuote?.changePercent,
       lastUpdated: liveQuote?.updatedAt,
+      announcedDividendPerShare: liveQuote?.announcedDividendPerShare,
       dividendExDate: liveQuote?.dividendExDate,
       dividendPaymentDate: liveQuote?.dividendPaymentDate,
       dividendPaymentDay: liveQuote?.dividendPaymentDay,
@@ -365,11 +277,7 @@ export function calculateDividendStaircase(
   currentYearMonth: string = ''
 ): DividendStaircaseSummary {
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
-  const latestTxYm =
-    chronologicalTxs[chronologicalTxs.length - 1]?.date?.slice(0, 7) || '2026-10';
-  const nowYm =
-    currentYearMonth ||
-    (typeof window !== 'undefined' ? new Date().toISOString().slice(0, 7) : latestTxYm);
+  const nowYm = currentYearMonth || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
 
   const validYms = chronologicalTxs
     .map((t) => (t.date && t.date.length >= 7 ? t.date.slice(0, 7) : ''))
@@ -398,7 +306,7 @@ export function calculateDividendStaircase(
 
     let totalDividends = 0;
     let realB3Dividends = 0;
-    let estimatedDividends = 0;
+    const estimatedDividends = 0;
     let totalSharesHeld = 0;
     const breakdown: DividendStaircaseMonth['breakdown'] = [];
 
@@ -437,25 +345,6 @@ export function calculateDividendStaircase(
           amount: amt,
           isRealB3: true,
         });
-      } else if (sharesAtMonthEnd > 0) {
-        const info = findFiiInfo(ticker);
-        const isStock = info.assetClass === 'ACAO';
-        // Para AÇÕES (assetClass === 'ACAO'), não projeta dividendos mensais fictícios nos meses passados sem registro DIVIDEND
-        if (!isStock) {
-          const divPerShare =
-            positionDivMap.get(ticker) ?? info.estimatedMonthlyDividend;
-          const amt = Number((sharesAtMonthEnd * divPerShare).toFixed(2));
-          if (amt > 0) {
-            totalDividends += amt;
-            estimatedDividends += amt;
-            breakdown.push({
-              ticker,
-              shares: sharesAtMonthEnd,
-              amount: amt,
-              isRealB3: false,
-            });
-          }
-        }
       }
     }
 

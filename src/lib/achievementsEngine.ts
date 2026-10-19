@@ -1,5 +1,5 @@
 import { FiiPosition, Transaction } from '../types/portfolio';
-import { normalizeB3Ticker } from './b3Parser';
+import { normalizeB3Ticker } from './ticker';
 
 export type AchievementTier = 'BRONZE' | 'PRATA' | 'OURO' | 'PLATINA';
 export type AchievementCategory =

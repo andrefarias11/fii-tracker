@@ -1,4 +1,5 @@
 'use client';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState, useEffect } from 'react';
 import { X, Search, Check, Sparkles, ArrowDownLeft, ArrowUpRight, AlertCircle } from 'lucide-react';
@@ -20,6 +21,7 @@ interface AddTransactionModalProps {
     price: number;
     broker?: string;
     notes?: string;
+    splitAdjustment?: Transaction['splitAdjustment'];
   }) => void;
   onUpdateTransaction?: (
     id: string,
@@ -31,6 +33,7 @@ interface AddTransactionModalProps {
       price: number;
       broker?: string;
       notes?: string;
+    splitAdjustment?: Transaction['splitAdjustment'];
     }
   ) => void;
 }
@@ -65,6 +68,9 @@ export function AddTransactionModal({
   const [broker, setBroker] = useState<string>(
     editingTransaction ? editingTransaction.broker : 'XP Investimentos'
   );
+  const [splitFactor, setSplitFactor] = useState(String(editingTransaction?.splitAdjustment?.factor || ''));
+  const [splitDate, setSplitDate] = useState(editingTransaction?.splitAdjustment?.effectiveDate || '');
+  const [splitSource, setSplitSource] = useState(editingTransaction?.splitAdjustment?.source || '');
   const [notes, setNotes] = useState<string>(editingTransaction?.notes || '');
   const [isFetchingPrice, setIsFetchingPrice] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -153,6 +159,9 @@ export function AddTransactionModal({
       return;
     }
 
+    if (splitFactor && (!Number.isFinite(Number(splitFactor)) || Number(splitFactor) <= 0 || splitDate <= date || !splitSource.trim())) {
+      setErrorMsg('Informe fator positivo, data do evento posterior à operação e fonte do desdobramento.'); return;
+    }
     const payload = {
       ticker: cleanTicker,
       type: txType,
@@ -161,6 +170,7 @@ export function AddTransactionModal({
       date: date || new Date().toISOString().slice(0, 10),
       broker: broker || 'XP Investimentos',
       notes: notes.trim() || undefined,
+      splitAdjustment: splitFactor ? { factor: Number(splitFactor), effectiveDate: splitDate, source: splitSource.trim() } : undefined,
     };
 
     if (editingTransaction && onUpdateTransaction) {
@@ -172,6 +182,7 @@ export function AddTransactionModal({
     onClose();
   };
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   const currentTotal = Number(shares || 0) * validPrice;
@@ -184,7 +195,7 @@ export function AddTransactionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className="w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -435,6 +446,12 @@ export function AddTransactionModal({
             </div>
           </div>
 
+          <details className="text-sm text-zinc-300"><summary>Ajuste por desdobramento documentado</summary>
+            <p className="text-xs my-2">Preencha somente para uma operação anterior ao evento. O custo total é preservado; não há inferência pelo preço.</p>
+            <label>Fator (ex.: 10)<input aria-label="Fator do desdobramento" type="number" step="any" min="0.000001" className="w-full bg-zinc-900 p-2" value={splitFactor} onChange={e => setSplitFactor(e.target.value)} /></label>
+            <label>Data do evento<input aria-label="Data do desdobramento" type="date" className="w-full bg-zinc-900 p-2" value={splitDate} onChange={e => setSplitDate(e.target.value)} /></label>
+            <label>Fonte do evento<input aria-label="Fonte do desdobramento" className="w-full bg-zinc-900 p-2" value={splitSource} onChange={e => setSplitSource(e.target.value)} placeholder="Link ou identificação do comunicado" /></label>
+          </details>
           {/* Observações */}
           <div>
             <label className="text-xs font-semibold text-zinc-300 block mb-1">

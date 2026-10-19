@@ -1,6 +1,9 @@
+import { consumeRateLimit, readLimitedJson } from '../../../../lib/serverSecurity';
+import { timingSafeEqual, createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import {
   ADMIN_USERNAME,
+  isAdminConfigured,
   ADMIN_PASSWORD,
   ADMIN_COOKIE_NAME,
   generateAdminToken,
@@ -10,7 +13,9 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    if (!isAdminConfigured()) return NextResponse.json({ error: 'Administração não configurada.' }, { status: 503 });
+    if (!await consumeRateLimit('admin-login', 10, 900)) return NextResponse.json({ error: 'Aguarde antes de tentar novamente.' }, { status: 429 });
+    const body = await readLimitedJson(request, 4096) as { username?: unknown; password?: unknown };
     const { username, password } = body || {};
 
     if (!username || !password) {
@@ -21,12 +26,12 @@ export async function POST(request: Request) {
     }
 
     const cleanUser = String(username).trim();
-    const cleanPass = String(password).trim();
+    const cleanPass = String(password);
 
     // Compara com as credenciais configuradas
     const isValid =
-      cleanUser.toLowerCase() === ADMIN_USERNAME.toLowerCase() &&
-      cleanPass === ADMIN_PASSWORD;
+      cleanUser === ADMIN_USERNAME &&
+      timingSafeEqual(createHash('sha256').update(cleanPass).digest(), createHash('sha256').update(ADMIN_PASSWORD).digest());
 
     if (!isValid) {
       return NextResponse.json(
@@ -40,7 +45,6 @@ export async function POST(request: Request) {
     const response = NextResponse.json({
       ok: true,
       message: 'Autenticado com sucesso',
-      token,
       username: cleanUser,
     });
 
@@ -56,9 +60,9 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: err?.message || 'Erro no processo de login' },
+      { ok: false, error: 'Login indisponível. Verifique a configuração do servidor.' },
       { status: 500 }
     );
   }

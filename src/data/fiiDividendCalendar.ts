@@ -1,158 +1,69 @@
 import { DividendEvent, MonthProventosSummary, DividendStatus } from '../types/dividend';
-import { FiiPosition } from '../types/portfolio';
+import { FiiPosition, Transaction } from '../types/portfolio';
 import { findFiiInfo } from './fiiDatabase';
+import { normalizeTransactionForSplit } from '../domain/portfolioEngine';
+import { normalizeB3Ticker } from '../lib/ticker';
 
-interface FiiScheduleInfo {
-  announcementDay: number; // Dia típico do anúncio
-  paymentDay: number; // Dia típico do pagamento
-  announcedAmount?: number; // Valor de referência do catálogo
-}
-
-export function getFiiSchedule(ticker: string): FiiScheduleInfo {
+export function getFiiSchedule(ticker: string) {
   const info = findFiiInfo(ticker);
-  return {
-    announcementDay: info.announcementDay ?? 1,
-    paymentDay: info.paymentDay ?? 15,
-    announcedAmount: info.estimatedMonthlyDividend,
-  };
+  return { announcementDay: info.announcementDay ?? 1, paymentDay: info.paymentDay ?? 15, announcedAmount: info.estimatedMonthlyDividend };
 }
-
-// Calcular os eventos de proventos do mês corrente para a carteira do usuário
+function isoDate(value?: string) {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : '';
+}
 export function calculateMonthDividends(
-  positions: FiiPosition[],
-  currentDate = new Date(),
-  customStatusOverrides: Record<string, DividendStatus> = {}
-): {
-  events: DividendEvent[];
-  summary: MonthProventosSummary;
-} {
-  const currentDay = currentDate.getDate();
-  const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-  const currentYear = currentDate.getFullYear();
-
+  positions: FiiPosition[], currentDate = new Date(),
+  _legacyOverrides: Record<string, DividendStatus> = {}, transactions: Transaction[] = []
+): { events: DividendEvent[]; summary: MonthProventosSummary } {
+  void _legacyOverrides; // Old callers cannot override ledger receipt status.
+  const today = currentDate.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const month = today.slice(0, 7);
   const events: DividendEvent[] = [];
-
-  for (const pos of positions) {
-    if (pos.totalShares <= 0) continue;
-
-    const schedule = getFiiSchedule(pos.ticker);
-    const catalogItem = findFiiInfo(pos.ticker);
-
-    // Prioriza o dividendo da posição (que já inclui edição manual do usuário ou dado real da API)
-    const amountPerShare =
-      pos.monthlyDividendPerShare > 0
-        ? pos.monthlyDividendPerShare
-        : schedule.announcedAmount ?? catalogItem.estimatedMonthlyDividend ?? 0.09;
-    const totalValue = Number((pos.totalShares * amountPerShare).toFixed(2));
-
-    // Usar o dia de pagamento real retornado pela API (se for do ciclo atual) ou o dia típico do catálogo
-    const paymentDay =
-      pos.isCurrentMonthAnnounced && pos.dividendPaymentDay
-        ? pos.dividendPaymentDay
-        : schedule.paymentDay;
-
-    // Determinar Status Automático (100% sincronizado com comunicados reais da B3 / StatusInvest)
-    let status: DividendStatus = 'ESTIMATED';
-
-    if (pos.isCurrentMonthAnnounced) {
-      // Comunicado oficial do mês vigente divulgado pela gestora na B3
-      let isPaymentDateReached = currentDay >= paymentDay;
-
-      if (pos.dividendPaymentDate && pos.dividendPaymentDate.includes('/')) {
-        const parts = pos.dividendPaymentDate.split('/');
-        if (parts.length === 3) {
-          const pDay = parseInt(parts[0], 10);
-          const pMonth = parseInt(parts[1], 10);
-          const pYear = parseInt(parts[2], 10);
-          if (!isNaN(pDay) && !isNaN(pMonth) && !isNaN(pYear)) {
-            if (pYear === currentYear && pMonth === Number(currentMonth)) {
-              isPaymentDateReached = currentDay >= pDay;
-            } else {
-              const payTimestamp = new Date(pYear, pMonth - 1, pDay, 23, 59, 59).getTime();
-              isPaymentDateReached = currentDate.getTime() >= payTimestamp;
-            }
-          }
-        }
-      }
-
-      if (isPaymentDateReached) {
-        status = 'PAID'; // Data oficial de pagamento do mês já chegou ou passou -> Pago na conta
-      } else {
-        status = 'CONFIRMED'; // Comunicado oficial divulgado aguardando a data de pagamento -> Confirmado
-      }
-    } else if (pos.dividendSource === 'MANUAL') {
-      // Provento definido ou ajustado manualmente pelo investidor
-      if (currentDay >= paymentDay) {
-        status = 'PAID';
-      } else {
-        status = 'CONFIRMED';
-      }
-    } else {
-      // Ainda não há comunicado oficial divulgado pela gestora para o mês corrente na B3.
-      // OBRIGATORIAMENTE ESTIMATED, mesmo que o calendário típico já tenha passado do dia de anúncio ou pagamento.
-      status = 'ESTIMATED';
-    }
-
-    // Respeitar override manual se o usuário tiver alterado o status
-    if (customStatusOverrides[pos.ticker]) {
-      status = customStatusOverrides[pos.ticker];
-    }
-
-    const paymentDateFormatted =
-      pos.isCurrentMonthAnnounced && pos.dividendPaymentDate
-        ? pos.dividendPaymentDate
-        : `${String(paymentDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
-
-    const announcementDate =
-      pos.isCurrentMonthAnnounced && pos.dividendExDate
-        ? pos.dividendExDate
-        : `${String(schedule.announcementDay).padStart(2, '0')}/${currentMonth}/${currentYear}`;
-
-    events.push({
-      id: `div-${pos.ticker}-${currentYear}-${currentMonth}`,
-      ticker: pos.ticker,
-      shares: pos.totalShares,
-      dividendPerShare: amountPerShare,
-      totalValue,
-      status,
-      paymentDateFormatted,
-      paymentDay,
-      announcementDate,
-      isOfficial: status !== 'ESTIMATED' || Boolean(pos.isCurrentMonthAnnounced),
-      dividendSource: pos.dividendSource,
-    });
+  const receipts = new Map<string, { amount: number; date: string }>();
+  for (const tx of transactions) {
+    if (tx.type !== 'DIVIDEND' || tx.date.slice(0, 7) !== month || tx.date > today) continue;
+    const ticker = normalizeB3Ticker(tx.ticker);
+    const old = receipts.get(ticker);
+    receipts.set(ticker, { amount: (old?.amount || 0) + Math.abs(tx.total), date: tx.date });
   }
-
-  // Ordenar por dia de pagamento (os mais próximos primeiro)
-  events.sort((a, b) => a.paymentDay - b.paymentDay);
-
-  // Calcular métricas agregadas
-  const totalReceived = Number(
-    events.filter((e) => e.status === 'PAID').reduce((acc, e) => acc + e.totalValue, 0).toFixed(2)
-  );
-  const totalConfirmed = Number(
-    events.filter((e) => e.status === 'CONFIRMED').reduce((acc, e) => acc + e.totalValue, 0).toFixed(2)
-  );
-  const totalEstimated = Number(
-    events.filter((e) => e.status === 'ESTIMATED').reduce((acc, e) => acc + e.totalValue, 0).toFixed(2)
-  );
-  const totalExpected = Number((totalReceived + totalConfirmed + totalEstimated).toFixed(2));
-
-  const receivedCount = events.filter((e) => e.status === 'PAID').length;
-  const confirmedCount = events.filter((e) => e.status === 'CONFIRMED').length;
-  const estimatedCount = events.filter((e) => e.status === 'ESTIMATED').length;
-
-  return {
-    events,
-    summary: {
-      totalExpected,
-      totalReceived,
-      totalConfirmed,
-      totalEstimated,
-      receivedCount,
-      confirmedCount,
-      estimatedCount,
-    },
-  };
+  for (const [ticker, receipt] of receipts) {
+    events.push({ id: `receipt-${ticker}-${month}`, ticker, shares: 0, dividendPerShare: 0,
+      totalValue: Number(receipt.amount.toFixed(2)), status: 'PAID', paymentDay: Number(receipt.date.slice(8)),
+      paymentDateFormatted: receipt.date.split('-').reverse().join('/'), isOfficial: true, dividendSource: 'B3_OFICIAL' });
+  }
+  for (const pos of positions) {
+    if (receipts.has(pos.ticker)) continue;
+    const payment = isoDate(pos.dividendPaymentDate);
+    const cutoff = isoDate(pos.dividendExDate);
+    const announced = Boolean(pos.isCurrentMonthAnnounced && payment.startsWith(month) && cutoff && transactions.length && (pos.assetClass !== 'ACAO' || pos.announcedDividendPerShare !== undefined));
+    let shares = pos.totalShares;
+    if (announced) {
+      shares = 0;
+      for (const tx of [...transactions].sort((a,b) => a.date.localeCompare(b.date))) {
+        if (tx.type === 'DIVIDEND' || normalizeB3Ticker(tx.ticker) !== pos.ticker || tx.date > cutoff) continue;
+        const n = normalizeTransactionForSplit(tx, cutoff);
+        shares = Math.max(0, shares + (tx.type === 'SELL' ? -n.shares : n.shares));
+      }
+    }
+    if (shares <= 0) continue;
+    const schedule = getFiiSchedule(pos.ticker);
+    const paymentDay = announced ? Number(payment.slice(8)) : schedule.paymentDay;
+    const amountPerShare = announced ? (pos.announcedDividendPerShare ?? pos.monthlyDividendPerShare) : pos.monthlyDividendPerShare;
+    events.push({ id: `expected-${pos.ticker}-${month}`, ticker: pos.ticker, shares,
+      dividendPerShare: amountPerShare, totalValue: Number((shares * amountPerShare).toFixed(2)),
+      status: announced && pos.dividendSource !== 'MANUAL' ? 'CONFIRMED' : 'ESTIMATED',
+      paymentDay, paymentDateFormatted: announced ? payment.split('-').reverse().join('/') : `${String(paymentDay).padStart(2,'0')}/${month.slice(5)}/${month.slice(0,4)}`,
+      announcementDate: pos.dividendExDate, isOfficial: announced && pos.dividendSource === 'B3_OFICIAL', dividendSource: pos.dividendSource });
+  }
+  events.sort((a,b) => a.paymentDay - b.paymentDay);
+  const total = (status: DividendStatus) => Number(events.filter(e => e.status === status).reduce((sum,e) => sum + e.totalValue, 0).toFixed(2));
+  const totalReceived = total('PAID'), totalConfirmed = total('CONFIRMED'), totalEstimated = total('ESTIMATED');
+  return { events, summary: { totalReceived, totalConfirmed, totalEstimated,
+    totalExpected: Number((totalReceived + totalConfirmed + totalEstimated).toFixed(2)),
+    receivedCount: events.filter(e => e.status === 'PAID').length,
+    confirmedCount: events.filter(e => e.status === 'CONFIRMED').length,
+    estimatedCount: events.filter(e => e.status === 'ESTIMATED').length } };
 }
-

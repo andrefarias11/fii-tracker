@@ -43,6 +43,7 @@ interface StatusInvestProventsResponse {
 }
 
 interface OfficialDividendData {
+  announcedDividendPerShare?: number;
   lastDividend: number; // Mensal (FII) ou Média Mensal 12m/12 (Ação)
   annualDividend12m?: number;
   dividendExDate?: string;
@@ -258,6 +259,7 @@ async function fetchStatusInvestDividend(
 
       return {
         lastDividend: amount,
+        announcedDividendPerShare: Number(targetItem.v || 0),
         annualDividend12m,
         dividendExDate: exDate,
         dividendPaymentDate: payDate,
@@ -386,6 +388,7 @@ async function fetchBrapiDividend(
 
     return {
       lastDividend: amount,
+      announcedDividendPerShare: Number(targetItem.rate || 0),
       annualDividend12m,
       dividendExDate: exDate,
       dividendPaymentDate: payDate,
@@ -525,6 +528,7 @@ async function fetchTickerQuote(ticker: string) {
       prevClose,
       changePercent,
       lastDividend,
+      announcedDividendPerShare: officialDiv?.announcedDividendPerShare,
       annualDividend12m,
       dividendExDate,
       dividendPaymentDate,
@@ -555,6 +559,7 @@ async function fetchTickerQuoteWithCache(ticker: string): Promise<ResolvedQuote 
 
   const fresh = await fetchTickerQuote(clean);
   if (fresh) {
+    if (quoteMemoryCache.size >= 1000) quoteMemoryCache.delete(quoteMemoryCache.keys().next().value!);
     quoteMemoryCache.set(clean, {
       data: fresh,
       expiresAt: Date.now() + QUOTE_CACHE_TTL_MS,
@@ -567,7 +572,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get('tickers');
 
-  if (!tickersParam) {
+  if (!tickersParam || tickersParam.length > 512) {
     return NextResponse.json(
       { error: 'Nenhum ticker fornecido. Use ?tickers=MXRF11,VGIR11' },
       { status: 400 }
@@ -579,7 +584,7 @@ export async function GET(request: Request) {
       tickersParam
         .split(',')
         .map((t) => t.trim().toUpperCase())
-        .filter((t) => t.length > 0)
+        .filter((t) => /^[A-Z]{4}\d{1,2}B?$/.test(t))
     )
   ).slice(0, 35);
 

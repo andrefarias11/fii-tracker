@@ -1,5 +1,6 @@
+import { authenticatedFetch } from './authenticatedFetch';
 import { FiiPosition, PortfolioGoals, QuoteData } from '../types/portfolio';
-import { FII_DATABASE } from '../data/fiiDatabase';
+import { evaluateAllFiis } from './recommendationEngine';
 
 export interface WidgetPreviewData {
   equity: number;
@@ -20,37 +21,7 @@ export function buildWidgetPreviewData(
   goals: PortfolioGoals,
   quotes: Record<string, QuoteData> = {}
 ): WidgetPreviewData {
-  const activePositions =
-    positions.length > 0
-      ? positions
-      : [
-          {
-            ticker: 'MXRF11',
-            totalShares: 11,
-            averagePrice: 9.42,
-            currentPrice: 9.55,
-            totalInvested: 103.62,
-            currentTotal: 105.05,
-            monthlyDividendPerShare: 0.1,
-            totalMonthlyDividend: 1.1,
-            dividendPaymentDay: 15,
-            dividendPaymentDate: '15/10/2026',
-            isCurrentMonthAnnounced: true,
-          } as FiiPosition,
-          {
-            ticker: 'VGIR11',
-            totalShares: 10,
-            averagePrice: 9.6,
-            currentPrice: 9.72,
-            totalInvested: 96.0,
-            currentTotal: 97.2,
-            monthlyDividendPerShare: 0.11,
-            totalMonthlyDividend: 1.1,
-            dividendPaymentDay: 18,
-            dividendPaymentDate: '18/10/2026',
-            isCurrentMonthAnnounced: true,
-          } as FiiPosition,
-        ];
+  const activePositions = positions;
 
   const portfolioQuery = activePositions
     .map((p) => `${p.ticker}:${p.totalShares}:${p.averagePrice.toFixed(2)}`)
@@ -96,31 +67,8 @@ export function buildWidgetPreviewData(
     }
   }
 
-  // Melhor oportunidade do dia no Radar
-  let topBargain = 'CPTS11 P/VP 0,91 • Abaixo do Teto';
-  let bestScore = -999;
-  for (const cat of FII_DATABASE) {
-    const q = quotes[cat.ticker];
-    const price = q?.price || cat.vp;
-    const vp = q?.vp || cat.vp;
-    const div =
-      q?.lastDividend && q.lastDividend > 0
-        ? q.lastDividend
-        : cat.estimatedMonthlyDividend;
-    const pvp = vp > 0 ? price / vp : 1;
-    const dy = price > 0 ? (div / price) * 100 : 0;
-    if (pvp <= 0.99 && dy >= 0.8) {
-      const score = (1 - pvp) * 100 + dy * 12;
-      if (score > bestScore) {
-        bestScore = score;
-        topBargain = `${cat.ticker} R$ ${price
-          .toFixed(2)
-          .replace('.', ',')} (P/VP ${pvp.toFixed(2).replace('.', ',')} • DY ${dy
-          .toFixed(2)
-          .replace('.', ',')}%)`;
-      }
-    }
-  }
+  const candidate = evaluateAllFiis(quotes, positions).find(f => !f.isDistressedWarning && f.qualityTier !== 'ALERTA_RISCO' && Boolean(quotes[f.ticker]?.price) && f.status === 'OPPORTUNITY');
+  const topBargain = candidate ? `${candidate.ticker} • P/VP ${candidate.pvp} (catálogo de referência)` : 'Sem oportunidade elegível com cotação disponível';
 
   return {
     equity,
@@ -138,50 +86,24 @@ export function buildWidgetPreviewData(
 }
 
 /**
- * Sincroniza automaticamente a carteira ativa do app com a API /api/widget
- * para que o Widget do iPhone sempre receba os novos aportes sem precisar
- * copiar o código de novo!
- */
-export async function syncPortfolioToWidgetServer(
-  positions: FiiPosition[],
-  goals: PortfolioGoals
-): Promise<void> {
-  if (typeof window === 'undefined' || positions.length === 0) return;
-  try {
-    const p = positions
-      .map((pos) => `${pos.ticker}:${pos.totalShares}:${pos.averagePrice.toFixed(2)}`)
-      .join(',');
-    await fetch('/api/widget', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        p,
-        goal: goals.monthlyIncomeTarget || 10,
-      }),
-    });
-  } catch {
-    // Silencioso
-  }
-}
-
-/**
  * Gera o script completo para o app gratuito "Scriptable" do iOS,
  * com anti-cache (_t=timestamp) para nunca travar no horário antigo
  * e atualização contínua a cada 15 minutos!
  */
-export function generateScriptableWidgetCode(
+export async function generateScriptableWidgetCode(
   positions: FiiPosition[],
   goals: PortfolioGoals,
   originUrl?: string
-): string {
+): Promise<string> {
   const baseOrigin =
     originUrl ||
     (typeof window !== 'undefined' ? window.location.origin : 'https://seu-fii-tracker.vercel.app');
 
+  const response = await authenticatedFetch('/api/widget', { method: 'POST' });
+  if (!response.ok) throw new Error('Faça login e configure o serviço de widget.');
+  const { token } = await response.json();
+  const apiUrl = `${baseOrigin}/api/widget?_widget=1`;
   const preview = buildWidgetPreviewData(positions, goals);
-  const apiUrl = `${baseOrigin}/api/widget?p=${encodeURIComponent(
-    preview.portfolioQuery
-  )}&goal=${encodeURIComponent(String(preview.incomeGoal))}`;
 
   return `// ============================================================================
 // 📱 FII TRACKER 2.0 — WIDGET AO VIVO PARA IPHONE (SEM CACHE TRAVADO)
@@ -190,7 +112,7 @@ export function generateScriptableWidgetCode(
 
 const APP_URL = "${baseOrigin}";
 const WIDGET_API_URL = "${apiUrl}";
-const CACHE_FILE = "fii_tracker_widget_cache.json";
+const CACHE_FILE = "fii_tracker_widget_${token.slice(0, 12)}.json";
 
 // Agenda próxima atualização em 15 minutos (e dorme apenas de madrugada 01h-06h)
 function getNextRefreshDate() {
@@ -226,7 +148,8 @@ async function fetchPortfolioData() {
     req.timeoutInterval = 10;
     req.headers = {
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      "Pragma": "no-cache"
+      "Pragma": "no-cache",
+      "Authorization": "Bearer ${token}"
     };
     const data = await req.loadJSON();
     if (data && typeof data.equity === "number") {

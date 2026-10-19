@@ -10,7 +10,7 @@ import {
   FixedIncomeAsset,
   UnifiedPortfolioSummary,
 } from '../types/portfolio';
-import { deduplicateB3Transactions, normalizeB3Ticker } from '../lib/b3Parser';
+import { normalizeB3Ticker } from '../lib/ticker';
 import {
   calculatePortfolioPositions,
   calculatePortfolioSummary,
@@ -18,7 +18,6 @@ import {
 } from '../domain/portfolioEngine';
 import { FII_FUNDAMENTALS } from '../data/fiiFundamentals';
 import { runAutoDailyPushCheck } from '../lib/pushNotifications';
-import { syncPortfolioToWidgetServer } from '../lib/iphoneWidget';
 import {
   checkSupabaseConnection,
   fetchRemoteTransactions,
@@ -34,153 +33,19 @@ import {
   syncFixedIncomeToCloud,
   deleteRemoteFixedIncome,
   getSupabaseConfig,
+  deleteRemoteCustomDividends,
+  fetchDeletedIds,
+  getSupabaseClient,
 } from '../lib/supabase';
-import { getActiveAccount, getSavedAccounts, subscribeAuthAccounts } from '../lib/authManager';
+import { parsePortfolioBackup, validateTransaction } from '../lib/backupValidation';
+import { flushQueue, readQueue, SYNC_EVENT } from '../lib/syncQueue';
+import { getActiveAccount, subscribeAuthAccounts } from '../lib/authManager';
 
-const BASE_KEY_TRANSACTIONS = 'fii_tracker_transactions_v1';
-const BASE_KEY_GOALS = 'fii_tracker_goals_v1';
-const BASE_KEY_DIVIDENDS = 'fii_tracker_dividends_v1';
-const BASE_KEY_FIXED_INCOME = 'fii_tracker_fixed_income_v1';
-
-export function getScopedStorageKey(baseKey: string, userId: string | null): string {
-  const scope = userId ? userId : 'guest';
-  return `${baseKey}_${scope}`;
-}
-
-const DEFAULT_GOALS: PortfolioGoals = {
-  monthlyTarget: 200,
-  milestoneEquityTarget: 1000,
-  monthlyIncomeTarget: 10,
-};
-
-export const DEMO_FIXED_INCOME: FixedIncomeAsset[] = [
-  {
-    id: 'demo-fi-1',
-    name: 'Caixinha Reserva Nubank',
-    type: 'CAIXINHA',
-    institution: 'Nubank',
-    investedAmount: 500,
-    currentBalance: 518.4,
-    rateType: 'CDI',
-    ratePercent: 100,
-    isExempt: false,
-    updatedAt: '2026-10-01',
-    notes: 'Reserva com liquidez imediata (100% CDI)',
-  },
-];
-
-export const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'demo-1',
-    ticker: 'MXRF11',
-    date: '2026-10-01',
-    shares: 11,
-    price: 9.42,
-    total: 103.62,
-    broker: 'XP Investimentos',
-    notes: 'Primeiro aporte do mês',
-  },
-  {
-    id: 'demo-2',
-    ticker: 'VGIR11',
-    date: '2026-10-01',
-    shares: 10,
-    price: 9.6,
-    total: 96.0,
-    broker: 'XP Investimentos',
-    notes: 'Diversificação em Papel/CDI',
-  },
-];
-
-function loadScopedData(userId: string | null) {
-  if (typeof window === 'undefined') {
-    return {
-      transactions: [],
-      fixedIncomeAssets: [],
-      goals: DEFAULT_GOALS,
-      customDividends: {},
-    };
-  }
-
-  const txKey = getScopedStorageKey(BASE_KEY_TRANSACTIONS, userId);
-  const fiKey = getScopedStorageKey(BASE_KEY_FIXED_INCOME, userId);
-  const goalsKey = getScopedStorageKey(BASE_KEY_GOALS, userId);
-  const divKey = getScopedStorageKey(BASE_KEY_DIVIDENDS, userId);
-
-  let rawTx = localStorage.getItem(txKey);
-  let rawFi = localStorage.getItem(fiKey);
-  let rawGoals = localStorage.getItem(goalsKey);
-  let rawDiv = localStorage.getItem(divKey);
-
-  // Se a chave com escopo ainda não existir:
-  if (!rawTx && !rawFi && !rawGoals && !rawDiv) {
-    if (userId) {
-      // É uma conta autenticada
-      const accounts = getSavedAccounts();
-      // Regra Estrita: A migração de dados locais/legados (guest) só pode acontecer
-      // para a PRIMEIRA conta que foi logada no aparelho! NUNCA para a 2ª ou 3ª conta!
-      const isPrimaryAccount =
-        accounts.length <= 1 && (accounts.length === 0 || accounts[0]?.id === userId);
-      const alreadyMigrated = localStorage.getItem('fii_tracker_legacy_migrated_v1') === 'true';
-
-      if (isPrimaryAccount && !alreadyMigrated) {
-        // Migra dados legados (sem sufixo) para a conta principal
-        const legacyTx = localStorage.getItem(BASE_KEY_TRANSACTIONS);
-        const legacyFi = localStorage.getItem(BASE_KEY_FIXED_INCOME);
-        const legacyGoals = localStorage.getItem(BASE_KEY_GOALS);
-        const legacyDiv = localStorage.getItem(BASE_KEY_DIVIDENDS);
-
-        if (legacyTx) {
-          rawTx = legacyTx;
-          localStorage.setItem(txKey, legacyTx);
-        }
-        if (legacyFi) {
-          rawFi = legacyFi;
-          localStorage.setItem(fiKey, legacyFi);
-        }
-        if (legacyGoals) {
-          rawGoals = legacyGoals;
-          localStorage.setItem(goalsKey, legacyGoals);
-        }
-        if (legacyDiv) {
-          rawDiv = legacyDiv;
-          localStorage.setItem(divKey, legacyDiv);
-        }
-        localStorage.setItem('fii_tracker_legacy_migrated_v1', 'true');
-      }
-      // Se NÃO for a primeira conta (ex: Conta 2, 3 de teste), NÃO copia nada! Começa vazia!
-    } else {
-      // Usuário Guest (deslogado): tenta carregar do legado sem sufixo se a chave guest estiver vazia
-      rawTx = localStorage.getItem(BASE_KEY_TRANSACTIONS);
-      rawFi = localStorage.getItem(BASE_KEY_FIXED_INCOME);
-      rawGoals = localStorage.getItem(BASE_KEY_GOALS);
-      rawDiv = localStorage.getItem(BASE_KEY_DIVIDENDS);
-    }
-  }
-
-  let transactions: Transaction[] = [];
-  let fixedIncomeAssets: FixedIncomeAsset[] = [];
-  let goals: PortfolioGoals = DEFAULT_GOALS;
-  let customDividends: Record<string, number> = {};
-
-  try {
-    if (rawTx) transactions = JSON.parse(rawTx);
-  } catch {}
-  try {
-    if (rawFi) fixedIncomeAssets = JSON.parse(rawFi);
-  } catch {}
-  try {
-    if (rawGoals) goals = JSON.parse(rawGoals);
-  } catch {}
-  try {
-    if (rawDiv) customDividends = JSON.parse(rawDiv);
-  } catch {}
-
-  return { transactions, fixedIncomeAssets, goals, customDividends };
-}
+import { BASE_KEY_TRANSACTIONS, BASE_KEY_GOALS, BASE_KEY_DIVIDENDS, BASE_KEY_FIXED_INCOME, DEFAULT_GOALS, DEMO_TRANSACTIONS, DEMO_FIXED_INCOME, getScopedStorageKey, loadScopedData } from '../lib/portfolioStorage';
+export { getScopedStorageKey, DEMO_TRANSACTIONS, DEMO_FIXED_INCOME } from '../lib/portfolioStorage';
 
 export function usePortfolio(explicitUserId?: string | null) {
-  const [activeUserId, setActiveUserId] = useState<string | null>(() => {
+  const [subscribedUserId, setActiveUserId] = useState<string | null>(() => {
     if (explicitUserId !== undefined) return explicitUserId;
     if (typeof window !== 'undefined') {
       return getActiveAccount()?.id || null;
@@ -188,6 +53,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     return null;
   });
 
+  const activeUserId = explicitUserId !== undefined ? explicitUserId : subscribedUserId;
   const currentSyncUserId = useRef<string | null>(activeUserId);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -204,13 +70,16 @@ export function usePortfolio(explicitUserId?: string | null) {
   // Estados de Nuvem (Supabase)
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-
-  // Sincroniza com prop explicitUserId se fornecida
+  const [pendingChanges, setPendingChanges] = useState(0);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncRunning = useRef(false);
   useEffect(() => {
-    if (explicitUserId !== undefined && explicitUserId !== activeUserId) {
-      setActiveUserId(explicitUserId);
-    }
-  }, [explicitUserId, activeUserId]);
+    const update = () => setPendingChanges(activeUserId ? readQueue(activeUserId).length : 0);
+    update();
+    window.addEventListener(SYNC_EVENT, update);
+    window.addEventListener('storage', update);
+    return () => { window.removeEventListener(SYNC_EVENT, update); window.removeEventListener('storage', update); };
+  }, [activeUserId]);
 
   // Listener ativo para trocas de conta no cofre de sessões
   useEffect(() => {
@@ -225,13 +94,16 @@ export function usePortfolio(explicitUserId?: string | null) {
   const syncWithCloud = useCallback(async (forcedUserId?: string | null) => {
     const syncUser = forcedUserId !== undefined ? forcedUserId : currentSyncUserId.current;
 
+    if (!syncUser || syncRunning.current) return;
     const config = getSupabaseConfig();
     if (!config.url || !config.key) {
       setIsCloudConnected(false);
       return;
     }
 
+    syncRunning.current = true;
     setIsSyncing(true);
+    setSyncError(null);
     try {
       const isConnected = await checkSupabaseConnection();
       setIsCloudConnected(isConnected);
@@ -241,7 +113,14 @@ export function usePortfolio(explicitUserId?: string | null) {
         return;
       }
 
+      if (!isConnected) throw new Error('Sem conexão autenticada com a nuvem. Alterações locais preservadas.');
       if (isConnected) {
+        const client = getSupabaseClient();
+        if (!client || !await flushQueue(client, syncUser)) throw new Error('Há alterações pendentes de envio.');
+        const syncKeys = [BASE_KEY_TRANSACTIONS, BASE_KEY_FIXED_INCOME, BASE_KEY_GOALS, BASE_KEY_DIVIDENDS];
+        const snapshot = new Map(syncKeys.map(key => [key, localStorage.getItem(getScopedStorageKey(key, syncUser))]));
+        const changed = (key: string) => snapshot.get(key) !== localStorage.getItem(getScopedStorageKey(key, syncUser));
+        const [deletedTx, deletedFi] = await Promise.all([fetchDeletedIds(syncUser, 'transactions'), fetchDeletedIds(syncUser, 'fixed_income_assets')]);
         const [remoteGoals, remoteDivs, remoteTxs, remoteFixedIncome] = await Promise.all([
           fetchRemoteGoals(syncUser),
           fetchRemoteDividends(syncUser),
@@ -253,6 +132,9 @@ export function usePortfolio(explicitUserId?: string | null) {
         if (currentSyncUserId.current !== syncUser) {
           return;
         }
+
+        // A response fetched before a local edit must never overwrite that edit.
+        if (syncKeys.some(changed)) return;
 
         // 1. Metas
         if (remoteGoals) {
@@ -292,12 +174,12 @@ export function usePortfolio(explicitUserId?: string | null) {
           const missingInRemote: Transaction[] = [];
 
           for (const localTx of currentLocalTxs) {
-            if (localTx.id.startsWith('demo-')) continue;
+            if (localTx.id.startsWith('demo-') || deletedTx.has(localTx.id)) continue;
 
             if (!remoteIds.has(localTx.id)) {
               const existsEquiv = remoteTxs.some(
                 (r) =>
-                  r.ticker === localTx.ticker &&
+                  r.ticker === localTx.ticker && (r.type || 'BUY') === (localTx.type || 'BUY') &&
                   r.date === localTx.date &&
                   Math.abs(r.shares) === Math.abs(localTx.shares) &&
                   Math.abs(r.total) === Math.abs(localTx.total)
@@ -315,6 +197,7 @@ export function usePortfolio(explicitUserId?: string | null) {
 
           if (currentSyncUserId.current !== syncUser) return;
 
+          if (changed(BASE_KEY_TRANSACTIONS)) return;
           const finalTxs = [...remoteTxs, ...missingInRemote].sort(
             (a, b) => b.date.localeCompare(a.date)
           );
@@ -344,7 +227,7 @@ export function usePortfolio(explicitUserId?: string | null) {
           const missingInRemoteFi: FixedIncomeAsset[] = [];
 
           for (const localAsset of currentLocalFi) {
-            if (localAsset.id.startsWith('demo-fi-')) continue;
+            if (localAsset.id.startsWith('demo-fi-') || deletedFi.has(localAsset.id)) continue;
 
             if (!remoteFiIds.has(localAsset.id)) {
               const existsEquiv = remoteFixedIncome.some(
@@ -366,6 +249,7 @@ export function usePortfolio(explicitUserId?: string | null) {
 
           if (currentSyncUserId.current !== syncUser) return;
 
+          if (changed(BASE_KEY_FIXED_INCOME)) return;
           const finalFi = [...remoteFixedIncome, ...missingInRemoteFi];
           setFixedIncomeAssets(finalFi);
           try {
@@ -377,13 +261,22 @@ export function usePortfolio(explicitUserId?: string | null) {
         }
       }
     } catch (err) {
-      console.error('Erro na sincronização com Supabase:', err);
+      setSyncError(err instanceof Error ? err.message : 'Falha na sincronização. Dados locais preservados.');
+      setIsCloudConnected(false);
     } finally {
+      syncRunning.current = false;
       if (currentSyncUserId.current === syncUser) {
         setIsSyncing(false);
       }
     }
   }, []);
+
+  useEffect(() => {
+    const retry = () => { void syncWithCloud(); };
+    window.addEventListener('online', retry);
+    const interval = window.setInterval(retry, 30000);
+    return () => { window.removeEventListener('online', retry); window.clearInterval(interval); };
+  }, [syncWithCloud]);
 
   // Ao alterar o activeUserId (troca de conta ou montagem inicial):
   // 1. Limpa IMEDIATAMENTE estados em memória
@@ -392,30 +285,21 @@ export function usePortfolio(explicitUserId?: string | null) {
   useEffect(() => {
     currentSyncUserId.current = activeUserId;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentYearMonth(new Date().toISOString().slice(0, 7));
+    setCurrentYearMonth(new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7));
 
     // Limpeza IMEDIATA do estado em memória
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTransactions([]);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFixedIncomeAssets([]);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomDividends({});
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGoals(DEFAULT_GOALS);
 
     // Carrega dados locais específicos deste usuário
     const data = loadScopedData(activeUserId);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTransactions(data.transactions);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFixedIncomeAssets(data.fixedIncomeAssets);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGoals(data.goals);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomDividends(data.customDividends);
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsInitialized(true);
 
     // Sincroniza nuvem para o usuário ativo
@@ -462,7 +346,7 @@ export function usePortfolio(explicitUserId?: string | null) {
       console.error('Erro ao salvar metas:', e);
     }
 
-    if (isCloudConnected) {
+    if (currentSyncUserId.current) {
       try {
         await syncGoalsToCloud(updated, currentSyncUserId.current);
       } catch (err) {
@@ -485,7 +369,7 @@ export function usePortfolio(explicitUserId?: string | null) {
       console.error('Erro ao salvar dividendo:', e);
     }
 
-    if (isCloudConnected) {
+    if (currentSyncUserId.current) {
       await syncDividendToCloud(cleanTicker, div, currentSyncUserId.current);
     }
   };
@@ -499,6 +383,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     price: number;
     broker?: string;
     notes?: string;
+    splitAdjustment?: Transaction['splitAdjustment'];
   }) => {
     const absShares = Math.abs(Number(data.shares));
     const absPrice = Math.abs(Number(data.price));
@@ -513,6 +398,7 @@ export function usePortfolio(explicitUserId?: string | null) {
       total,
       broker: data.broker || 'XP Investimentos',
       notes: data.notes,
+      splitAdjustment: data.splitAdjustment,
     };
 
     const updated = [newTx, ...transactions];
@@ -536,6 +422,7 @@ export function usePortfolio(explicitUserId?: string | null) {
       price: number;
       broker?: string;
       notes?: string;
+    splitAdjustment?: Transaction['splitAdjustment'];
     }
   ) => {
     const absShares = Math.abs(Number(data.shares));
@@ -551,6 +438,7 @@ export function usePortfolio(explicitUserId?: string | null) {
       total,
       broker: data.broker || 'XP Investimentos',
       notes: data.notes,
+      splitAdjustment: data.splitAdjustment,
     };
 
     const updatedList = transactions.map((t) => (t.id === id ? updatedTx : t));
@@ -590,6 +478,11 @@ export function usePortfolio(explicitUserId?: string | null) {
 
   // Importar transações vindas da planilha da B3 (Batch Upsert & Batch Delete no Supabase)
   const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
+    if (!newTxs.every(validateTransaction)) throw new Error('Importação inválida. Nenhum dado alterado.');
+    localStorage.setItem(getScopedStorageKey('fii_before_import', currentSyncUserId.current), exportBackup());
+    const importUser = currentSyncUserId.current;
+    const { deduplicateB3Transactions } = await import('../lib/b3Parser');
+    if (currentSyncUserId.current !== importUser) throw new Error('Conta alterada durante a importação. Tente novamente.');
     let finalTransactions: Transaction[] = [];
     let txsToUpsert: Transaction[] = newTxs;
 
@@ -597,7 +490,8 @@ export function usePortfolio(explicitUserId?: string | null) {
     const realExistingTxs = transactions.filter((t) => !t.id.startsWith('demo-'));
 
     if (replaceAll) {
-      const allExistingIds = transactions.map((t) => t.id);
+      const incomingIds = new Set(newTxs.map(t => t.id));
+      const allExistingIds = transactions.filter(t => !incomingIds.has(t.id)).map((t) => t.id);
       if (allExistingIds.length > 0) {
         deleteRemoteTransactionsBatch(allExistingIds, currentSyncUserId.current).catch(() => {});
       }
@@ -615,7 +509,7 @@ export function usePortfolio(explicitUserId?: string | null) {
 
     if (txsToUpsert.length > 0) {
       await syncTransactionsBatchToCloud(txsToUpsert, currentSyncUserId.current);
-      setIsCloudConnected(true);
+      // Connectivity is determined by a successful authenticated sync.
     }
   };
 
@@ -767,7 +661,7 @@ export function usePortfolio(explicitUserId?: string | null) {
   // Exportar Backup JSON
   const exportBackup = () => {
     const data = {
-      version: '2.5',
+      version: '5.0.0',
       exportedAt: new Date().toISOString(),
       transactions,
       goals,
@@ -779,34 +673,30 @@ export function usePortfolio(explicitUserId?: string | null) {
 
   // Importar Backup JSON (com Batch Upsert no Supabase)
   const importBackup = async (jsonStr: string) => {
+    const user = currentSyncUserId.current;
     try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed.transactions)) {
-        persistTransactions(parsed.transactions);
-        if (isCloudConnected && parsed.transactions.length > 0) {
-          await syncTransactionsBatchToCloud(parsed.transactions, currentSyncUserId.current);
-        }
-      }
-      if (parsed.goals) {
-        updateGoals(parsed.goals);
-      }
-      if (parsed.customDividends) {
-        setCustomDividends(parsed.customDividends);
-        try {
-          localStorage.setItem(
-            getScopedStorageKey(BASE_KEY_DIVIDENDS, currentSyncUserId.current),
-            JSON.stringify(parsed.customDividends)
-          );
-        } catch {}
-      }
-      if (Array.isArray(parsed.fixedIncomeAssets)) {
-        persistFixedIncome(parsed.fixedIncomeAssets);
-        if (isCloudConnected) {
-          for (const fi of parsed.fixedIncomeAssets) {
-            await syncFixedIncomeToCloud(fi, currentSyncUserId.current);
-          }
-        }
-      }
+      const parsed = parsePortfolioBackup(jsonStr);
+      localStorage.setItem(getScopedStorageKey('fii_before_import', user), exportBackup());
+      // Explicit restoration gets fresh identities; stale devices cannot revive deleted IDs.
+      const restoredTxs = parsed.transactions.map(t => ({ ...t, id: crypto.randomUUID() }));
+      const restoredFi = parsed.fixedIncomeAssets.map(t => ({ ...t, id: crypto.randomUUID() }));
+      const oldTxIds = transactions.map(t => t.id);
+      const oldFiIds = fixedIncomeAssets.map(t => t.id);
+      const removedDividends = Object.keys(customDividends).filter(t => !(t in parsed.customDividends));
+      persistTransactions(restoredTxs);
+      persistFixedIncome(restoredFi);
+      setGoals(parsed.goals);
+      setCustomDividends(parsed.customDividends);
+      localStorage.setItem(getScopedStorageKey(BASE_KEY_GOALS, user), JSON.stringify(parsed.goals));
+      localStorage.setItem(getScopedStorageKey(BASE_KEY_DIVIDENDS, user), JSON.stringify(parsed.customDividends));
+      // All writes capture the original owner, independent of later account switches.
+      await deleteRemoteTransactionsBatch(oldTxIds, user);
+      for (const id of oldFiIds) await deleteRemoteFixedIncome(id, user);
+      await deleteRemoteCustomDividends(removedDividends, user);
+      await syncTransactionsBatchToCloud(restoredTxs, user);
+      for (const asset of restoredFi) await syncFixedIncomeToCloud(asset, user);
+      await syncGoalsToCloud(parsed.goals, user);
+      for (const [ticker, amount] of Object.entries(parsed.customDividends)) await syncDividendToCloud(ticker, amount, user);
       return true;
     } catch (e) {
       console.error('Falha ao importar backup:', e);
@@ -814,11 +704,18 @@ export function usePortfolio(explicitUserId?: string | null) {
     }
   };
 
+  const undoLastImport = async () => {
+    const user = currentSyncUserId.current;
+    const key = getScopedStorageKey('fii_before_import', user);
+    const previous = localStorage.getItem(key);
+    if (!previous) return false;
+    const restored = await importBackup(previous);
+    if (restored) localStorage.removeItem(key);
+    return restored;
+  };
+
   // Verifica alertas automáticos de Web Push e sincroniza carteira com o Widget do iPhone
   useEffect(() => {
-    if (isInitialized) {
-      syncPortfolioToWidgetServer(positions, goals);
-    }
     if (isInitialized && lastSyncTime) {
       runAutoDailyPushCheck(positions, quotes);
     }
@@ -838,6 +735,8 @@ export function usePortfolio(explicitUserId?: string | null) {
     lastSyncTime,
     isCloudConnected,
     isSyncing,
+    pendingChanges,
+    syncError,
     syncWithCloud,
     addTransaction,
     updateTransaction,
@@ -853,6 +752,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     fetchLiveQuotes,
     exportBackup,
     importBackup,
+    undoLastImport,
     importTransactionsFromB3,
   };
 }

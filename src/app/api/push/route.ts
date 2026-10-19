@@ -1,3 +1,5 @@
+import { protectedApi, readLimitedJson } from '../../../lib/serverSecurity';
+import { isAllowedPushEndpoint } from '../../../lib/pushValidation';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 
@@ -108,6 +110,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await protectedApi(request, 'push', 30);
+  if (access.response) return access.response;
   try {
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     if (!vapidPrivateKey) {
@@ -117,16 +121,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const body = await readLimitedJson(request, 12000) as {
+      subscription?: { endpoint: string; keys?: { p256dh: string; auth: string } };
+      payload?: { title?: string; body?: string; url?: string }; delaySeconds?: number;
+    };
     const { subscription, payload, delaySeconds } = body;
 
-    if (!subscription || !subscription.endpoint) {
+    if (!subscription || !isAllowedPushEndpoint(subscription.endpoint)) {
       return NextResponse.json(
         { error: 'Assinatura Web Push inválida ou ausente.' },
         { status: 400 }
       );
     }
 
+    if (payload && (typeof payload.title !== 'string' || typeof payload.body !== 'string' || payload.title.length > 150 || payload.body.length > 1500 || (payload.url && (!payload.url.startsWith('/') || payload.url.startsWith('//'))))) {
+      return NextResponse.json({ error: 'Notificação inválida.' }, { status: 400 });
+    }
     if (delaySeconds && Number(delaySeconds) > 0) {
       const waitMs = Math.min(10000, Number(delaySeconds) * 1000);
       await new Promise((r) => setTimeout(r, waitMs));
@@ -173,6 +183,8 @@ export async function POST(request: NextRequest) {
 
     const pushRes = await fetch(subscription.endpoint, {
       method: 'POST',
+      redirect: 'error',
+      signal: AbortSignal.timeout(8000),
       headers,
       body: requestBody,
     });

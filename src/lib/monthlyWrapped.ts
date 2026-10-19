@@ -3,7 +3,7 @@ import {
   calculateDividendStaircase,
   normalizeTransactionForSplit,
 } from '../domain/portfolioEngine';
-import { normalizeB3Ticker } from './b3Parser';
+import { normalizeB3Ticker } from './ticker';
 import { findFiiInfo } from '../data/fiiDatabase';
 
 export interface MonthlyWrappedData {

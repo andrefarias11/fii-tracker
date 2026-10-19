@@ -359,7 +359,7 @@ export function generateDailyRecommendation(
   positions: FiiPosition[] = [],
   strategyMode: RecommendationStrategy = 'balanced'
 ): DayRecommendation {
-  const budget = Math.max(0, Number(remainingBudget.toFixed(2)));
+  const budget = Number.isFinite(remainingBudget) ? Math.max(0, Number(remainingBudget.toFixed(2))) : 0;
 
   if (budget < 10) {
     return {
@@ -378,12 +378,12 @@ export function generateDailyRecommendation(
     const candidates = positions
       .filter((p) => {
         const evalItem = evaluatedFiis.find((e) => e.ticker === p.ticker);
-        const isSafe = !evalItem || !evalItem.isDistressedWarning;
+        const isSafe = Boolean(evalItem && !evalItem.isDistressedWarning && evalItem.qualityTier !== 'ALERTA_RISCO');
         return isSafe && p.totalShares < p.magicNumber && p.currentPrice <= budget;
       })
       .sort((a, b) => b.magicProgressPercent - a.magicProgressPercent);
 
-    const targetPos = candidates[0] || positions.find((p) => p.currentPrice <= budget);
+    const targetPos = candidates[0];
 
     if (targetPos) {
       const evalInfo = evaluatedFiis.find((e) => e.ticker === targetPos.ticker);

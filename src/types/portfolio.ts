@@ -6,6 +6,7 @@ export interface Transaction {
   shares: number;
   price: number; // Preço pago/recebido por cota (ou valor unitário do provento)
   total: number;
+  splitAdjustment?: { effectiveDate: string; factor: number; source: string };
   broker: string; // Ex: "XP Investimentos"
   notes?: string;
 }
@@ -66,6 +67,7 @@ export interface FiiPosition {
   paybackPercent?: number; // % do valor investido que já retornou em dividendos
   dailyChangePercent?: number;
   lastUpdated?: string;
+  announcedDividendPerShare?: number;
   dividendExDate?: string; // Data-Com oficial (DD/MM/YYYY)
   dividendPaymentDate?: string; // Data de pagamento oficial (DD/MM/YYYY)
   dividendPaymentDay?: number; // Dia numérico de pagamento
@@ -87,6 +89,7 @@ export interface QuoteData {
   prevClose: number;
   lastDividend?: number; // Dividendo mensal (FII) ou média mensal 12m/12 (Ação)
   annualDividend12m?: number; // Soma acumulada 12 meses por cota/ação
+  announcedDividendPerShare?: number;
   dividendExDate?: string; // Ex: "30/09/2026"
   dividendPaymentDate?: string; // Ex: "15/10/2026"
   dividendPaymentDay?: number;

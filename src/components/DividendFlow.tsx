@@ -36,18 +36,6 @@ export function DividendFlow({
 
   const currentDate =
     typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
-  const yearMonthKey = `fii_tracker_div_status_${currentDate.getFullYear()}_${currentDate.getMonth() + 1}`;
-
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, DividendStatus>>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(yearMonthKey);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ •••';
     return new Intl.NumberFormat('pt-BR', {
@@ -59,27 +47,14 @@ export function DividendFlow({
   const currentMonthName = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
 
-  const { events, summary } = calculateMonthDividends(positions, currentDate, statusOverrides);
-
-  const handleToggleStatus = (ticker: string, current: DividendStatus) => {
-    const order: DividendStatus[] = ['ESTIMATED', 'CONFIRMED', 'PAID'];
-    const nextIndex = (order.indexOf(current) + 1) % order.length;
-    const nextStatus = order[nextIndex];
-    const updated = { ...statusOverrides, [ticker]: nextStatus };
-    setStatusOverrides(updated);
-    try {
-      localStorage.setItem(yearMonthKey, JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
-  };
+  const { events, summary } = calculateMonthDividends(positions, currentDate, {}, transactions);
 
   const filteredEvents = events.filter((ev) => {
     if (filterStatus === 'ALL') return true;
     return ev.status === filterStatus;
   });
 
-  if (positions.length === 0) {
+  if (positions.length === 0 && events.length === 0) {
     return (
       <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center">
         <Coins className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" />
@@ -131,7 +106,7 @@ export function DividendFlow({
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-          <span>vs CDI</span>
+          <span>Simulação</span>
         </button>
       </div>
 
@@ -144,7 +119,7 @@ export function DividendFlow({
                 Proventos • {capitalizedMonth}
               </span>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800] border border-[#f5b800]/30 shrink-0">
-                Isento de IR
+                Conferir no extrato
               </span>
             </div>
 
@@ -225,7 +200,7 @@ export function DividendFlow({
                 return (
                   <div
                     key={ev.id}
-                    onClick={() => handleToggleStatus(ev.ticker, ev.status)}
+
                     className="p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
                   >
                     <div className="flex items-center gap-3 min-w-0">

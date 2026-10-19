@@ -1,4 +1,6 @@
 'use client';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 
 import { useState } from 'react';
 import {
@@ -100,6 +102,7 @@ export function SettingsModal({
   const [widgetCopied, setWidgetCopied] = useState<boolean>(false);
   const [showWidgetSteps, setShowWidgetSteps] = useState<boolean>(false);
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
 
   const detectedAlerts = scanSmartAlerts(positions, quotes);
@@ -112,13 +115,13 @@ export function SettingsModal({
 
   const handleCopyWidgetCode = async () => {
     try {
-      const code = generateScriptableWidgetCode(positions, goals);
+      const code = await generateScriptableWidgetCode(positions, goals);
       await navigator.clipboard.writeText(code);
       setWidgetCopied(true);
       showBanner('success', 'Código do Widget para iPhone copiado com sua carteira!');
       setTimeout(() => setWidgetCopied(false), 3500);
     } catch {
-      showBanner('error', 'Não foi possível copiar automaticamente. Tente novamente.');
+      showBanner('error', 'Não foi possível gerar o widget. Faça login e verifique a configuração do servidor.');
     }
   };
 
@@ -265,7 +268,7 @@ export function SettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         className="w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -515,6 +518,10 @@ export function SettingsModal({
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
+            <button type="button" className="text-sm text-amber-300 p-2" onClick={async () => {
+              const res = await authenticatedFetch('/api/widget', { method: 'DELETE' });
+              showBanner(res.ok ? 'success' : 'error', res.ok ? 'Acesso dos widgets revogado.' : 'Falha ao revogar widget.');
+            }}>Revogar acesso do widget</button>
             <button
               type="button"
               onClick={handleCopyWidgetCode}

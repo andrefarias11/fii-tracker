@@ -1,4 +1,5 @@
 'use client';
+import dynamic from 'next/dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
 import { usePortfolio } from '../hooks/usePortfolio';
@@ -8,23 +9,23 @@ import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
 import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
-import { InvestmentSimulator } from '../components/InvestmentSimulator';
+const InvestmentSimulator = dynamic(() => import('../components/InvestmentSimulator').then(m => m.InvestmentSimulator));
 import { OpportunityRadar } from '../components/OpportunityRadar';
 import { UniversalB3Explorer } from '../components/UniversalB3Explorer';
 import { MentorsTab } from '../components/MentorsTab';
-import { RealEstateMap } from '../components/RealEstateMap';
-import { AiInsightsTab } from '../components/AiInsightsTab';
+const RealEstateMap = dynamic(() => import('../components/RealEstateMap').then(m => m.RealEstateMap));
+const AiInsightsTab = dynamic(() => import('../components/AiInsightsTab').then(m => m.AiInsightsTab));
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
-import { MonthlyWrappedModal } from '../components/MonthlyWrappedModal';
-import { SettingsModal } from '../components/SettingsModal';
-import { B3ImportModal } from '../components/B3ImportModal';
+const MonthlyWrappedModal = dynamic(() => import('../components/MonthlyWrappedModal').then(m => m.MonthlyWrappedModal));
+const SettingsModal = dynamic(() => import('../components/SettingsModal').then(m => m.SettingsModal));
+const B3ImportModal = dynamic(() => import('../components/B3ImportModal').then(m => m.B3ImportModal));
 import { IosInstallBanner } from '../components/IosInstallBanner';
-import { AddFixedIncomeModal } from '../components/AddFixedIncomeModal';
-import { AddTransactionModal } from '../components/AddTransactionModal';
+const AddFixedIncomeModal = dynamic(() => import('../components/AddFixedIncomeModal').then(m => m.AddFixedIncomeModal));
+const AddTransactionModal = dynamic(() => import('../components/AddTransactionModal').then(m => m.AddTransactionModal));
 import { FixedIncomeList } from '../components/FixedIncomeList';
 import { FixedIncomeAsset, Transaction } from '../types/portfolio';
-import { AccountSwitcherModal } from '../components/AccountSwitcherModal';
+const AccountSwitcherModal = dynamic(() => import('../components/AccountSwitcherModal').then(m => m.AccountSwitcherModal));
 import {
   initAuthVaultListener,
   getActiveAccount,
@@ -70,6 +71,9 @@ export default function HomePage() {
     lastSyncTime,
     isCloudConnected,
     isSyncing,
+    pendingChanges,
+    syncError,
+    undoLastImport,
     syncWithCloud,
     addTransaction,
     updateTransaction,
@@ -310,6 +314,14 @@ export default function HomePage() {
 
       {/* Conteúdo Principal com Respiro Estilo iOS */}
       <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-32 space-y-4">
+        {(pendingChanges > 0 || syncError) && <div role="status" className="rounded-xl bg-amber-950 p-3 text-sm text-amber-100">
+          {pendingChanges > 0 ? `${pendingChanges} alteração(ões) aguardando envio. ` : ''}{syncError}
+          <button className="underline ml-2" onClick={() => syncWithCloud()}>Tentar sincronizar</button>
+        </div>}
+        <details className="text-xs text-zinc-400"><summary>Qualidade dos dados e recuperação</summary>
+          <p className="py-2">Cotações recebidas: {Object.keys(quotes).length}. Última consulta: {lastSyncTime?.toLocaleString('pt-BR') || 'Não disponível'}. Fundamentos do catálogo são referências sem atualização automática. Projeções não comprovam recebimentos.</p>
+          <button className="underline p-2" onClick={async () => { const ok = await undoLastImport(); window.alert(ok ? 'Importação desfeita. Sincronização pendente será retomada automaticamente.' : 'Não há importação disponível para desfazer.'); }}>Desfazer última importação</button>
+        </details>
         <IosInstallBanner />
 
         {/* 1. ABA: INÍCIO (CARTEIRA + EXTRATO INTEGRADO) */}

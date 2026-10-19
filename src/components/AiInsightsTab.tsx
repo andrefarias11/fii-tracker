@@ -1,4 +1,5 @@
 'use client';
+import { authenticatedFetch } from '../lib/authenticatedFetch';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { FiiPosition, FixedIncomeAsset } from '../types/portfolio';
@@ -93,7 +94,7 @@ export function AiInsightsTab({
           savedKey = localStorage.getItem(AI_KEY_STORAGE) || '';
         }
 
-        const res = await fetch('/api/ai-insights', {
+        const res = await authenticatedFetch('/api/ai-insights', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

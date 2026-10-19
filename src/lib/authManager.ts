@@ -74,7 +74,7 @@ export function getActiveAccount(): SavedAccountSession | null {
   }
 
   const explicitActive = accounts.find((a) => a.isActive);
-  return explicitActive || accounts[0] || null;
+  return explicitActive || null;
 }
 
 export function saveCurrentSessionToVault(session: Session): SavedAccountSession {
@@ -132,7 +132,7 @@ export function saveCurrentSessionToVault(session: Session): SavedAccountSession
   return newAccount;
 }
 
-export async function signInWithGoogle(): Promise<{ data: any; error: any }> {
+export async function signInWithGoogle() {
   const client = getSupabaseClient();
   if (!client) {
     return { data: null, error: new Error('Cliente Supabase não configurado') };
@@ -221,19 +221,7 @@ export async function switchAccount(userId: string): Promise<boolean> {
     console.warn('Não foi possível restaurar sessão completa no Supabase:', err);
   }
 
-  // Atualiza apenas marcação local caso offline
-  if (typeof window !== 'undefined') {
-    const updated = accounts.map((a) => ({
-      ...a,
-      isActive: a.id === userId,
-      lastUsedAt: a.id === userId ? new Date().toISOString() : a.lastUsedAt,
-    }));
-    localStorage.setItem(STORAGE_KEY_SAVED_ACCOUNTS, JSON.stringify(updated));
-    localStorage.setItem(STORAGE_KEY_ACTIVE_ACCOUNT_ID, userId);
-    notifyAuthSubscribers();
-  }
-
-  return true;
+  return false;
 }
 
 export function removeAccountFromVault(userId: string): void {
@@ -245,16 +233,12 @@ export function removeAccountFromVault(userId: string): void {
   localStorage.setItem(STORAGE_KEY_SAVED_ACCOUNTS, JSON.stringify(filtered));
 
   if (activeId === userId) {
-    if (filtered.length > 0) {
-      filtered[0].isActive = true;
-      localStorage.setItem(STORAGE_KEY_SAVED_ACCOUNTS, JSON.stringify(filtered));
-      localStorage.setItem(STORAGE_KEY_ACTIVE_ACCOUNT_ID, filtered[0].id);
-      switchAccount(filtered[0].id);
-    } else {
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_ACCOUNT_ID);
-      const client = getSupabaseClient();
-      client?.auth.signOut().catch(() => {});
-    }
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_ACCOUNT_ID);
+    localStorage.setItem(STORAGE_KEY_SAVED_ACCOUNTS, JSON.stringify(filtered.map(a => ({ ...a, isActive: false }))));
+    const client = getSupabaseClient();
+    void client?.auth.signOut({ scope: 'local' }).then(async () => {
+      if (filtered[0]) await switchAccount(filtered[0].id);
+    });
   }
 
   notifyAuthSubscribers();
@@ -273,7 +257,7 @@ export async function signOutCurrentAccount(): Promise<void> {
     if (active) {
       const accounts = getSavedAccounts();
       const updated = accounts.map((a) =>
-        a.id === active.id ? { ...a, isActive: false } : a
+        ({ ...a, isActive: false, ...(a.id === active.id ? { accessToken: undefined, refreshToken: undefined } : {}) })
       );
       localStorage.setItem(STORAGE_KEY_SAVED_ACCOUNTS, JSON.stringify(updated));
       localStorage.removeItem(STORAGE_KEY_ACTIVE_ACCOUNT_ID);

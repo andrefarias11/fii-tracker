@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 
 import { useState } from 'react';
 import {
@@ -162,7 +163,7 @@ export function Header({
               className="w-10 h-10 rounded-full bg-[#1c1c1e] text-zinc-200 hover:text-white flex items-center justify-center active:scale-95 transition-all border border-white/[0.04] shrink-0 overflow-hidden"
             >
               {activeAccount?.avatarUrl && !avatarError ? (
-                <img
+                <Image width={48} height={48} unoptimized
                   src={activeAccount.avatarUrl}
                   alt={activeAccount.displayName}
                   onError={() => setAvatarError(true)}

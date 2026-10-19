@@ -1,14 +1,21 @@
+import { enqueueMutation, flushQueue } from './syncQueue';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Transaction, PortfolioGoals, FixedIncomeAsset } from '../types/portfolio';
 
+interface DatabaseRow {
+  split_adjustment?: Transaction['splitAdjustment'];
+  id: string; ticker: string; type: Transaction['type']; date: string; shares: number; price: number; total: number; broker: string; notes?: string;
+  monthly_target: number; milestone_equity_target: number; monthly_income_target: number; dividend: number;
+  name: string; institution: string; invested_amount: number; current_balance: number; rate_type: FixedIncomeAsset['rateType']; rate_percent: number; is_exempt: boolean; maturity_date?: string; updated_at: string;
+}
 const STORAGE_KEY_SUPABASE_URL = 'fii_tracker_supabase_url_v1';
 const STORAGE_KEY_SUPABASE_KEY = 'fii_tracker_supabase_key_v1';
 
 let cachedClient: SupabaseClient | null = null;
 let cachedConfigKey = '';
 
-const DEFAULT_SUPABASE_URL = 'https://quvbxequiyjdymgnvnpm.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF1dmJ4ZXF1aXlqZHltZ252bnBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NDYxOTksImV4cCI6MjEwNzEyMjE5OX0.P8ghV_HeWc6lRcy1EImeIKoh1sKQ0akIiRFOg19fPsk';
+const DEFAULT_SUPABASE_URL = '';
+const DEFAULT_SUPABASE_KEY = '';
 
 export function getSupabaseConfig(): { url: string; key: string } {
   // Prioridade 1: Armazenamento local customizado (se o usuário trocar na UI)
@@ -95,41 +102,40 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 }
 
-async function withDataFallback<T = any>(
-  operation: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>
-): Promise<{ data: T | null; error: any }> {
-  const authClient = getSupabaseClient();
-  const anonClient = getAnonClient();
+async function withDataFallback<T = unknown>(
+  operation: (client: SupabaseClient) => Promise<{ data: T | null; error: { message: string } | null }>
+): Promise<{ data: T | null; error: { message: string } | null }> {
+  const client = getSupabaseClient();
+  if (!client) return { data: null, error: { message: 'Cliente indisponível' } };
+  const { data } = await client.auth.getUser();
+  if (!data.user) return { data: null, error: { message: 'Autenticação necessária' } };
+  if (!await flushQueue(client, data.user.id)) return { data: null, error: { message: 'Alterações pendentes de sincronização' } };
+  return operation(client);
+}
 
-  if (!authClient && !anonClient) {
-    return { data: null, error: new Error('Cliente Supabase indisponível') };
+async function queueWrite(table: string, userId: string, rows?: Record<string, unknown>[], deletedIds?: string[], conflict?: string): Promise<boolean> {
+  enqueueMutation({ table, userId, rows, deletedIds, conflict });
+  const client = getSupabaseClient();
+  return client ? flushQueue(client, userId) : false;
+}
+
+async function readOwnedRows<T>(client: SupabaseClient, table: string, userId: string, columns = '*', sortColumn = 'id'): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const rows: T[] = [];
+  for (let start = 0; ; start += 1000) {
+    const result = await client.from(table).select(columns).eq('user_id', userId).order(sortColumn).range(start, start + 999);
+    if (result.error) return { data: null, error: result.error };
+    const page = (result.data || []) as unknown as T[];
+    rows.push(...page);
+    if (page.length < 1000) return { data: rows, error: null };
   }
+}
 
-  if (authClient) {
-    try {
-      const res = await operation(authClient);
-      if (!res.error) return res;
-
-      const errMsg = (res.error?.message || '').toLowerCase();
-      const errCode = String(res.error?.code || '');
-      // Se der restrição de RLS com token de usuário autenticado, faz fallback transparente com anonClient
-      if (
-        anonClient &&
-        (errCode === '42501' ||
-          errMsg.includes('security') ||
-          errMsg.includes('permission') ||
-          errMsg.includes('denied'))
-      ) {
-        console.warn('Fallback para cliente Supabase anônimo após restrição de RLS...');
-        return await operation(anonClient);
-      }
-      return res;
-    } catch {
-      if (anonClient) return await operation(anonClient);
-    }
-  }
-
-  return await operation(anonClient!);
+export async function fetchDeletedIds(userId: string, table: string): Promise<Set<string>> {
+  const client = getSupabaseClient();
+  if (!client) throw new Error('Nuvem indisponível');
+  const { data, error } = await readOwnedRows<{ row_id: string; table_name: string }>(client, 'portfolio_deletions', userId, 'row_id,table_name', 'row_id');
+  if (error) throw error;
+  return new Set((data || []).filter(row => row.table_name === table).map(row => unscopeIdFromUser(row.row_id, userId)));
 }
 
 export async function checkSupabaseConnection(): Promise<boolean> {
@@ -146,23 +152,11 @@ export async function checkSupabaseConnection(): Promise<boolean> {
 
 // ----------------- Helpers de Isolamento Multiusuário e Escopo de ID -----------------
 
-function getLocalSavedAccounts(): { id: string }[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem('fii_tracker_saved_accounts_v1');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
 export function resolveUserId(targetUserId?: string | null): string | null {
   if (targetUserId !== undefined) return targetUserId;
   if (typeof window !== 'undefined') {
     const activeId = localStorage.getItem('fii_tracker_active_account_id_v1');
     if (activeId) return activeId;
-    const accounts = getLocalSavedAccounts();
-    if (accounts[0]?.id) return accounts[0].id;
   }
   return null;
 }
@@ -179,59 +173,6 @@ export function unscopeIdFromUser(id: string, userId?: string | null): string {
   const prefix = `${userId.slice(0, 8)}_`;
   if (id.startsWith(prefix)) return id.slice(prefix.length);
   return id;
-}
-
-let hasMigratedOrphans = false;
-
-async function migrateOrphanRowsToPrimaryIfNeeded(userId: string): Promise<void> {
-  if (!userId || hasMigratedOrphans) return;
-  if (typeof window === 'undefined') return;
-
-  try {
-    const saved = getLocalSavedAccounts();
-    // A migração de dados órfãos só pode acontecer para a PRIMEIRA conta logada no aparelho
-    const isPrimaryAccount = saved.length > 0 && saved[0]?.id === userId;
-    if (!isPrimaryAccount) {
-      hasMigratedOrphans = true;
-      return;
-    }
-
-    await withDataFallback(async (client) => {
-      // Verifica se já existem registros no banco com user_id preenchido
-      const { count: nonOrphanCount, error: countErr } = await client
-        .from('transactions')
-        .select('id', { count: 'exact', head: true })
-        .not('user_id', 'is', null);
-
-      if (countErr || (nonOrphanCount && nonOrphanCount > 0)) {
-        hasMigratedOrphans = true;
-        return { data: null, error: null };
-      }
-
-      // Verifica se existem registros órfãos (user_id IS NULL)
-      const { count: orphanCount } = await client
-        .from('transactions')
-        .select('id', { count: 'exact', head: true })
-        .is('user_id', null);
-
-      if (orphanCount && orphanCount > 0) {
-        console.log(`[Supabase] Vinculando ${orphanCount} transações órfãs exclusivamente à conta principal (${userId})...`);
-        await client.from('transactions').update({ user_id: userId }).is('user_id', null);
-        await client.from('fixed_income_assets').update({ user_id: userId }).is('user_id', null);
-        await client.from('custom_dividends').update({ user_id: userId }).is('user_id', null);
-        await client.from('portfolio_goals').update({ 
-          id: `goals_${userId.slice(0, 8)}`,
-          user_id: userId 
-        }).is('user_id', null);
-      }
-
-      hasMigratedOrphans = true;
-      return { data: null, error: null };
-    });
-  } catch (err) {
-    console.warn('[Supabase] Erro ao verificar migração de órfãos:', err);
-    hasMigratedOrphans = true;
-  }
 }
 
 // ----------------- Operações de Transações (Single & Batch SQL) -----------------
@@ -259,6 +200,8 @@ function mapTransactionToDbRow(tx: Transaction) {
     total: signedTotal,
     broker: tx.broker,
     notes: notesValue,
+    split_adjustment: tx.splitAdjustment || null,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -269,16 +212,10 @@ export async function fetchRemoteTransactions(targetUserId?: string | null): Pro
     return [];
   }
 
-  await migrateOrphanRowsToPrimaryIfNeeded(userId);
 
   try {
-    const { data, error } = await withDataFallback<any[]>(async (client) => {
-      const res = await client
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-      return { data: res.data, error: res.error };
+    const { data, error } = await withDataFallback<DatabaseRow[]>(async (client) => {
+      return readOwnedRows<DatabaseRow>(client, 'transactions', userId);
     });
 
     if (error) {
@@ -287,7 +224,7 @@ export async function fetchRemoteTransactions(targetUserId?: string | null): Pro
     }
     if (!data) return [];
 
-    return data.map((item: any) => {
+    return data.map((item: DatabaseRow) => {
       const rawShares = Number(item.shares);
       const notesStr = String(item.notes || '');
       const idStr = String(item.id || '');
@@ -310,6 +247,7 @@ export async function fetchRemoteTransactions(targetUserId?: string | null): Pro
           ? 'SELL'
           : 'BUY',
         date: item.date,
+        splitAdjustment: item.split_adjustment,
         shares: absShares,
         price: absPrice,
         total: absTotal,
@@ -338,15 +276,7 @@ export async function syncTransactionsBatchToCloud(
       user_id: userId,
     }));
 
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('transactions').upsert(rows);
-      return { data: res.data, error: res.error };
-    });
-    if (error) {
-      console.error('Erro no batch upsert de transações no Supabase:', error);
-      return false;
-    }
-    return true;
+    return await queueWrite('transactions', userId, rows);
   } catch (err) {
     console.error('Erro no batch upsert de transações no Supabase:', err);
     return false;
@@ -373,19 +303,7 @@ export async function deleteRemoteTransactionsBatch(
 
   try {
     const candidateIds = Array.from(new Set([...ids, ...ids.map((id) => scopeIdWithUser(id, userId))]));
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client
-        .from('transactions')
-        .delete()
-        .in('id', candidateIds)
-        .eq('user_id', userId);
-      return { data: res.data, error: res.error };
-    });
-    if (error) {
-      console.error('Erro no batch delete de transações no Supabase:', error);
-      return false;
-    }
-    return true;
+    return await queueWrite('transactions', userId, undefined, candidateIds);
   } catch (err) {
     console.error('Erro no batch delete de transações no Supabase:', err);
     return false;
@@ -405,10 +323,9 @@ export async function fetchRemoteGoals(targetUserId?: string | null): Promise<Po
   const userId = resolveUserId(targetUserId);
   if (!userId) return null;
 
-  await migrateOrphanRowsToPrimaryIfNeeded(userId);
 
   try {
-    const { data, error } = await withDataFallback<any>(async (client) => {
+    const { data, error } = await withDataFallback<DatabaseRow>(async (client) => {
       const res = await client
         .from('portfolio_goals')
         .select('*')
@@ -437,18 +354,14 @@ export async function syncGoalsToCloud(
   if (!userId) return true;
 
   try {
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('portfolio_goals').upsert({
+    return await queueWrite('portfolio_goals', userId, [{
         id: `goals_${userId.slice(0, 8)}`,
         user_id: userId,
         monthly_target: goals.monthlyTarget,
         milestone_equity_target: goals.milestoneEquityTarget,
         monthly_income_target: goals.monthlyIncomeTarget,
         updated_at: new Date().toISOString(),
-      });
-      return { data: res.data, error: res.error };
-    });
-    return !error;
+      }], undefined, undefined);
   } catch {
     return false;
   }
@@ -465,7 +378,7 @@ export async function fetchRemoteDividends(
   if (!userId) return null;
 
   try {
-    const { data, error } = await withDataFallback<any[]>(async (client) => {
+    const { data, error } = await withDataFallback<Pick<DatabaseRow, 'ticker' | 'dividend'>[]>(async (client) => {
       const res = await client
         .from('custom_dividends')
         .select('ticker, dividend')
@@ -493,16 +406,12 @@ export async function syncDividendToCloud(
   if (!userId) return true;
 
   try {
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('custom_dividends').upsert({
+    return await queueWrite('custom_dividends', userId, [{
         ticker: ticker.toUpperCase(),
         dividend,
         user_id: userId,
         updated_at: new Date().toISOString(),
-      });
-      return { data: res.data, error: res.error };
-    });
-    return !error;
+      }], undefined, 'user_id,ticker');
   } catch {
     return false;
   }
@@ -518,21 +427,16 @@ export async function fetchRemoteFixedIncome(
   const userId = resolveUserId(targetUserId);
   if (!userId) return [];
 
-  await migrateOrphanRowsToPrimaryIfNeeded(userId);
 
   try {
-    const { data, error } = await withDataFallback<any[]>(async (client) => {
-      const res = await client
-        .from('fixed_income_assets')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      return { data: res.data, error: res.error };
+    const { data, error } = await withDataFallback<(Omit<DatabaseRow, 'type'> & { type: FixedIncomeAsset['type'] })[]>(async (client) => {
+      return readOwnedRows<Omit<DatabaseRow, 'type'> & { type: FixedIncomeAsset['type'] }>(client, 'fixed_income_assets', userId);
     });
 
-    if (error || !data) return [];
+    if (error) return null;
+    if (!data) return [];
 
-    return data.map((row: any) => ({
+    return data.map((row) => ({
       id: unscopeIdFromUser(row.id, userId),
       name: row.name,
       type: row.type,
@@ -559,8 +463,7 @@ export async function syncFixedIncomeToCloud(
   if (!userId) return true;
 
   try {
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client.from('fixed_income_assets').upsert({
+    return await queueWrite('fixed_income_assets', userId, [{
         id: scopeIdWithUser(asset.id, userId),
         user_id: userId,
         name: asset.name,
@@ -573,11 +476,8 @@ export async function syncFixedIncomeToCloud(
         is_exempt: asset.isExempt,
         maturity_date: asset.maturityDate || null,
         notes: asset.notes || null,
-        updated_at: asset.updatedAt,
-      });
-      return { data: res.data, error: res.error };
-    });
-    return !error;
+        updated_at: new Date().toISOString(),
+      }], undefined, undefined);
   } catch {
     return false;
   }
@@ -594,17 +494,13 @@ export async function deleteRemoteFixedIncome(
 
   try {
     const candidateIds = Array.from(new Set([id, scopeIdWithUser(id, userId)]));
-    const { error } = await withDataFallback(async (client) => {
-      const res = await client
-        .from('fixed_income_assets')
-        .delete()
-        .in('id', candidateIds)
-        .eq('user_id', userId);
-      return { data: res.data, error: res.error };
-    });
-    return !error;
+    return await queueWrite('fixed_income_assets', userId, undefined, candidateIds);
   } catch {
     return false;
   }
 }
 
+
+export async function deleteRemoteCustomDividends(tickers: string[], userId: string | null): Promise<boolean> {
+  return !userId || !tickers.length ? true : queueWrite('custom_dividends', userId, undefined, tickers);
+}

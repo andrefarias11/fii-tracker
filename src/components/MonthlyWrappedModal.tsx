@@ -1,4 +1,5 @@
 'use client';
+import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState, useMemo } from 'react';
 import {
@@ -59,6 +60,7 @@ export function MonthlyWrappedModal({
     );
   }, [positions, transactions, monthlyTarget, selectedMonthKey]);
 
+  const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen || !wrapped) return null;
 
   const formatBRL = (val: number) => {
@@ -114,7 +116,7 @@ export function MonthlyWrappedModal({
   };
 
   return (
-    <div
+    <div ref={dialogRef}
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >

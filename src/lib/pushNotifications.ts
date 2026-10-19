@@ -1,3 +1,4 @@
+import { authenticatedFetch } from './authenticatedFetch';
 import { FiiPosition, QuoteData } from '../types/portfolio';
 import { calculateMonthDividends } from '../data/fiiDividendCalendar';
 import { findFiiInfo } from '../data/fiiDatabase';
@@ -189,7 +190,7 @@ export async function sendPushNotificationNow(
 
     const subscription = await registration.pushManager.getSubscription();
     if (subscription) {
-      const res = await fetch('/api/push', {
+      const res = await authenticatedFetch('/api/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,22 +232,22 @@ export function scanSmartAlerts(
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const { events } = calculateMonthDividends(positions, now);
-  const evaluatedMarket = evaluateAllFiis(quotes, positions);
+  const evaluatedMarket = evaluateAllFiis(quotes, positions).filter(f => !f.isDistressedWarning && f.qualityTier !== 'ALERTA_RISCO' && Boolean(quotes[f.ticker]?.price));
   const { consensus } = evaluateMentorsRecommendations(quotes, positions, 400);
 
   // 1. PAGAMENTO HOJE NA CONTA
   if (prefs.notifyPaymentDay && events.length > 0) {
-    const payingToday = events.filter((ev) => ev.paymentDay === todayDay);
+    const payingToday = events.filter((ev) => ev.paymentDay === todayDay && ev.isOfficial);
     if (payingToday.length > 0) {
       const totalToday = payingToday.reduce((acc, e) => acc + e.totalValue, 0);
       const tickers = payingToday.map((e) => e.ticker).join(', ');
       alerts.push({
         id: `pay-${yearMonth}-${todayDay}`,
         category: 'PAYMENT_DAY',
-        title: `💰 Dividendos na Conta Hoje (${formatBRL(totalToday)})`,
+        title: `💰 Pagamento anunciado para hoje (${formatBRL(totalToday)})`,
         body: `${tickers} ${
           payingToday.length === 1 ? 'paga' : 'pagam'
-        } ${formatBRL(totalToday)} isentos de IR hoje na sua corretora!`,
+        } ${formatBRL(totalToday)} anunciados para hoje. Confira o recebimento no extrato.`,
         url: '/?tab=proventos',
         priority: 100,
       });
@@ -257,7 +258,7 @@ export function scanSmartAlerts(
   if (prefs.notifyConfirmedDividend) {
     // Checa primeiro os FIIs da carteira que confirmaram comunicado oficial no mês
     const confirmedPositions = positions.filter(
-      (p) => p.isCurrentMonthAnnounced && p.monthlyDividendPerShare > 0
+      (p) => p.dividendSource === 'B3_OFICIAL' && p.isCurrentMonthAnnounced && p.monthlyDividendPerShare > 0
     );
 
     for (const pos of confirmedPositions) {
@@ -270,7 +271,7 @@ export function scanSmartAlerts(
           pos.dividendExDate || 'neste mês'
         } • Pagamento: ${
           pos.dividendPaymentDate || `dia ${pos.dividendPaymentDay || 15}`
-        }. Você receberá ${formatBRL(pos.totalMonthlyDividend)}.`,
+        }. Confira as cotas elegíveis e o valor no calendário.`,
         url: '/?tab=proventos',
         priority: 92,
       });
@@ -279,7 +280,7 @@ export function scanSmartAlerts(
     // Checa também FIIs do Radar que anunciaram dividendo oficial na B3
     for (const [ticker, q] of Object.entries(quotes)) {
       const alreadyInCarteira = confirmedPositions.some((p) => p.ticker === ticker);
-      if (!alreadyInCarteira && q.isCurrentMonthAnnounced && q.lastDividend && q.lastDividend > 0) {
+      if (!alreadyInCarteira && q.dividendSource === 'B3_OFICIAL' && q.isCurrentMonthAnnounced && q.lastDividend && q.lastDividend > 0) {
         const yieldPct = q.price > 0 ? ((q.lastDividend / q.price) * 100).toFixed(2) : '0.90';
         alerts.push({
           id: `confirmed-radar-${yearMonth}-${ticker}-${q.lastDividend}`,
@@ -307,7 +308,7 @@ export function scanSmartAlerts(
 
     const exSoonCarteira = events.filter((ev) => {
       const exDay = getExDay(ev.ticker, ev.announcementDate);
-      return exDay >= todayDay && exDay <= todayDay + 2;
+      return ev.isOfficial && exDay >= todayDay && exDay <= todayDay + 2;
     });
 
     if (exSoonCarteira.length > 0) {
@@ -319,14 +320,14 @@ export function scanSmartAlerts(
         id: `ex-carteira-${yearMonth}-${todayDay}`,
         category: 'EX_DATE',
         title: `⚡ ${isToday ? 'Data-Com Hoje na B3!' : 'Data-Com nos Próximos Dias!'}`,
-        body: `Quem comprar cotas de ${tickers} até o fechamento da Data-Com já garante o próximo dividendo isento!`,
+        body: `Quem comprar cotas de ${tickers} até o fechamento da Data-Com deve conferir as regras e a data de corte do próximo provento.`,
         url: '/?tab=radar',
         priority: 90,
       });
     } else {
       // Verifica se há algum FII barato no Radar com Data-Com em até 3 dias
       const radarExSoon = evaluatedMarket.filter(
-        (f) => f.daysUntilExDate <= 3 && f.pvp <= 1.0 && f.monthlyYieldPercent >= 0.85
+        (f) => Boolean(quotes[f.ticker]?.isCurrentMonthAnnounced && quotes[f.ticker]?.dividendExDate) && f.daysUntilExDate <= 3 && f.pvp <= 1.0 && f.monthlyYieldPercent >= 0.85
       );
       if (radarExSoon.length > 0) {
         const top = radarExSoon[0];
@@ -367,7 +368,7 @@ export function scanSmartAlerts(
           b.vp
         )}, P/VP ${b.pvp}) e entregando ${b.monthlyYieldPercent}% a.m. (${
           b.annualYieldPercent
-        }% a.a. isento). Preço-Teto: ${formatBRL(b.ceilingPrice)}.`,
+        }% a.a. estimado). Preço-Teto: ${formatBRL(b.ceilingPrice)}.`,
         url: '/?tab=radar',
         priority: 88,
       });
@@ -418,7 +419,7 @@ export function scanSmartAlerts(
         title: `📉 ${top.ticker} está ${dropPct}% abaixo do seu Preço Médio`,
         body: `Cotado hoje a ${formatBRL(top.currentPrice)} na B3 (seu PM é ${formatBRL(
           top.averagePrice
-        )}). Ótima janela para reduzir seu custo médio!`,
+        )}). Reavalie os fundamentos antes de decidir sobre novos aportes.`,
         url: '/?tab=portfolio',
         priority: 85,
       });
@@ -455,7 +456,7 @@ export function buildPortfolioDailyAlert(
     title: `📊 Resumo FII Tracker • ${formatBRL(summary.totalExpected)}/mês`,
     body: `Sua carteira de ${positions.length} FIIs projeta ${formatBRL(
       summary.totalExpected
-    )} de dividendos isentos neste mês.`,
+    )} de dividendos estimados neste mês.`,
     tag: 'fii-summary-daily',
     url: '/?tab=proventos',
   };
@@ -475,7 +476,7 @@ export async function runAutoDailyPushCheck(
   const prefs = getPushPreferences();
   if (!prefs.enabled) return;
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
   try {
     const lastDate = localStorage.getItem(LAST_DAILY_PUSH_DATE_KEY);
     if (lastDate === todayIso) {
