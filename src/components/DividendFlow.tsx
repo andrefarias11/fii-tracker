@@ -20,6 +20,9 @@ import {
 import { DividendEvent, DividendStatus } from '../types/dividend';
 import { PerformanceComparisonChart } from './PerformanceComparisonChart';
 import { DividendStaircaseChart } from './DividendStaircaseChart';
+import { Button, SegmentedControl } from './ui/Controls';
+import { EmptyState } from './ui/Feedback';
+import { formatCurrency } from '../lib/formatFinancial';
 
 interface DividendFlowProps {
   positions: FiiPosition[];
@@ -27,6 +30,8 @@ interface DividendFlowProps {
   bcbIndicators?: BcbIndicators | null;
   monthlyContributionGoal?: number;
   isPrivacyMode?: boolean;
+  onOpenB3Modal?: () => void;
+  onOpenAsset?: (ticker: string) => void;
 }
 
 type EventView = 'timeline' | 'month';
@@ -47,6 +52,8 @@ export function DividendFlow({
   bcbIndicators = null,
   monthlyContributionGoal = 200,
   isPrivacyMode = false,
+  onOpenB3Modal,
+  onOpenAsset,
 }: DividendFlowProps) {
   const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
   const [eventView, setEventView] = useState<EventView>('timeline');
@@ -55,8 +62,7 @@ export function DividendFlow({
 
   const currentDate = typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
   const formatBRL = (val: number) => {
-    if (isPrivacyMode) return 'R$ •••';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    return formatCurrency(val, isPrivacyMode);
   };
 
   const currentMonthName = currentDate.toLocaleDateString('pt-BR', {
@@ -120,7 +126,7 @@ export function DividendFlow({
       <div key={event.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="text-sm font-bold text-white">{event.ticker}</span>
+            {onOpenAsset ? <button type="button" className="ui-asset-trigger text-sm" onClick={() => onOpenAsset(event.ticker)} aria-label={`Abrir ficha de ${event.ticker}`}>{event.ticker}</button> : <span className="text-sm font-semibold text-white">{event.ticker}</span>}
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
               event.status === 'PAID'
                 ? 'bg-emerald-400/10 text-emerald-300'
@@ -143,7 +149,7 @@ export function DividendFlow({
           </div>
           {event.shares > 0 && (
             <p className="mt-1 text-[11px] text-zinc-500 tabular-nums">
-              {event.shares} {event.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(event.dividendPerShare)}
+              {isPrivacyMode ? '••••' : event.shares} {event.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(event.dividendPerShare)}
             </p>
           )}
         </div>
@@ -183,36 +189,24 @@ export function DividendFlow({
 
   if (positions.length === 0 && events.length === 0) {
     return (
-      <div className="rounded-[24px] border border-white/[0.06] bg-[#121215] p-8 text-center">
-        <Coins className="mx-auto mb-3 h-10 w-10 text-emerald-400 opacity-60" />
-        <h3 className="mb-1 text-sm font-bold text-white">Nenhum dividendo previsto ainda</h3>
-        <p className="text-xs text-zinc-500">Quando você registrar seus primeiros FIIs ou Ações, o fluxo de proventos aparecerá aqui automaticamente.</p>
-      </div>
+      <div className="ui-section"><EmptyState icon={<Coins className="h-5 w-5" />} title="Seus proventos aparecem aqui" description="Importe o extrato da B3 para acompanhar previsões e recebimentos por data." action={onOpenB3Modal && <Button variant="primary" onClick={onOpenB3Modal}>Importar extrato B3</Button>} /></div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/[0.06] bg-[#1c1c1f] p-1">
-        <button type="button" onClick={() => setSubView('calendar')} aria-pressed={subView === 'calendar'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'calendar' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
-          <Calendar className="h-3.5 w-3.5 text-[#f5b800]" /> Proventos
-        </button>
-        <button type="button" onClick={() => setSubView('staircase')} aria-pressed={subView === 'staircase'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'staircase' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
-          <BarChart3 className="h-3.5 w-3.5 text-[#f5b800]" /> Evolução
-        </button>
-        <button type="button" onClick={() => setSubView('chart')} aria-pressed={subView === 'chart'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'chart' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
-          <TrendingUp className="h-3.5 w-3.5 text-[#f5b800]" /> Simulação
-        </button>
-      </div>
+      <SegmentedControl label="Conteúdo dos proventos" value={subView} onChange={setSubView} options={[
+        { value: 'calendar', label: 'Proventos', icon: <Calendar /> }, { value: 'staircase', label: 'Evolução', icon: <BarChart3 /> }, { value: 'chart', label: 'Simulação', icon: <TrendingUp /> },
+      ]} />
 
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
-          <div className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-5">
+          <div className="ui-section">
             <div className="mb-1 flex items-center justify-between">
               <span className="truncate text-xs font-medium text-zinc-400">Proventos • {capitalizedMonth}</span>
               <span className="shrink-0 rounded-full border border-[#f5b800]/30 bg-[#2b2512] px-2 py-0.5 text-[10px] font-medium text-[#f5b800]">Conferir no extrato</span>
             </div>
-            <div className="mb-3 truncate text-[28px] font-extrabold tracking-tight text-white tabular-nums sm:text-[32px]">{formatBRL(summary.totalExpected)}</div>
+            <div className="ui-value-lg mb-3 mt-2">{formatBRL(summary.totalExpected)}</div>
 
             <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.06] pb-4 text-[11px]">
               <span className="inline-flex items-center gap-1.5 text-zinc-300"><span className="h-2.5 w-2.5 rounded-full border-2 border-[#A78BFA]" />Data-Com</span>
@@ -236,14 +230,7 @@ export function DividendFlow({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.06] bg-[#1c1c1f] p-1" aria-label="Visualização dos proventos">
-            <button type="button" onClick={() => setEventView('timeline')} aria-pressed={eventView === 'timeline'} className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-colors ${eventView === 'timeline' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
-              <List className="h-4 w-4" /> Lista
-            </button>
-            <button type="button" onClick={() => setEventView('month')} aria-pressed={eventView === 'month'} className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-colors ${eventView === 'month' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
-              <Calendar className="h-4 w-4" /> Mês
-            </button>
-          </div>
+          <SegmentedControl label="Visualização dos proventos" value={eventView} onChange={setEventView} options={[{ value: 'timeline', label: 'Lista', icon: <List /> }, { value: 'month', label: 'Mês', icon: <Calendar /> }]} />
 
           {filterStatus !== 'ALL' && (
             <div className="flex justify-end px-1">

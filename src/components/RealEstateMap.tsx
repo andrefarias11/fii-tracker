@@ -7,6 +7,7 @@ import { FII_PROPERTIES_CATALOG, STATE_COORDINATES, FiiRealEstateProperty } from
 import { BRAZIL_OUTLINE } from '../data/brazilMap';
 import type { CepLookupResponse } from '../app/api/cep/route';
 import { triggerHaptic } from '../lib/haptic';
+import { Chip, SegmentedControl } from './ui/Controls';
 
 interface RealEstateMapProps {
   positions: FiiPosition[];
@@ -107,12 +108,10 @@ export function RealEstateMap({ positions, initialTickerFilter = null, onClearTi
         {initialTickerFilter && <button type="button" onClick={onClearTickerFilter} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-[#121215] px-3 text-xs text-white">{initialTickerFilter}<X className="h-3.5 w-3.5" /><span className="sr-only">Limpar filtro do fundo</span></button>}
       </header>
 
-      {!initialTickerFilter && <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.06] bg-[#121215] p-1" aria-label="Escopo dos imóveis">
-        {([{ id: 'MY_PORTFOLIO', label: 'Minha carteira' }, { id: 'ALL_B3', label: 'Explorar catálogo' }] as const).map((option) => <button key={option.id} type="button" aria-pressed={scope === option.id} onClick={() => { setScope(option.id); selectState(null); }} className={`min-h-11 rounded-xl px-2 text-xs font-semibold transition-colors ${scope === option.id ? 'bg-white/[0.09] text-white shadow-sm' : 'text-zinc-500'}`}>{option.label}</button>)}
-      </div>}
+      {!initialTickerFilter && <SegmentedControl label="Escopo dos imóveis" value={scope} onChange={(value) => { setScope(value); selectState(null); }} options={[{ value: 'MY_PORTFOLIO', label: 'Minha carteira' }, { value: 'ALL_B3', label: 'Explorar catálogo' }]} />}
 
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Setor imobiliário">
-        {sectors.map((sector) => <button key={sector.id} type="button" aria-pressed={typeFilter === sector.id} onClick={() => { setTypeFilter(sector.id); selectState(null); }} className={`min-h-11 shrink-0 rounded-full border px-4 text-xs font-medium transition-colors ${typeFilter === sector.id ? 'border-[#f5b800]/25 bg-[#f5b800]/[0.08] text-[#f5b800]' : 'border-white/[0.06] bg-[#121215] text-zinc-400'}`}>{sector.label}</button>)}
+        {sectors.map((sector) => <Chip key={sector.id} selected={typeFilter === sector.id} onClick={() => { setTypeFilter(sector.id); selectState(null); }}>{sector.label}</Chip>)}
       </div>
 
       <section className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#121215]">
@@ -155,8 +154,8 @@ export function RealEstateMap({ positions, initialTickerFilter = null, onClearTi
       </section>
 
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtrar imóveis por estado">
-        <button type="button" onClick={() => selectState(null)} aria-pressed={!focusedState} className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs ${!focusedState ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.06] text-zinc-500'}`}>Brasil</button>
-        {states.map((state) => <button key={state.uf} type="button" onClick={() => selectState(state.uf)} aria-pressed={focusedState === state.uf} className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs tabular-nums ${focusedState === state.uf ? 'border-[#f5b800]/25 bg-[#f5b800]/[0.08] text-[#f5b800]' : 'border-white/[0.06] text-zinc-400'}`}>{state.uf} · {state.properties.length}</button>)}
+        <Chip onClick={() => selectState(null)} selected={!focusedState}>Brasil</Chip>
+        {states.map((state) => <Chip key={state.uf} onClick={() => selectState(state.uf)} selected={focusedState === state.uf} className="tabular-nums">{state.uf} · {state.properties.length}</Chip>)}
       </div>
 
       {activeProperty && <section ref={detailRef} className="scroll-mt-24 rounded-[24px] border border-white/[0.08] bg-[#121215] p-5" aria-label="Imóvel selecionado">
@@ -172,7 +171,7 @@ export function RealEstateMap({ positions, initialTickerFilter = null, onClearTi
         <div className="flex items-center justify-between px-1"><h3 className="text-sm font-semibold text-white">{focusedState ? `Imóveis em ${focusedState}` : 'Explorar imóveis'}</h3><span className="text-[11px] text-zinc-500 tabular-nums">{visibleProperties.length} imóveis</span></div>
         <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#121215] px-3"><Search className="h-4 w-4 shrink-0 text-zinc-500" /><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Fundo, imóvel ou cidade" aria-label="Buscar no catálogo de imóveis" className="min-w-0 flex-1 bg-transparent py-3 text-base text-white outline-none placeholder:text-zinc-600 sm:text-sm" /></label>
         <div className="overflow-hidden rounded-[20px] border border-white/[0.06] bg-[#121215] divide-y divide-white/[0.06]">
-          {visibleProperties.map((property) => <button key={property.id} type="button" aria-pressed={activeProperty?.id === property.id} onClick={() => { triggerHaptic('selection'); setSelectedPropertyId(property.id); detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className={`flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left transition-colors ${activeProperty?.id === property.id ? 'bg-white/[0.045]' : 'hover:bg-white/[0.025]'}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${activeProperty?.id === property.id ? 'border-[#F5B800]/20 text-[#F5B800]' : 'border-white/[0.06] text-zinc-500'}`}><Building2 className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-xs font-semibold text-white">{property.ticker}<span className="truncate text-[10px] font-normal text-zinc-500">{property.city} / {property.state}</span></span><span className="mt-1 block truncate text-xs text-zinc-400">{property.propertyName}</span></span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-600" /></button>)}
+          {visibleProperties.map((property) => <button key={property.id} type="button" aria-pressed={activeProperty?.id === property.id} onClick={() => { triggerHaptic('selection'); setSelectedPropertyId(property.id); detailRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }} className={`flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left transition-colors ${activeProperty?.id === property.id ? 'bg-white/[0.045]' : 'hover:bg-white/[0.025]'}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${activeProperty?.id === property.id ? 'border-[#F5B800]/20 text-[#F5B800]' : 'border-white/[0.06] text-zinc-500'}`}><Building2 className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2 text-xs font-semibold text-white">{property.ticker}<span className="truncate text-[10px] font-normal text-zinc-500">{property.city} / {property.state}</span></span><span className="mt-1 block truncate text-xs text-zinc-400">{property.propertyName}</span></span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-600" /></button>)}
           {visibleProperties.length === 0 && <p className="p-5 text-center text-xs text-zinc-500">Nenhum imóvel encontrado.</p>}
         </div>
       </section>

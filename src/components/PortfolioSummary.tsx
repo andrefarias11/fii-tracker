@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Info } from 'lucide-react';
 import { BcbIndicators, UnifiedPortfolioSummary } from '../types/portfolio';
 import { triggerHaptic } from '../lib/haptic';
+import { formatCurrency, formatPercent } from '../lib/formatFinancial';
+import { Button, SegmentedControl } from './ui/Controls';
 
 interface SummaryProps {
   currentEquity: number;
@@ -39,154 +40,124 @@ export function PortfolioSummary({
   onNavigateToGoals,
   onOpenB3Modal,
   onNavigateToFixedIncome,
+  onNavigateToProventos,
 }: SummaryProps) {
   const hasFixedIncome = Boolean(
-    unifiedSummary && unifiedSummary.fixedIncomeEquity > 0
+    unifiedSummary && unifiedSummary.fixedIncomeEquity > 0,
   );
 
   const [viewScope, setViewScope] = useState<'global' | 'bolsa'>(
-    hasFixedIncome ? 'global' : 'bolsa'
+    hasFixedIncome ? 'global' : 'bolsa',
   );
 
   const isGlobalView = viewScope === 'global' && hasFixedIncome;
 
   const displayEquity = isGlobalView
-    ? unifiedSummary?.totalGlobalEquity ?? currentEquity
+    ? (unifiedSummary?.totalGlobalEquity ?? currentEquity)
     : currentEquity;
 
   const displayInvested = isGlobalView
-    ? unifiedSummary?.totalGlobalInvested ?? totalInvested
+    ? (unifiedSummary?.totalGlobalInvested ?? totalInvested)
     : totalInvested;
 
   const displayProfitLoss = isGlobalView
-    ? unifiedSummary?.totalGlobalProfitLoss ?? totalProfitLoss
+    ? (unifiedSummary?.totalGlobalProfitLoss ?? totalProfitLoss)
     : totalProfitLoss;
 
   const displayProfitLossPercent = isGlobalView
-    ? unifiedSummary?.totalGlobalProfitLossPercent ?? totalProfitLossPercent
+    ? (unifiedSummary?.totalGlobalProfitLossPercent ?? totalProfitLossPercent)
     : totalProfitLossPercent;
 
   const displayMonthlyIncome = isGlobalView
-    ? unifiedSummary?.totalGlobalMonthlyIncome ?? totalMonthlyDividends
+    ? (unifiedSummary?.totalGlobalMonthlyIncome ?? totalMonthlyDividends)
     : totalMonthlyDividends;
 
   const isPositive = displayProfitLoss >= 0;
 
-  const formatBRL = (value: number) => {
-    if (isPrivacyMode) return 'R$ •••••';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  const formatBRL = (value: number) => formatCurrency(value, isPrivacyMode);
 
   return (
-    <div className="pt-2 pb-1">
-      {/* Linha 1: Rótulo com ícone Info + Toggle de Escopo Bolsa/Global */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-          <span>{isGlobalView ? 'Total em Patrimônio Global' : 'Total em Bolsa de Valores'}</span>
-          <span title="Custódia consolidada em Bolsa de Valores (B3)" className="inline-flex items-center">
-            <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer" />
+    <section
+      className="space-y-5 px-1 pb-2 pt-3"
+      aria-label="Resumo da carteira"
+    >
+      {hasFixedIncome && (
+        <SegmentedControl
+          label="Escopo do patrimônio"
+          value={viewScope}
+          onChange={(value) => {
+            triggerHaptic('selection');
+            setViewScope(value);
+          }}
+          options={[
+            { value: 'bolsa', label: 'Bolsa' },
+            { value: 'global', label: 'Patrimônio global' },
+          ]}
+        />
+      )}
+      <div>
+        <p className="ui-label">
+          {isGlobalView ? 'Patrimônio total' : 'Patrimônio em bolsa'}
+        </p>
+        <p className="ui-value-xl mt-2">{formatBRL(displayEquity)}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <span
+            className={`font-medium tabular-nums ${isPositive ? 'text-emerald-300' : 'text-rose-300'}`}
+          >
+            {isPositive ? '+' : '−'}
+            {formatBRL(Math.abs(displayProfitLoss))} ·{' '}
+            {formatPercent(displayProfitLossPercent, isPrivacyMode)}
           </span>
+          <span className="text-zinc-500">Resultado total</span>
         </div>
-
-        {hasFixedIncome && (
-          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#121215] border border-white/[0.06]">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setViewScope('bolsa');
-              }}
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
-                viewScope === 'bolsa'
-                  ? 'bg-[#2b2512] text-[#f5b800]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Bolsa
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setViewScope('global');
-              }}
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all ${
-                viewScope === 'global'
-                  ? 'bg-[#2b2512] text-[#f5b800]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Global
-            </button>
+      </div>
+      <div className="border-y border-white/[0.06] py-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="ui-label">Renda mensal estimada</p>
+            <p className="ui-value-lg mt-1">
+              {formatBRL(displayMonthlyIncome)}
+            </p>
           </div>
-        )}
+          {onNavigateToProventos && (
+            <Button variant="ghost" onClick={onNavigateToProventos}>
+              Ver proventos
+            </Button>
+          )}
+        </div>
+        <p className="ui-label mt-2 tabular-nums">
+          YoC da bolsa ·{' '}
+          {formatPercent(averageYieldOnCostPercent, isPrivacyMode)} a.m.
+        </p>
       </div>
-
-      {/* Linha 2: Valor do patrimônio em destaque */}
-      <div className="text-[32px] font-bold text-white tracking-tight mt-1 tabular-nums leading-tight">
-        {formatBRL(displayEquity)}
-      </div>
-
-      {/* Linha 3: ▲ R$ X,XX (X,XX%) Resultado total */}
-      <div className="flex items-center gap-1.5 text-xs font-medium mt-1">
-        <span className={`tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {isPositive ? '▲' : '▼'} {formatBRL(Math.abs(displayProfitLoss))} ({isPositive ? '+' : ''}{displayProfitLossPercent}%)
-        </span>
-        <span className="text-zinc-400">Resultado total</span>
-      </div>
-
-      {/* Linha 4: ▲ R$ X,XX (X,XX%) Proventos no mês (YoC X,XX%) */}
-      <div className="flex items-center gap-1.5 text-xs font-medium mt-1">
-        <span className="text-emerald-400 tabular-nums">
-          ▲ {formatBRL(displayMonthlyIncome)} ({averageYieldOnCostPercent}%)
-        </span>
-        <span className="text-zinc-400">
-          Proventos no mês (YoC {averageYieldOnCostPercent}% a.m.)
-        </span>
-      </div>
-
-      {/* Linha 5: Divisória horizontal fina */}
-      <div className="border-t border-white/[0.08] my-4" />
-
-      {/* Linha 6: Valor aplicado à esquerda e R$ X,XX à direita */}
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex flex-wrap justify-between gap-2 text-sm">
         <span className="text-zinc-400">Valor aplicado</span>
-        <span className="text-white font-semibold tabular-nums">
+        <span className="font-medium text-white tabular-nums">
           {formatBRL(displayInvested)}
         </span>
       </div>
-
-      {/* Linha 7: Ações rápidas discretas em pílula estilo XP */}
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <button
-          type="button"
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="primary"
           onClick={() => {
             triggerHaptic('light');
             onOpenB3Modal?.();
           }}
-          className="rounded-full py-2.5 px-4 text-xs font-semibold bg-[#2b2512] text-[#f5b800] hover:bg-[#3a3218] active:scale-95 transition-all text-center"
         >
           Importar B3
-        </button>
-
-        <button
-          type="button"
+        </Button>
+        <Button
           onClick={() => {
             triggerHaptic('light');
-            if (onNavigateToFixedIncome) {
-              onNavigateToFixedIncome();
-            } else if (onNavigateToGoals) {
-              onNavigateToGoals();
-            }
+            if (onNavigateToFixedIncome) onNavigateToFixedIncome();
+            else onNavigateToGoals?.();
           }}
-          className="rounded-full py-2.5 px-4 text-xs font-semibold bg-[#121215] text-zinc-200 hover:bg-[#28282b] active:scale-95 transition-all text-center"
         >
-          {hasFixedIncome ? `Caixinhas (${fixedIncomeCount})` : '+ Caixinha / Meta'}
-        </button>
+          {hasFixedIncome
+            ? `Caixinhas · ${fixedIncomeCount}`
+            : 'Caixinhas e metas'}
+        </Button>
       </div>
-    </div>
+    </section>
   );
 }

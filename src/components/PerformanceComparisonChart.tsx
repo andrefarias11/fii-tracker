@@ -2,6 +2,7 @@
 
 import { useState, type KeyboardEvent, type PointerEvent } from 'react';
 import type { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
+import { formatCurrency, formatPercent } from '../lib/formatFinancial';
 
 interface Props {
   positions: FiiPosition[];
@@ -40,10 +41,8 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
   const min = Math.min(...all, initial) * 0.98;
   const max = Math.max(...all, initial) * 1.02 || 1;
   const yForValue = (value: number) => PLOT_BOTTOM - ((value - min) / (max - min || 1)) * (PLOT_BOTTOM - PLOT_TOP);
-  const format = (value: number) => isPrivacyMode
-    ? 'R$ ••••'
-    : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const monthLabel = selectedMonth === 0 ? 'Hoje' : `${selectedMonth} meses`;
+  const format = (value: number) => formatCurrency(value, isPrivacyMode);
+  const monthLabel = selectedMonth === 0 ? 'Hoje' : `${selectedMonth} ${selectedMonth === 1 ? 'mês' : 'meses'}`;
 
   const updateSelectedMonth = (event: PointerEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -53,10 +52,11 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
     setSelectedMonth(Math.max(0, Math.min(12, Math.round(normalized * 12))));
   };
 
-  const handleMonthKeyDown = (event: KeyboardEvent<SVGRectElement>, month: number) => {
+  const handleMonthKeyDown = (event: KeyboardEvent<SVGRectElement>) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
-      setSelectedMonth(Math.max(0, Math.min(12, month + (event.key === 'ArrowRight' ? 1 : -1))));
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      setSelectedMonth((month) => Math.max(0, Math.min(12, month + direction)));
     } else if (event.key === 'Home') {
       event.preventDefault();
       setSelectedMonth(0);
@@ -67,14 +67,14 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
   };
 
   return (
-    <section className="space-y-4 rounded-2xl border border-white/[0.06] bg-[#121215] p-5">
+    <section className="ui-section space-y-4">
       <header>
-        <h3 className="text-base font-bold text-white">Projeção · 12 meses</h3>
+        <h3 className="ui-title">Projeção · 12 meses</h3>
         <p className="mt-1 text-xs text-zinc-400">Taxas atuais constantes; sem novos aportes</p>
       </header>
 
       <p className="text-xs text-zinc-300">Simulação indicativa com reinvestimento da renda estimada.</p>
-      <details className="group rounded-xl border border-white/[0.04] bg-[#1c1c1f] px-3 py-2 text-xs text-zinc-400">
+      <details className="border-t border-white/[0.06] pt-1 text-xs text-zinc-400">
         <summary className="cursor-pointer font-medium text-zinc-300">Como calculamos</summary>
         <p className="mt-2 leading-relaxed">
           A Carteira parte do patrimônio atual (ou do capital selecionado) e cresce pela renda mensal estimada da carteira, reinvestida e composta por 12 meses. CDI e IPCA usam as taxas mensais informadas pelos indicadores disponíveis, mantidas constantes durante todo o período. A simulação não inclui novos aportes, variação no preço das cotas, impostos futuros ou garantia de rentabilidade. O CDI líquido usa uma hipótese simplificada de tributação.
@@ -95,23 +95,23 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
         </select>
       </label>
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/[0.04] bg-[#1c1c1f] p-3 text-xs">
+      <div className="grid grid-cols-2 gap-4 border-y border-white/[0.06] py-4 text-xs">
         <div>
           <span className="block text-zinc-500">Capital inicial</span>
           <strong className="mt-1 block font-semibold text-white tabular-nums">{format(initial)}</strong>
         </div>
         <div>
           <span className="block text-zinc-500">Renda atual estimada</span>
-          <strong className="mt-1 block font-semibold text-white tabular-nums">{(monthly * 100).toFixed(2)}% a.m.</strong>
+          <strong className="mt-1 block font-semibold text-white tabular-nums">{formatPercent(monthly * 100)} a.m.</strong>
         </div>
       </div>
 
-      <div className="space-y-2" aria-label="Valores para o período selecionado">
+      <div className="space-y-2" role="status" aria-live="polite" aria-atomic="true" aria-label="Valores para o período selecionado">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-semibold text-zinc-400">Mês selecionado</span>
           <span className="text-xs font-semibold text-white tabular-nums">{monthLabel}</span>
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl border border-white/[0.04] bg-[#1c1c1f] p-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-white/[0.06] pb-4">
           {curves.map((curve) => (
             <div key={curve.name} className="min-w-0">
               <span className="block truncate text-[10px] text-zinc-400">{curve.name}</span>
@@ -173,7 +173,7 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
                 onPointerDown={updateSelectedMonth}
                 onPointerMove={(event) => { if (event.pointerType === 'mouse') updateSelectedMonth(event); }}
                 onFocus={() => setSelectedMonth(month)}
-                onKeyDown={(event) => handleMonthKeyDown(event, month)}
+                onKeyDown={handleMonthKeyDown}
               />
             );
           })}

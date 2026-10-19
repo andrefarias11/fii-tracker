@@ -29,6 +29,8 @@ import {
 import { FiiPosition, Transaction } from '../types/portfolio';
 import confetti from 'canvas-confetti';
 import { triggerHaptic } from '../lib/haptic';
+import { Button, Chip } from './ui/Controls';
+import { EmptyState } from './ui/Feedback';
 import {
   evaluateAchievements,
   AchievementItem,
@@ -44,6 +46,7 @@ interface AchievementsTimelineProps {
     totalMonthlyDividends: number;
   };
   onOpenB3Modal: () => void;
+  isPrivacyMode?: boolean;
 }
 
 export function AchievementsTimeline({
@@ -51,6 +54,7 @@ export function AchievementsTimeline({
   transactions,
   summary,
   onOpenB3Modal,
+  isPrivacyMode = false,
 }: AchievementsTimelineProps) {
   const [filter, setFilter] = useState<'ALL' | 'UNLOCKED' | 'LOCKED'>('ALL');
 
@@ -73,7 +77,8 @@ export function AchievementsTimeline({
     if (item.unlocked) {
       triggerHaptic('trophy');
       confetti({
-        particleCount: 50,
+        particleCount: 24,
+        disableForReducedMotion: true,
         spread: 60,
         origin: { y: 0.7 },
         colors:
@@ -246,7 +251,7 @@ export function AchievementsTimeline({
                   {overview.nextAchievement.title}
                 </p>
                 <p className="text-[11px] text-zinc-400 truncate tabular-nums">
-                  {overview.nextAchievement.formattedCurrent} de{' '}
+                  {isPrivacyMode ? '••••' : overview.nextAchievement.formattedCurrent} de{' '}
                   {overview.nextAchievement.formattedTarget}
                 </p>
               </div>
@@ -265,52 +270,8 @@ export function AchievementsTimeline({
       </div>
 
       {/* Filtro de Conquistas em Pílulas Estilo XP */}
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setFilter('ALL');
-          }}
-          aria-pressed={filter === 'ALL'}
-          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
-            filter === 'ALL'
-              ? 'bg-white/10 text-white'
-              : 'bg-[#121215] text-zinc-300 hover:text-white'
-          }`}
-        >
-          Todos ({overview.totalCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setFilter('UNLOCKED');
-          }}
-          aria-pressed={filter === 'UNLOCKED'}
-          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
-            filter === 'UNLOCKED'
-              ? 'bg-white/10 text-white'
-              : 'bg-[#121215] text-zinc-300 hover:text-white'
-          }`}
-        >
-          Desbloqueados ({overview.unlockedCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('selection');
-            setFilter('LOCKED');
-          }}
-          aria-pressed={filter === 'LOCKED'}
-          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
-            filter === 'LOCKED'
-              ? 'bg-white/10 text-white'
-              : 'bg-[#121215] text-zinc-300 hover:text-white'
-          }`}
-        >
-          Na Mira ({overview.totalCount - overview.unlockedCount})
-        </button>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtrar troféus">
+        {([{ value: 'ALL', label: 'Todos', count: overview.totalCount }, { value: 'UNLOCKED', label: 'Desbloqueados', count: overview.unlockedCount }, { value: 'LOCKED', label: 'Na Mira', count: overview.totalCount - overview.unlockedCount }] as const).map((option) => <Chip key={option.value} selected={filter === option.value} onClick={() => { triggerHaptic('selection'); setFilter(option.value); }}>{option.label} · {option.count}</Chip>)}
       </div>
 
       {/* Linha do Tempo Vertical das Conquistas */}
@@ -343,11 +304,7 @@ export function AchievementsTimeline({
 
                 {/* Card da Conquista */}
                 <div
-                  className={`flex-1 min-w-0 p-3.5 rounded-2xl ${
-                    item.unlocked
-                      ? 'bg-[#1c1c1f] hover:bg-white/[0.04]'
-                      : 'bg-[#1c1c1f]/60'
-                  }`}
+                  className="flex-1 min-w-0 border-b border-white/[0.06] pb-5 pt-1"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
                     <div>
@@ -396,7 +353,7 @@ export function AchievementsTimeline({
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-400 font-medium">{item.subtitle}</span>
                       <span className="text-white font-semibold tabular-nums">
-                        {item.formattedCurrent}{' '}
+                        {isPrivacyMode ? '••••' : item.formattedCurrent}{' '}
                         <span className="text-zinc-500">/ {item.formattedTarget}</span>
                       </span>
                     </div>
@@ -413,6 +370,7 @@ export function AchievementsTimeline({
               </div>
             );
           })}
+          {filteredAchievements.length === 0 && <EmptyState title={filter === 'LOCKED' ? 'Todos os troféus conquistados' : 'Seu próximo marco está à frente'} description={filter === 'LOCKED' ? 'Explore Todos para rever sua trajetória.' : 'Importe suas movimentações da B3 para registrar seu progresso.'} action={<Button onClick={filter === 'LOCKED' ? () => setFilter('ALL') : onOpenB3Modal}>{filter === 'LOCKED' ? 'Ver todos' : 'Importar B3'}</Button>} />}
         </div>
       </div>
     </div>

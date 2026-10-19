@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#09090b',
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -54,7 +54,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="FII Tracker" />
       </head>
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-300">
+      <body className="min-h-full flex flex-col bg-black text-zinc-100 selection:bg-[#f5b800]/30 selection:text-white">
         {children}
       </body>
     </html>

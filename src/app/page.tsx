@@ -1,7 +1,10 @@
 'use client';
 import dynamic from 'next/dynamic';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { AssetDetailsSheet } from '../components/AssetDetailsSheet';
+import { Button, SegmentedControl } from '../components/ui/Controls';
+import { FeedbackToast, PortfolioSkeleton, SectionSkeleton, type Notice } from '../components/ui/Feedback';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { Header } from '../components/Header';
 import { PortfolioSummary } from '../components/PortfolioSummary';
@@ -9,12 +12,12 @@ import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
 import { PositionList } from '../components/PositionList';
 import { TransactionHistory } from '../components/TransactionHistory';
-const InvestmentSimulator = dynamic(() => import('../components/InvestmentSimulator').then(m => m.InvestmentSimulator));
+const InvestmentSimulator = dynamic(() => import('../components/InvestmentSimulator').then(m => m.InvestmentSimulator), { loading: () => <SectionSkeleton chart label="Carregando simulador" /> });
 import { OpportunityRadar } from '../components/OpportunityRadar';
 import { UniversalB3Explorer } from '../components/UniversalB3Explorer';
 import { MentorsTab } from '../components/MentorsTab';
-const RealEstateMap = dynamic(() => import('../components/RealEstateMap').then(m => m.RealEstateMap));
-const AiInsightsTab = dynamic(() => import('../components/AiInsightsTab').then(m => m.AiInsightsTab));
+const RealEstateMap = dynamic(() => import('../components/RealEstateMap').then(m => m.RealEstateMap), { loading: () => <SectionSkeleton chart label="Carregando mapa de imóveis" /> });
+const AiInsightsTab = dynamic(() => import('../components/AiInsightsTab').then(m => m.AiInsightsTab), { loading: () => <SectionSkeleton label="Carregando análises" /> });
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
 const MonthlyWrappedModal = dynamic(() => import('../components/MonthlyWrappedModal').then(m => m.MonthlyWrappedModal));
@@ -50,6 +53,7 @@ import {
 } from 'lucide-react';
 
 type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
+type PageFeedback = { id: number; kind: 'refresh' | 'sync' } | { id: number; kind: 'message'; message: string; tone: Notice['tone'] };
 
 export default function HomePage() {
   const [activeAccount, setActiveAccount] = useState<SavedAccountSession | null>(() => {
@@ -139,6 +143,9 @@ export default function HomePage() {
   const [isAddTxModalOpen, setIsAddTxModalOpen] = useState<boolean>(false);
   const [addTxTicker, setAddTxTicker] = useState<string>('');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<PageFeedback | null>(null);
+  const dismissFeedback = useCallback(() => setFeedback(null), []);
 
   useEffect(() => {
     // Inicializa listener do cofre de sessões (OAuth redirect Google, SIGNED_IN e INITIAL_SESSION)
@@ -244,14 +251,7 @@ export default function HomePage() {
   }, []);
 
   if (!isInitialized) {
-    return (
-      <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 rounded-full bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center animate-pulse mb-3">
-          <div className="w-3.5 h-3.5 rounded-full bg-[#f5b800]" />
-        </div>
-        <p className="text-xs font-medium text-zinc-400">Carregando FII Tracker...</p>
-      </div>
-    );
+    return <PortfolioSkeleton />;
   }
 
   // 4 Abas Principais na Dock Flutuante (Estilo XP Investimentos)
@@ -259,7 +259,7 @@ export default function HomePage() {
     { id: 'portfolio', label: 'Carteira', icon: Wallet },
     { id: 'proventos', label: 'Proventos', icon: Coins },
     { id: 'radar', label: 'Explorar', icon: Compass },
-    { id: 'goals', label: 'Rentabilidade', icon: Trophy },
+    { id: 'goals', label: 'Troféus', icon: Trophy },
   ];
 
   const getTabTitle = (tab: MainTabType) => {
@@ -271,17 +271,34 @@ export default function HomePage() {
       case 'radar':
         return 'Explorar';
       case 'goals':
-        return 'Rentabilidade';
+        return 'Troféus';
       default:
         return 'Carteira';
     }
   };
 
   const handleOpenBuyForTicker = (ticker: string) => {
+    setSelectedAssetTicker(null);
     setEditingTx(null);
     setAddTxTicker(ticker);
     setIsAddTxModalOpen(true);
   };
+
+  const handleOpenAsset = (ticker: string) => {
+    setSelectedAssetTicker(ticker);
+  };
+  const handleOpenRelated = (ticker: string, view: 'map' | 'ai') => {
+    setSelectedAssetTicker(null);
+    setExploreTickerFilter(ticker);
+    setActiveTab('radar');
+    setExploreSubView(view);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+  const feedbackNotice: Notice | null = !feedback ? null : feedback.kind === 'message'
+    ? { id: feedback.id, message: feedback.message, tone: feedback.tone }
+    : feedback.kind === 'sync'
+    ? { id: feedback.id, busy: isSyncing, tone: syncError || !isCloudConnected ? 'error' : pendingChanges ? 'info' : 'success', message: isSyncing ? 'Sincronizando sua conta…' : syncError || (!isCloudConnected ? 'Nuvem indisponível. Dados locais preservados.' : pendingChanges ? 'Há alterações aguardando envio.' : 'Sua conta está sincronizada.') }
+    : { id: feedback.id, busy: isLoadingQuotes, tone: lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'success' : 'info', message: isLoadingQuotes ? 'Consultando cotações…' : lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'Cotações atualizadas.' : 'Sem novas cotações. As últimas referências foram mantidas.' };
 
   return (
     <div className="min-h-[100dvh] bg-black text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
@@ -296,10 +313,13 @@ export default function HomePage() {
         onTogglePrivacy={handleTogglePrivacy}
         onRefresh={async () => {
           triggerHaptic('medium');
+          setFeedback({ id: Date.now(), kind: 'refresh' });
           await Promise.all([fetchLiveQuotes(), syncWithCloud()]);
         }}
         onSyncCloud={async () => {
+          if (!activeAccount) { setIsAccountSwitcherOpen(true); return; }
           triggerHaptic('light');
+          setFeedback({ id: Date.now(), kind: 'sync' });
           await syncWithCloud();
         }}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
@@ -313,15 +333,11 @@ export default function HomePage() {
       />
 
       {/* Conteúdo Principal com Respiro Estilo iOS */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 pb-32 space-y-4">
-        {(pendingChanges > 0 || syncError) && <div role="status" className="rounded-xl bg-amber-950 p-3 text-sm text-amber-100">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 7rem)' }}>
+        {(pendingChanges > 0 || syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
           {pendingChanges > 0 ? `${pendingChanges} alteração(ões) aguardando envio. ` : ''}{syncError}
           <button className="underline ml-2" onClick={() => syncWithCloud()}>Tentar sincronizar</button>
         </div>}
-        <details className="text-xs text-zinc-400"><summary>Qualidade dos dados e recuperação</summary>
-          <p className="py-2">Cotações recebidas: {Object.keys(quotes).length}. Última consulta: {lastSyncTime?.toLocaleString('pt-BR') || 'Não disponível'}. Fundamentos do catálogo são referências sem atualização automática. Projeções não comprovam recebimentos.</p>
-          <button className="underline p-2" onClick={async () => { const ok = await undoLastImport(); window.alert(ok ? 'Importação desfeita. Sincronização pendente será retomada automaticamente.' : 'Não há importação disponível para desfazer.'); }}>Desfazer última importação</button>
-        </details>
         <IosInstallBanner />
 
         {/* 1. ABA: INÍCIO (CARTEIRA + EXTRATO INTEGRADO) */}
@@ -351,61 +367,17 @@ export default function HomePage() {
               onOpenB3Modal={() => setIsB3ModalOpen(true)}
             />
 
-            {/* Seletor Segmentado XP: Bolsa vs Caixinhas vs Extrato */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setHomeSubView('assets');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  homeSubView === 'assets'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Bolsa ({positions.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setHomeSubView('fixed_income');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  homeSubView === 'fixed_income'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <PiggyBank className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Caixinhas ({fixedIncomeAssets.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setHomeSubView('history');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  homeSubView === 'history'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <ReceiptText className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Extrato ({transactions.length})</span>
-              </button>
-            </div>
+            <SegmentedControl label="Conteúdo da carteira" value={homeSubView} onChange={(value) => { triggerHaptic('selection'); setHomeSubView(value); }} options={[
+              { value: 'assets', label: 'Bolsa', icon: <Layers /> },
+              { value: 'fixed_income', label: 'Caixinhas', icon: <PiggyBank /> },
+              { value: 'history', label: 'Extrato', icon: <ReceiptText /> },
+            ]} />
 
             {homeSubView === 'assets' ? (
               <div className="space-y-3 animate-in fade-in duration-150">
                 <PositionList
                   positions={positions}
+                  onOpenAsset={handleOpenAsset}
                   isPrivacyMode={isPrivacyMode}
                   onUpdateDividend={updateCustomDividend}
                   onOpenB3Modal={() => setIsB3ModalOpen(true)}
@@ -461,6 +433,8 @@ export default function HomePage() {
         {activeTab === 'proventos' && (
           <div className="animate-in fade-in duration-200">
             <DividendFlow
+              onOpenB3Modal={() => setIsB3ModalOpen(true)}
+              onOpenAsset={handleOpenAsset}
               positions={positions}
               transactions={transactions}
               bcbIndicators={bcbIndicators}
@@ -473,92 +447,17 @@ export default function HomePage() {
         {/* 3. ABA: EXPLORAR (RADAR B3 + BUSCA UNIVERSAL + MAPA IMOBILIÁRIO + IA & FATOS + MENTORES) */}
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado XP: Radar | Busca B3 | Mapa | IA & Fatos | Mentores */}
-            <div className="flex items-center overflow-x-auto scrollbar-none p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setExploreSubView('radar');
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  exploreSubView === 'radar'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span>Radar</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setExploreSubView('universal');
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  exploreSubView === 'universal'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span>Busca B3</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setExploreSubView('map');
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  exploreSubView === 'map'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <MapPin className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span>Mapa</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setExploreSubView('ai');
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  exploreSubView === 'ai'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span>IA & Fatos</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setExploreSubView('mentors');
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                  exploreSubView === 'mentors'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span>Mentores</span>
-              </button>
-            </div>
+            <SegmentedControl label="Explorar investimentos" value={exploreSubView} onChange={(value) => { triggerHaptic('selection'); setExploreSubView(value); }} scrollable options={[
+              { value: 'radar', label: 'Radar', icon: <Compass /> }, { value: 'universal', label: 'Busca B3', icon: <Globe /> },
+              { value: 'map', label: 'Mapa', icon: <MapPin /> }, { value: 'ai', label: 'Análises', icon: <Sparkles /> },
+              { value: 'mentors', label: 'Mentores', icon: <GraduationCap /> },
+            ]} />
 
             {exploreSubView === 'radar' ? (
               <div className="animate-in fade-in duration-150">
                 <OpportunityRadar
+                  onOpenAsset={handleOpenAsset}
+                  isLoading={isLoadingQuotes && Object.keys(quotes).length === 0}
                   quotes={quotes}
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
@@ -605,6 +504,8 @@ export default function HomePage() {
             ) : (
               <div className="animate-in fade-in duration-150">
                 <MentorsTab
+                  onOpenAsset={handleOpenAsset}
+                  isLoading={isLoadingQuotes && Object.keys(quotes).length === 0}
                   quotes={quotes}
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
@@ -619,60 +520,15 @@ export default function HomePage() {
         {/* 4. ABA: TROFÉUS & METAS (PLATINA 20 METAS + BOLA DE NEVE + SIMULADOR) */}
         {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Seletor Segmentado XP: Platina (20) vs Bola de Neve vs Simulador */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setGoalsSubView('achievements');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  goalsSubView === 'achievements'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Trophy className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Platina (20)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setGoalsSubView('targets');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  goalsSubView === 'targets'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Target className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Bola de Neve</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setGoalsSubView('simulator');
-                }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-                  goalsSubView === 'simulator'
-                    ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-                <span className="truncate">Simulador</span>
-              </button>
-            </div>
+            <SegmentedControl label="Conquistas e metas" value={goalsSubView} onChange={(value) => { triggerHaptic('selection'); setGoalsSubView(value); }} options={[
+              { value: 'achievements', label: 'Troféus', icon: <Trophy /> }, { value: 'targets', label: 'Metas', icon: <Target /> },
+              { value: 'simulator', label: 'Simulador', icon: <Sparkles /> },
+            ]} />
 
             {goalsSubView === 'achievements' && (
               <div className="animate-in fade-in duration-150">
                 <AchievementsTimeline
+                  isPrivacyMode={isPrivacyMode}
                   positions={positions}
                   transactions={transactions}
                   summary={{
@@ -702,6 +558,7 @@ export default function HomePage() {
 
                 <MagicNumberCard
                   positions={positions}
+                  isPrivacyMode={isPrivacyMode}
                   monthlyTarget={goals.monthlyTarget}
                 />
               </div>
@@ -720,10 +577,14 @@ export default function HomePage() {
             )}
           </div>
         )}
+        <details className="ui-label border-t border-white/[0.06] pt-3"><summary>Dados e recuperação</summary>
+          <p className="py-3 leading-relaxed">Cotações recebidas: {Object.keys(quotes).length}. Última consulta: {lastSyncTime?.toLocaleString('pt-BR') || 'Não disponível'}. Fundamentos do catálogo são referências sem atualização automática. Projeções não comprovam recebimentos.</p>
+          <Button variant="ghost" onClick={async () => { const ok = await undoLastImport(); setFeedback({ id: Date.now(), kind: 'message', tone: ok ? 'success' : 'info', message: ok ? 'Importação desfeita. Sua carteira foi restaurada.' : 'Não há importação disponível para desfazer.' }); }}>Desfazer última importação</Button>
+        </details>
       </main>
 
       {/* DOCK FLUTUANTE ESTILO XP iOS (Apenas 4 Abas Limpas) */}
-      <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none">
+      <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none" aria-label="Navegação principal">
         <div className="dock-glass max-w-xs mx-auto pointer-events-auto rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -731,23 +592,25 @@ export default function HomePage() {
             return (
               <button
                 key={item.id}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
                   triggerHaptic('selection');
                   setActiveTab(item.id);
+                  window.scrollTo({ top: 0, behavior: isActive && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
                 }}
                 className={`dock-tab flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
                   isActive
                     ? 'bg-white/[0.1] text-white'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    : 'text-zinc-400 hover:text-zinc-300'
                 }`}
               >
                 <Icon
-                  className={`w-4 h-4 mb-0.5 transition-colors ${
-                    isActive ? 'text-[#f5b800]' : ''
+                  className={`w-5 h-5 mb-1 transition-colors ${
+                    isActive ? 'text-white' : ''
                   }`}
                 />
                 <span
-                  className={`text-[10px] leading-none tracking-tight ${
+                  className={`text-[11px] leading-none tracking-tight ${
                     isActive ? 'font-bold text-white' : 'font-medium'
                   }`}
                 >
@@ -758,6 +621,21 @@ export default function HomePage() {
           })}
         </div>
       </nav>
+
+      <FeedbackToast notice={feedbackNotice} onClose={dismissFeedback} />
+      {selectedAssetTicker && <AssetDetailsSheet
+        key={`${activeAccount?.id ?? 'local'}-${selectedAssetTicker}`}
+        ticker={selectedAssetTicker}
+        positions={positions}
+        quotes={quotes}
+        transactions={transactions}
+        isPrivacyMode={isPrivacyMode}
+        onClose={() => setSelectedAssetTicker(null)}
+        onOpenBuyModal={handleOpenBuyForTicker}
+        onUpdateDividend={updateCustomDividend}
+        onOpenMapForTicker={(ticker) => handleOpenRelated(ticker, 'map')}
+        onOpenAiForTicker={(ticker) => handleOpenRelated(ticker, 'ai')}
+      />}
 
       {/* Modais */}
       <AddTransactionModal
@@ -780,7 +658,10 @@ export default function HomePage() {
         isOpen={isB3ModalOpen}
         existingTransactions={transactions}
         onClose={() => setIsB3ModalOpen(false)}
-        onImportTransactions={importTransactionsFromB3}
+        onImportTransactions={async (newTransactions, replaceAll) => {
+          await importTransactionsFromB3(newTransactions, replaceAll);
+          setFeedback({ id: Date.now(), kind: 'message', tone: 'success', message: 'Extrato importado. Carteira atualizada neste dispositivo.' });
+        }}
       />
 
       <MonthlyWrappedModal

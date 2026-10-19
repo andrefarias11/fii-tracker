@@ -1,6 +1,6 @@
 'use client';
-import Image from 'next/image';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import {
   RefreshCw,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '../lib/version';
 import { SavedAccountSession } from '../lib/authManager';
+import { Button } from './ui/Controls';
 
 interface HeaderProps {
   title?: string;
@@ -46,147 +47,139 @@ export function Header({
   onOpenAccountSwitcher,
   activeAccount,
 }: HeaderProps) {
-  const [avatarError, setAvatarError] = useState(false);
-
-  const getInitials = (nameOrEmail?: string) => {
-    if (!nameOrEmail) return 'U';
-    const clean = nameOrEmail.trim();
-    const parts = clean.split(/[\s@._-]+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return clean.slice(0, 2).toUpperCase();
-  };
-
-  const formatTime = (date: Date | null) => {
-    if (!date) return 'Offline';
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  };
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const initials = (activeAccount?.displayName || activeAccount?.email || 'U')
+    .trim()
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+  const syncLabel = isSyncingCloud
+    ? 'Sincronizando'
+    : isCloudConnected
+      ? 'Nuvem conectada'
+      : 'Conectar nuvem';
 
   return (
-    <header className="sticky top-0 z-30 bg-black/95 backdrop-blur-2xl border-b border-white/[0.06] px-4 pb-3 pt-safe-header ios-sticky-fix">
-      <div className="max-w-md mx-auto flex items-center justify-between">
-        {/* Título da Aba Ativa Estilo XP */}
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold text-white tracking-tight">
+    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-black/95 px-4 pb-2 pt-safe-header backdrop-blur-xl">
+      <div className="mx-auto max-w-md">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium tracking-wide text-zinc-500">
+              FII TRACKER <span className="font-normal">· v{APP_VERSION}</span>
+            </p>
+            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-white">
               {title}
             </h1>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              title={`FII Tracker v${APP_VERSION}`}
-              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#121215] text-zinc-400 hover:text-[#f5b800] transition-colors border border-white/[0.06]"
-            >
-              v{APP_VERSION}
-            </button>
           </div>
-          <p className="text-[10px] text-zinc-500 font-medium leading-tight mt-0.5">
-            {isLoadingQuotes ? 'Atualizando B3...' : `B3 • ${formatTime(lastSyncTime)}`}
-          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            {onTogglePrivacy && (
+              <Button
+                variant="icon"
+                aria-label={
+                  isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'
+                }
+                aria-pressed={isPrivacyMode}
+                onClick={onTogglePrivacy}
+              >
+                {isPrivacyMode ? (
+                  <EyeOff className="h-[18px] w-[18px]" />
+                ) : (
+                  <Eye className="h-[18px] w-[18px]" />
+                )}
+              </Button>
+            )}
+            {onOpenAccountSwitcher && (
+              <Button
+                variant="icon"
+                onClick={onOpenAccountSwitcher}
+                aria-label="Perfil e contas"
+                title={
+                  activeAccount
+                    ? `Conta ativa: ${activeAccount.displayName}`
+                    : 'Conectar conta'
+                }
+              >
+                {activeAccount?.avatarUrl &&
+                failedAvatarUrl !== activeAccount.avatarUrl ? (
+                  <Image
+                    width={32}
+                    height={32}
+                    unoptimized
+                    src={activeAccount.avatarUrl}
+                    alt=""
+                    onError={() =>
+                      setFailedAvatarUrl(activeAccount.avatarUrl ?? null)
+                    }
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : activeAccount ? (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1f] text-[11px] text-zinc-200">
+                    {initials}
+                  </span>
+                ) : (
+                  <User className="h-[18px] w-[18px]" />
+                )}
+              </Button>
+            )}
+            <Button
+              variant="icon"
+              onClick={onOpenSettings}
+              aria-label="Configurações"
+            >
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
+            </Button>
+          </div>
         </div>
-
-        {/* Botões Circulares XP: bg-[#121215] w-10 h-10 rounded-full text-zinc-200 */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {onOpenWrapped && (
-            <button
-              type="button"
-              onClick={onOpenWrapped}
-              title="Retrospectiva B3"
-              aria-label="Retrospectiva B3"
-              className="w-10 h-10 rounded-full bg-[#121215] text-zinc-200 hover:text-[#f5b800] flex items-center justify-center active:scale-95 transition-all border border-white/[0.06]"
-            >
-              <Sparkles className="w-4 h-4 text-[#f5b800]" />
-            </button>
-          )}
-
-          {onTogglePrivacy && (
-            <button
-              type="button"
-              onClick={onTogglePrivacy}
-              aria-label={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
-              title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
-              className={`w-10 h-10 rounded-full bg-[#121215] flex items-center justify-center transition-all active:scale-95 border border-white/[0.06] ${
-                isPrivacyMode
-                  ? 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/30'
-                  : 'text-zinc-200 hover:text-white'
-              }`}
-            >
-              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          )}
-
-          <button
-            type="button"
+        <div className="mt-2 flex items-center justify-between gap-1 border-t border-white/[0.04] pt-1">
+          <Button
+            variant="ghost"
             onClick={onSyncCloud || onOpenSettings}
-            title={
-              isCloudConnected
-                ? isSyncingCloud
-                  ? 'Sincronizando com a Nuvem...'
-                  : 'Nuvem Conectada • Toque para Sincronizar'
-                : 'Nuvem Offline • Toque para Configurar'
-            }
-            aria-label="Sincronizar Nuvem"
-            className={`w-10 h-10 rounded-full bg-[#121215] flex items-center justify-center transition-all active:scale-95 border border-white/[0.06] ${
-              isCloudConnected
-                ? 'text-[#f5b800]'
-                : 'text-zinc-400 hover:text-white'
-            }`}
+            disabled={isSyncingCloud}
+            className="px-1 text-xs"
+            aria-label={syncLabel}
           >
             {isCloudConnected ? (
-              <Cloud className={`w-4 h-4 ${isSyncingCloud ? 'animate-spin text-[#f5b800]' : ''}`} />
+              <Cloud className="h-3.5 w-3.5" />
             ) : (
-              <CloudOff className="w-4 h-4" />
+              <CloudOff className="h-3.5 w-3.5" />
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isLoadingQuotes}
-            aria-label="Atualizar Cotações"
-            className="w-10 h-10 rounded-full bg-[#121215] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.06] disabled:opacity-40"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoadingQuotes ? 'animate-spin text-[#f5b800]' : ''}`} />
-          </button>
-
-          {onOpenAccountSwitcher && (
-            <button
-              type="button"
-              onClick={onOpenAccountSwitcher}
-              title={
-                activeAccount
-                  ? `Conta ativa: ${activeAccount.displayName} (${activeAccount.email}) • Alternar`
-                  : 'Alternar / Conectar Conta'
-              }
-              aria-label="Perfil e Contas"
-              className="w-10 h-10 rounded-full bg-[#121215] text-zinc-200 hover:text-white flex items-center justify-center active:scale-95 transition-all border border-white/[0.06] shrink-0 overflow-hidden"
+            <span>{syncLabel}</span>
+          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              onClick={onRefresh}
+              disabled={isLoadingQuotes}
+              className="px-2 text-xs"
+              aria-label="Atualizar cotações"
             >
-              {activeAccount?.avatarUrl && !avatarError ? (
-                <Image width={48} height={48} unoptimized
-                  src={activeAccount.avatarUrl}
-                  alt={activeAccount.displayName}
-                  onError={() => setAvatarError(true)}
-                  className="w-8 h-8 rounded-full object-cover border border-white/[0.1]"
-                />
-              ) : activeAccount ? (
-                <span className="w-8 h-8 rounded-full bg-[#f5b800] text-zinc-950 font-bold flex items-center justify-center text-xs uppercase tracking-tighter shadow-sm">
-                  {getInitials(activeAccount.displayName || activeAccount.email)}
-                </span>
-              ) : (
-                <User className="w-4 h-4 text-zinc-300" />
-              )}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label="Configurações"
-            className="w-10 h-10 rounded-full bg-[#121215] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.06]"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isLoadingQuotes ? 'animate-spin' : ''}`}
+              />
+              <span>
+                {isLoadingQuotes
+                  ? 'Atualizando'
+                  : lastSyncTime
+                    ? lastSyncTime.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Atualizar'}
+              </span>
+            </Button>
+            {onOpenWrapped && (
+              <Button
+                variant="icon"
+                onClick={onOpenWrapped}
+                aria-label="Retrospectiva B3"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </header>

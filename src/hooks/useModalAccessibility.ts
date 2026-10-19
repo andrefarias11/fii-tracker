@@ -5,32 +5,71 @@ let previousOverflow = '';
 export function useModalAccessibility(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
-  useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => {
+    close.current = onClose;
+  }, [onClose]);
   useEffect(() => {
     const root = ref.current;
     if (!open || !root) return;
     const previous = document.activeElement as HTMLElement | null;
-    if (!dialogs.length) { previousOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; }
+    if (!dialogs.length) {
+      previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
     dialogs.push(root);
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', root.querySelector('h2,h3')?.textContent || 'Janela de opções');
+    root.setAttribute(
+      'aria-label',
+      root.querySelector('h2,h3')?.textContent || 'Janela de opções',
+    );
     root.tabIndex = -1;
-    const focusable = () => Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]')).filter(el => el.getClientRects().length > 0);
+    const focusable = () =>
+      Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,a[href],[tabindex="0"]',
+        ),
+      ).filter((el) => el.getClientRects().length > 0);
     (focusable()[0] || root).focus();
     const onKey = (event: KeyboardEvent) => {
       if (dialogs.at(-1) !== root) return;
-      if (event.key === 'Escape') { event.preventDefault(); close.current(); }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close.current();
+      }
       if (event.key === 'Tab') {
         const items = focusable();
-        if (!items.length) { event.preventDefault(); root.focus(); return; }
-        if (event.shiftKey && (document.activeElement === items[0] || document.activeElement === root)) { event.preventDefault(); items.at(-1)?.focus(); }
-        else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus(); }
+        if (!items.length) {
+          event.preventDefault();
+          root.focus();
+          return;
+        }
+        if (
+          event.shiftKey &&
+          (document.activeElement === items[0] ||
+            document.activeElement === root)
+        ) {
+          event.preventDefault();
+          items.at(-1)?.focus();
+        } else if (!event.shiftKey && document.activeElement === items.at(-1)) {
+          event.preventDefault();
+          items[0].focus();
+        }
       }
     };
+    const onFocusIn = (event: FocusEvent) => {
+      if (
+        dialogs.at(-1) === root &&
+        event.target instanceof Node &&
+        !root.contains(event.target)
+      )
+        root.focus();
+    };
     document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
     return () => {
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
       dialogs.splice(dialogs.indexOf(root), 1);
       if (!dialogs.length) document.body.style.overflow = previousOverflow;
       if (previous?.isConnected) previous.focus();

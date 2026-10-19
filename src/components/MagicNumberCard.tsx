@@ -1,16 +1,19 @@
 'use client';
 
-import { Snowflake, Info, CheckCircle2 } from 'lucide-react';
+import { Snowflake, CheckCircle2 } from 'lucide-react';
 import { FiiPosition } from '../types/portfolio';
+import { formatQuantity, formatPercent } from '../lib/formatFinancial';
 
 interface MagicNumberCardProps {
   positions: FiiPosition[];
   monthlyTarget?: number;
+  isPrivacyMode?: boolean;
 }
 
 export function MagicNumberCard({
   positions,
   monthlyTarget = 200,
+  isPrivacyMode = false,
 }: MagicNumberCardProps) {
   if (positions.length === 0) return null;
 
@@ -19,29 +22,28 @@ export function MagicNumberCard({
   );
 
   return (
-    <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5">
+    <div className="ui-section">
       <div className="flex items-center gap-3 mb-3.5">
-        <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
+        <div className="w-11 h-11 rounded-xl border border-white/[0.08] flex items-center justify-center text-zinc-400 shrink-0">
           <Snowflake className="w-4 h-4" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-white leading-tight">
+          <h3 className="ui-title">
             Efeito Bola de Neve
           </h3>
-          <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-0.5">
-            O &ldquo;NÚMERO MÁGICO&rdquo; DA COTA INFINITA
+          <p className="ui-label mt-0.5">
+            Reinvestimento e Número Mágico
           </p>
         </div>
       </div>
 
-      <div className="p-3.5 rounded-2xl bg-[#1c1c1f] mb-4 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-[#f5b800] shrink-0 mt-0.5" />
-        <p className="text-xs text-zinc-300 leading-relaxed">
-          Quando você atinge o <strong className="text-white">Número Mágico</strong>, os próprios proventos do ativo compram <strong className="text-[#f5b800]">1 nova cota todo mês</strong> sem sair nada do seu bolso.
+      <div className="mb-4">
+        <p className="ui-caption">
+          O Número Mágico indica quando a renda mensal estimada do ativo pode comprar uma nova unidade. Preços e proventos podem variar.
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="divide-y divide-white/[0.06]">
         {sortedByMagic.map((pos) => {
           const sharesNeeded = Math.max(0, pos.magicNumber - pos.totalShares);
           const reachedMagicNumber = pos.totalShares >= pos.magicNumber;
@@ -50,7 +52,7 @@ export function MagicNumberCard({
           const monthsEstimated = Math.max(1, Math.ceil(costNeeded / monthlyPower));
 
           return (
-            <div key={pos.ticker} className="p-4 rounded-2xl bg-[#1c1c1f]">
+            <div key={pos.ticker} className="py-5 first:pt-2 last:pb-0">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-white">{pos.ticker}</span>
@@ -58,13 +60,13 @@ export function MagicNumberCard({
                     Base {pos.base}
                   </span>
                 </div>
-                <div className="text-[24px] leading-tight font-bold tracking-tight text-white tabular-nums">
-                  {pos.totalShares}{' '}
-                  <span className="text-zinc-400 font-medium text-base">/ {pos.magicNumber} cotas</span>
+                <div className="ui-value-lg">
+                  {formatQuantity(pos.totalShares, isPrivacyMode)}{' '}
+                  <span className="text-zinc-400 font-medium text-base">/ {formatQuantity(pos.magicNumber, isPrivacyMode)} {pos.assetClass === 'ACAO' ? 'ações' : 'cotas'}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-zinc-400">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                 <div>
                   {reachedMagicNumber ? (
                     <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -72,9 +74,9 @@ export function MagicNumberCard({
                     </span>
                   ) : (
                     <span className="text-sm font-medium">
-                      Faltam <strong className="text-white tabular-nums">{sharesNeeded} cotas</strong>{' '}
+                      Faltam <strong className="text-white tabular-nums">{formatQuantity(sharesNeeded, isPrivacyMode)} {pos.assetClass === 'ACAO' ? 'ações' : 'cotas'}</strong>{' '}
                       <span className="text-zinc-500 tabular-nums">
-                        · estimativa de {monthsEstimated} {monthsEstimated === 1 ? 'mês' : 'meses'}
+                        · estimativa de {isPrivacyMode ? '••••' : monthsEstimated} {monthsEstimated === 1 ? 'mês' : 'meses'}
                       </span>
                     </span>
                   )}
@@ -85,7 +87,7 @@ export function MagicNumberCard({
                     reachedMagicNumber ? 'text-emerald-400' : 'text-[#f5b800]'
                   }`}
                 >
-                  {pos.magicProgressPercent}%
+                    {formatPercent(pos.magicProgressPercent, isPrivacyMode)}
                 </span>
               </div>
               {/* Barra de Progresso */}

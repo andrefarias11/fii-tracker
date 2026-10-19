@@ -20,7 +20,6 @@ import {
   classifyB3Ticker,
 } from '../lib/b3Parser';
 import { Transaction } from '../types/portfolio';
-import confetti from 'canvas-confetti';
 import { triggerHaptic } from '../lib/haptic';
 
 interface B3ImportModalProps {
@@ -99,12 +98,6 @@ export function B3ImportModal({
     setErrorMessage(null);
     try {
       await onImportTransactions(transactionsToImport, replaceAll);
-      confetti({
-        particleCount: 100,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#f5b800', '#22c55e', '#ffffff'],
-      });
       triggerHaptic('success');
       onClose();
     } catch (err) {
