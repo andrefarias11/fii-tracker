@@ -14,6 +14,42 @@ function isoDate(value?: string) {
   const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return match ? `${match[3]}-${match[2]}-${match[1]}` : '';
 }
+
+/** Parses supported B3 date formats as a local calendar date (without UTC drift). */
+export function parseDividendCalendarDate(value?: string): Date | null {
+  const normalized = isoDate(value);
+  if (!normalized) return null;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? date
+    : null;
+}
+
+export function getDividendEventDates(event: DividendEvent, monthDate: Date) {
+  const parsedPayment = parseDividendCalendarDate(event.paymentDateFormatted);
+  const paymentDate = parsedPayment ?? new Date(
+    monthDate.getFullYear(),
+    monthDate.getMonth(),
+    Math.min(event.paymentDay, new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate())
+  );
+
+  // Data-Com somente é exibida como data do evento quando existe anúncio confirmado.
+  const announcementDate = event.status === 'CONFIRMED'
+    ? parseDividendCalendarDate(event.announcementDate)
+    : null;
+
+  return { paymentDate, announcementDate };
+}
+
+export function formatDividendCalendarDate(date: Date, options: Intl.DateTimeFormatOptions = {}) {
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    ...options,
+    timeZone: 'America/Sao_Paulo',
+  }).replace('.', '');
+}
 export function calculateMonthDividends(
   positions: FiiPosition[], currentDate = new Date(),
   _legacyOverrides: Record<string, DividendStatus> = {}, transactions: Transaction[] = []

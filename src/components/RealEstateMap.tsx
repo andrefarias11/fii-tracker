@@ -230,7 +230,7 @@ export function RealEstateMap({
 
       {/* Seletor Meus Imóveis vs Todos da B3 */}
       {!initialTickerFilter && (
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
+        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
           <button
             type="button"
             onClick={() => {
@@ -287,7 +287,7 @@ export function RealEstateMap({
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
               typeFilter === pill.id
                 ? 'bg-[#f5b800] text-zinc-950 font-bold'
-                : 'bg-[#1c1c1e] text-zinc-400 hover:text-zinc-200 border border-white/[0.04]'
+                : 'bg-[#121215] text-zinc-400 hover:text-zinc-200 border border-white/[0.06]'
             }`}
           >
             {pill.label}
@@ -296,7 +296,7 @@ export function RealEstateMap({
       </div>
 
       {/* KPIs do Portfólio Imobiliário */}
-      <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] grid grid-cols-3 divide-x divide-white/[0.06]">
+      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] grid grid-cols-3 divide-x divide-white/[0.06]">
         <div className="pr-3">
           <div className="text-[11px] text-zinc-400">Imóveis Físicos</div>
           <div className="text-lg font-bold text-white tabular-nums mt-0.5">
@@ -332,7 +332,7 @@ export function RealEstateMap({
       </div>
 
       {/* MAPA INTERATIVO DARK RADAR DO BRASIL */}
-      <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] space-y-3">
+      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-[#2b2512] flex items-center justify-center">
@@ -347,13 +347,13 @@ export function RealEstateMap({
               </p>
             </div>
           </div>
-          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#141416] text-zinc-400 border border-white/[0.06]">
+          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1c1f] text-zinc-400 border border-white/[0.06]">
             Satélite / Vetor
           </span>
         </div>
 
         {/* Canvas SVG Interativo do Brasil + Pins de Coordenadas Reais */}
-        <div className="relative w-full aspect-[1.08/1] rounded-2xl bg-[#0b0b0d] border border-white/[0.05] overflow-hidden flex items-center justify-center">
+        <div className="relative w-full aspect-[1.08/1] rounded-2xl bg-black border border-white/[0.05] overflow-hidden flex items-center justify-center">
           <svg
             viewBox="0 0 400 390"
             className="w-full h-full select-none"
@@ -529,7 +529,7 @@ export function RealEstateMap({
           </svg>
 
           {/* Legenda Flutuante no Canto Inferior */}
-          <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[10px] text-zinc-400 bg-[#141416]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/[0.06]">
+          <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[10px] text-zinc-400 bg-[#1c1c1f]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/[0.06]">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
@@ -548,7 +548,7 @@ export function RealEstateMap({
 
         {/* Card de Inspeção do Imóvel Selecionado no Mapa */}
         {activeProperty ? (
-          <div className="p-4 rounded-2xl bg-[#141416] border border-[#f5b800]/30 space-y-3">
+          <div className="p-4 rounded-2xl bg-[#1c1c1f] border border-[#f5b800]/30 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -575,13 +575,13 @@ export function RealEstateMap({
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="p-2.5 rounded-xl bg-[#1c1c1e] border border-white/[0.04]">
+              <div className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.06]">
                 <span className="text-zinc-400 block text-[11px]">Inquilino / Operação</span>
                 <span className="text-white font-semibold truncate block mt-0.5">
                   {activeProperty.mainTenant}
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#1c1c1e] border border-white/[0.04]">
+              <div className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.06]">
                 <span className="text-zinc-400 block text-[11px]">Área Locável & Ocupação</span>
                 <span className="text-emerald-400 font-semibold tabular-nums block mt-0.5">
                   {formatNumber(activeProperty.ablM2)} m² ({activeProperty.occupancyPercent}%)
@@ -597,7 +597,7 @@ export function RealEstateMap({
               <button
                 type="button"
                 onClick={() => handleLookupCep(activeProperty.cep)}
-                className="py-2 px-2.5 rounded-full bg-[#1c1c1e] text-zinc-200 text-[11px] font-semibold border border-white/[0.08] hover:border-[#f5b800]/50 active:scale-95 transition-all truncate"
+                className="py-2 px-2.5 rounded-full bg-[#121215] text-zinc-200 text-[11px] font-semibold border border-white/[0.08] hover:border-[#f5b800]/50 active:scale-95 transition-all truncate"
               >
                 Validar CEP
               </button>
@@ -627,7 +627,7 @@ export function RealEstateMap({
             </div>
           </div>
         ) : (
-          <div className="p-5 rounded-2xl bg-[#141416] text-center space-y-2">
+          <div className="p-5 rounded-2xl bg-[#1c1c1f] text-center space-y-2">
             <p className="text-xs font-semibold text-zinc-300">
               Nenhum imóvel de tijolo encontrado neste filtro na sua carteira atual.
             </p>
@@ -643,7 +643,7 @@ export function RealEstateMap({
       </div>
 
       {/* CONEXÃO BRASILAPI CEP V2 AO VIVO */}
-      <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] space-y-3">
+      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -663,7 +663,7 @@ export function RealEstateMap({
             placeholder="Ex: 04538-132 (Faria Lima) ou 05676-120"
             value={cepInput}
             onChange={(e) => setCepInput(e.target.value)}
-            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none tabular-nums"
+            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none tabular-nums"
           />
           <button
             type="button"
@@ -687,7 +687,7 @@ export function RealEstateMap({
         )}
 
         {cepResult && (
-          <div className="p-3.5 rounded-2xl bg-[#141416] border border-emerald-500/30 space-y-1.5 text-xs animate-in fade-in duration-150">
+          <div className="p-3.5 rounded-2xl bg-[#1c1c1f] border border-emerald-500/30 space-y-1.5 text-xs animate-in fade-in duration-150">
             <div className="flex items-center justify-between">
               <span className="font-bold text-emerald-400 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -709,7 +709,7 @@ export function RealEstateMap({
 
       {/* Distribuição Regional por Estado (UF) */}
       {stats.byState.length > 0 && (
-        <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] space-y-3">
+        <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -731,7 +731,7 @@ export function RealEstateMap({
                     {formatNumber(st.abl)} m² ({st.percent}%)
                   </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#141416] overflow-hidden">
+                <div className="w-full h-1.5 rounded-full bg-[#1c1c1f] overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[#f5b800]"
                     style={{ width: `${Math.max(4, st.percent)}%` }}
@@ -761,10 +761,10 @@ export function RealEstateMap({
                 triggerHaptic('light');
                 setSelectedPropertyId(prop.id);
               }}
-              className={`bg-[#1c1c1e] rounded-[20px] p-4 border transition-all cursor-pointer ${
+              className={`bg-[#121215] rounded-[20px] p-4 border transition-all cursor-pointer ${
                 isSelected
                   ? 'border-[#f5b800]/60 shadow-[0_0_0_1px_rgba(245,184,0,0.2)]'
-                  : 'border-white/[0.04] hover:border-white/[0.1]'
+                  : 'border-white/[0.06] hover:border-white/[0.1]'
               }`}
             >
               <div className="flex items-start justify-between gap-3">

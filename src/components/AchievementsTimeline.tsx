@@ -64,7 +64,7 @@ export function AchievementsTimeline({
       return overview.achievements.filter((a) => a.unlocked);
     }
     if (filter === 'LOCKED') {
-      return overview.achievements.filter((a) => !a.unlocked);
+      return overview.achievements.filter((a) => !a.unlocked).sort((a, b) => b.progressPercent - a.progressPercent);
     }
     return overview.achievements;
   }, [overview.achievements, filter]);
@@ -135,34 +135,34 @@ export function AchievementsTimeline({
   const getTierStyles = (tier: AchievementTier, unlocked: boolean) => {
     if (!unlocked) {
       return {
-        badge: 'bg-white/[0.04] text-zinc-500 border-white/[0.06]',
-        iconBox: 'bg-[#141416] border-white/[0.08] text-zinc-500',
+        badge: 'bg-transparent text-[#71717A] border-white/[0.06]',
+        iconBox: 'bg-[#1c1c1f] border-white/[0.08] text-[#71717A]',
         bar: 'bg-zinc-600',
       };
     }
     switch (tier) {
       case 'BRONZE':
         return {
-          badge: 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/20',
-          iconBox: 'bg-[#2b2512] border-[#f5b800]/40 text-[#f5b800]',
+          badge: 'bg-transparent text-[#CD9A72] border-[#CD9A72]/20',
+          iconBox: 'bg-[#1c1c1f] border-[#CD9A72]/20 text-[#CD9A72]',
           bar: 'bg-[#f5b800]',
         };
       case 'PRATA':
         return {
-          badge: 'bg-white/[0.08] text-zinc-200 border-white/[0.15]',
-          iconBox: 'bg-white/[0.08] border-white/40 text-white',
+          badge: 'bg-transparent text-zinc-200 border-white/[0.15]',
+          iconBox: 'bg-[#1c1c1f] border-white/15 text-zinc-200',
           bar: 'bg-zinc-200',
         };
       case 'OURO':
         return {
-          badge: 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/30',
-          iconBox: 'bg-[#f5b800] border-[#f5b800] text-zinc-950',
+          badge: 'bg-transparent text-[#f5b800] border-[#f5b800]/20',
+          iconBox: 'bg-[#1c1c1f] border-[#f5b800]/20 text-[#f5b800]',
           bar: 'bg-[#f5b800]',
         };
       case 'PLATINA':
         return {
-          badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-          iconBox: 'bg-emerald-500/20 border-emerald-400 text-emerald-400',
+          badge: 'bg-transparent text-[#B7D7E8] border-[#B7D7E8]/20',
+          iconBox: 'bg-[#1c1c1f] border-[#B7D7E8]/20 text-[#B7D7E8]',
           bar: 'bg-emerald-400',
         };
     }
@@ -178,7 +178,7 @@ export function AchievementsTimeline({
   return (
     <div className="space-y-4">
       {/* Hero Card: Troféu Platina & Progresso Geral Estilo XP */}
-      <div className="p-5 rounded-[20px] bg-[#1c1c1e] border border-white/[0.04]">
+      <div className="p-5 rounded-[20px] bg-[#121215] border border-white/[0.06]">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
@@ -232,7 +232,7 @@ export function AchievementsTimeline({
 
         {/* Próxima conquista na mira */}
         {overview.nextAchievement && (
-          <div className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-2xl bg-[#1c1c1f] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800] shrink-0">
                 <Target className="w-4 h-4" />
@@ -272,13 +272,14 @@ export function AchievementsTimeline({
             triggerHaptic('selection');
             setFilter('ALL');
           }}
-          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+          aria-pressed={filter === 'ALL'}
+          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
             filter === 'ALL'
-              ? 'bg-[#f5b800] text-zinc-950'
-              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+              ? 'bg-white/10 text-white'
+              : 'bg-[#121215] text-zinc-300 hover:text-white'
           }`}
         >
-          Todas ({overview.totalCount})
+          Todos ({overview.totalCount})
         </button>
         <button
           type="button"
@@ -286,13 +287,14 @@ export function AchievementsTimeline({
             triggerHaptic('selection');
             setFilter('UNLOCKED');
           }}
-          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+          aria-pressed={filter === 'UNLOCKED'}
+          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
             filter === 'UNLOCKED'
-              ? 'bg-[#f5b800] text-zinc-950'
-              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+              ? 'bg-white/10 text-white'
+              : 'bg-[#121215] text-zinc-300 hover:text-white'
           }`}
         >
-          Conquistadas ({overview.unlockedCount})
+          Desbloqueados ({overview.unlockedCount})
         </button>
         <button
           type="button"
@@ -300,18 +302,19 @@ export function AchievementsTimeline({
             triggerHaptic('selection');
             setFilter('LOCKED');
           }}
-          className={`flex-1 py-2 px-3 rounded-full text-xs font-bold transition-all text-center ${
+          aria-pressed={filter === 'LOCKED'}
+          className={`flex-1 min-h-11 py-2 px-1 rounded-full text-xs font-bold transition-all text-center ${
             filter === 'LOCKED'
-              ? 'bg-[#f5b800] text-zinc-950'
-              : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+              ? 'bg-white/10 text-white'
+              : 'bg-[#121215] text-zinc-300 hover:text-white'
           }`}
         >
-          Faltam ({overview.totalCount - overview.unlockedCount})
+          Na Mira ({overview.totalCount - overview.unlockedCount})
         </button>
       </div>
 
       {/* Linha do Tempo Vertical das Conquistas */}
-      <div className="p-5 rounded-[20px] bg-[#1c1c1e] border border-white/[0.04]">
+      <div className="p-5 rounded-[20px] bg-[#121215] border border-white/[0.06]">
         <div className="relative space-y-3">
           {filteredAchievements.map((item: AchievementItem, index: number) => {
             const styles = getTierStyles(item.tier, item.unlocked);
@@ -322,30 +325,31 @@ export function AchievementsTimeline({
                 {/* Linha conectora vertical */}
                 {!isLast && (
                   <div
-                    className={`absolute left-4 top-10 bottom-[-14px] w-[1px] ${
+                    className={`absolute left-[22px] top-12 bottom-[-14px] w-[1px] ${
                       item.unlocked ? 'bg-[#f5b800]/40' : 'bg-white/[0.06]'
                     }`}
                   />
                 )}
 
                 {/* Ícone do Troféu na Linha do Tempo */}
-                <div
+                <button
+                  type="button"
+                  aria-label={`${item.unlocked ? 'Celebrar' : 'Troféu bloqueado:'} ${item.title}`}
                   onClick={() => handleAchievementClick(item)}
-                  className={`relative z-10 w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
+                  className={`relative z-10 min-w-11 min-h-11 w-11 h-11 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
                 >
                   {renderIcon(item.iconName, 'w-3.5 h-3.5')}
-                </div>
+                </button>
 
                 {/* Card da Conquista */}
                 <div
-                  onClick={() => handleAchievementClick(item)}
-                  className={`flex-1 p-3.5 rounded-2xl transition-all cursor-pointer active:scale-[0.99] select-none ${
+                  className={`flex-1 min-w-0 p-3.5 rounded-2xl ${
                     item.unlocked
-                      ? 'bg-[#141416] hover:bg-white/[0.04]'
-                      : 'bg-[#141416]/60 hover:bg-[#141416] opacity-75'
+                      ? 'bg-[#1c1c1f] hover:bg-white/[0.04]'
+                      : 'bg-[#1c1c1f]/60'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap mb-1">
                         <span className="text-[10px] font-bold text-zinc-500 tabular-nums">
@@ -360,7 +364,7 @@ export function AchievementsTimeline({
                           +{item.xp} XP
                         </span>
                       </div>
-                      <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <h3 className={`text-sm font-bold flex items-center gap-1.5 ${item.unlocked ? 'text-white' : 'text-[#71717A]'}`}>
                         {item.title}
                         {item.unlocked ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -385,7 +389,7 @@ export function AchievementsTimeline({
                     </div>
                   </div>
 
-                  <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{item.description}</p>
+                  {item.unlocked ? <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{item.description}</p> : <details className="mb-2.5 text-xs text-[#71717A]"><summary className="cursor-pointer py-2 font-medium">Como desbloquear</summary><p className="pb-2 leading-relaxed">{item.description}</p></details>}
 
                   {/* Barra de Progresso Individual */}
                   <div className="space-y-1">

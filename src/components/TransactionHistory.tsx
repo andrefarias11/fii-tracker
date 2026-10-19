@@ -123,7 +123,7 @@ export function TransactionHistory({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-8 text-center">
+      <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-8 text-center">
         <p className="text-sm text-zinc-400">Nenhuma movimentação registrada ainda.</p>
       </div>
     );
@@ -140,7 +140,7 @@ export function TransactionHistory({
             className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
               selectedTicker === 'TODOS'
                 ? 'bg-[#f5b800] text-zinc-950'
-                : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+                : 'bg-[#121215] text-zinc-300 hover:text-white'
             }`}
           >
             Todos ({transactions.length})
@@ -153,7 +153,7 @@ export function TransactionHistory({
               className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
                 selectedTicker === t
                   ? 'bg-[#f5b800] text-zinc-950'
-                  : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
+                  : 'bg-[#121215] text-zinc-300 hover:text-white'
               }`}
             >
               {t}
@@ -204,7 +204,7 @@ export function TransactionHistory({
               </div>
 
               {/* Card Agrupado de Transações do Mês Estilo XP */}
-              <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] divide-y divide-white/[0.06] overflow-hidden">
+              <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
                 {group.items.map((tx) => {
                   const isConfirming = confirmingDeleteId === tx.id;
                   const isSell = tx.type === 'SELL';

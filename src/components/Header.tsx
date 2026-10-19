@@ -64,7 +64,7 @@ export function Header({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0b0b0d]/95 backdrop-blur-2xl border-b border-white/[0.04] px-4 pb-3 pt-safe-header ios-sticky-fix">
+    <header className="sticky top-0 z-30 bg-black/95 backdrop-blur-2xl border-b border-white/[0.06] px-4 pb-3 pt-safe-header ios-sticky-fix">
       <div className="max-w-md mx-auto flex items-center justify-between">
         {/* Título da Aba Ativa Estilo XP */}
         <div className="flex flex-col">
@@ -76,7 +76,7 @@ export function Header({
               type="button"
               onClick={onOpenSettings}
               title={`FII Tracker v${APP_VERSION}`}
-              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#1c1c1e] text-zinc-400 hover:text-[#f5b800] transition-colors border border-white/[0.04]"
+              className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#121215] text-zinc-400 hover:text-[#f5b800] transition-colors border border-white/[0.06]"
             >
               v{APP_VERSION}
             </button>
@@ -86,7 +86,7 @@ export function Header({
           </p>
         </div>
 
-        {/* Botões Circulares XP: bg-[#1c1c1e] w-10 h-10 rounded-full text-zinc-200 */}
+        {/* Botões Circulares XP: bg-[#121215] w-10 h-10 rounded-full text-zinc-200 */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {onOpenWrapped && (
             <button
@@ -94,7 +94,7 @@ export function Header({
               onClick={onOpenWrapped}
               title="Retrospectiva B3"
               aria-label="Retrospectiva B3"
-              className="w-10 h-10 rounded-full bg-[#1c1c1e] text-zinc-200 hover:text-[#f5b800] flex items-center justify-center active:scale-95 transition-all border border-white/[0.04]"
+              className="w-10 h-10 rounded-full bg-[#121215] text-zinc-200 hover:text-[#f5b800] flex items-center justify-center active:scale-95 transition-all border border-white/[0.06]"
             >
               <Sparkles className="w-4 h-4 text-[#f5b800]" />
             </button>
@@ -106,7 +106,7 @@ export function Header({
               onClick={onTogglePrivacy}
               aria-label={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
               title={isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'}
-              className={`w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center transition-all active:scale-95 border border-white/[0.04] ${
+              className={`w-10 h-10 rounded-full bg-[#121215] flex items-center justify-center transition-all active:scale-95 border border-white/[0.06] ${
                 isPrivacyMode
                   ? 'bg-[#2b2512] text-[#f5b800] border-[#f5b800]/30'
                   : 'text-zinc-200 hover:text-white'
@@ -127,7 +127,7 @@ export function Header({
                 : 'Nuvem Offline • Toque para Configurar'
             }
             aria-label="Sincronizar Nuvem"
-            className={`w-10 h-10 rounded-full bg-[#1c1c1e] flex items-center justify-center transition-all active:scale-95 border border-white/[0.04] ${
+            className={`w-10 h-10 rounded-full bg-[#121215] flex items-center justify-center transition-all active:scale-95 border border-white/[0.06] ${
               isCloudConnected
                 ? 'text-[#f5b800]'
                 : 'text-zinc-400 hover:text-white'
@@ -145,7 +145,7 @@ export function Header({
             onClick={onRefresh}
             disabled={isLoadingQuotes}
             aria-label="Atualizar Cotações"
-            className="w-10 h-10 rounded-full bg-[#1c1c1e] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.04] disabled:opacity-40"
+            className="w-10 h-10 rounded-full bg-[#121215] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.06] disabled:opacity-40"
           >
             <RefreshCw className={`w-4 h-4 ${isLoadingQuotes ? 'animate-spin text-[#f5b800]' : ''}`} />
           </button>
@@ -160,7 +160,7 @@ export function Header({
                   : 'Alternar / Conectar Conta'
               }
               aria-label="Perfil e Contas"
-              className="w-10 h-10 rounded-full bg-[#1c1c1e] text-zinc-200 hover:text-white flex items-center justify-center active:scale-95 transition-all border border-white/[0.04] shrink-0 overflow-hidden"
+              className="w-10 h-10 rounded-full bg-[#121215] text-zinc-200 hover:text-white flex items-center justify-center active:scale-95 transition-all border border-white/[0.06] shrink-0 overflow-hidden"
             >
               {activeAccount?.avatarUrl && !avatarError ? (
                 <Image width={48} height={48} unoptimized
@@ -183,7 +183,7 @@ export function Header({
             type="button"
             onClick={onOpenSettings}
             aria-label="Configurações"
-            className="w-10 h-10 rounded-full bg-[#1c1c1e] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.04]"
+            className="w-10 h-10 rounded-full bg-[#121215] hover:text-white text-zinc-200 flex items-center justify-center active:scale-95 transition-all border border-white/[0.06]"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>

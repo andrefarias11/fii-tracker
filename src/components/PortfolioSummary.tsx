@@ -92,7 +92,7 @@ export function PortfolioSummary({
         </div>
 
         {hasFixedIncome && (
-          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#1c1c1e] border border-white/[0.04]">
+          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#121215] border border-white/[0.06]">
             <button
               type="button"
               onClick={() => {
@@ -182,7 +182,7 @@ export function PortfolioSummary({
               onNavigateToGoals();
             }
           }}
-          className="rounded-full py-2.5 px-4 text-xs font-semibold bg-[#1c1c1e] text-zinc-200 hover:bg-[#28282b] active:scale-95 transition-all text-center"
+          className="rounded-full py-2.5 px-4 text-xs font-semibold bg-[#121215] text-zinc-200 hover:bg-[#28282b] active:scale-95 transition-all text-center"
         >
           {hasFixedIncome ? `Caixinhas (${fixedIncomeCount})` : '+ Caixinha / Meta'}
         </button>

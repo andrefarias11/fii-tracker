@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.0.1';
+export const APP_VERSION = '5.0.4';
 export const APP_UPDATED_AT = '19/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,25 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.0.4', date: '19/10/2026', highlights: [
+      'Radar compacto com saldo, estratégia, sugestão principal, filtros com contadores e análise expansível dos ativos.',
+      'Consenso executivo com placar dos mentores e horário das cotações; fundamentos e motivos recolhidos nas fichas.',
+      'Troféus com acentos discretos por tier e filtro Na Mira; Número Mágico destaca cotas e quantidade restante.',
+    ],
+  },
+  {
+    version: '5.0.3', date: '19/10/2026', highlights: [
+      'Gráfico de desempenho com contexto explícito de projeção, metodologia recolhida e hierarquia visual para Carteira, CDI e IPCA.',
+      'Interação por toque, cursor e teclado com régua, tooltip fora da curva, grade e rótulos de tempo legíveis.',
+    ],
+  },
+  {
+    version: '5.0.2', date: '19/10/2026', highlights: [
+      'Superfícies OLED unificadas e dock com material translúcido, safe area somada e alvos de toque de 44px.',
+      'Mapa de proventos com timeline padrão e grade mensal, Data-Com e pagamento separados, datas pt-BR e eventos agrupados por dia.',
+    ],
+  },
   {
     version: '5.0.1', date: '19/10/2026', highlights: [
       'Configuração Supabase automática por variáveis de ambiente, sem sobrescrita por chaves antigas salvas no navegador.',

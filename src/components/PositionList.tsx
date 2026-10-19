@@ -128,7 +128,7 @@ export function PositionList({
 
   if (positions.length === 0) {
     return (
-      <div className="bg-[#1c1c1e] rounded-[20px] p-8 text-center space-y-4 border border-white/[0.04]">
+      <div className="bg-[#121215] rounded-[20px] p-8 text-center space-y-4 border border-white/[0.06]">
         <div>
           <p className="text-sm font-semibold text-zinc-200 mb-1">
             Sua carteira B3 está vazia
@@ -198,7 +198,7 @@ export function PositionList({
               className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all whitespace-nowrap ${
                 assetFilter === pill.id
                   ? 'bg-[#2b2512] text-[#f5b800] border border-[#f5b800]/40'
-                  : 'bg-[#1c1c1e] text-zinc-400 hover:text-zinc-200 border border-white/[0.04]'
+                  : 'bg-[#121215] text-zinc-400 hover:text-zinc-200 border border-white/[0.06]'
               }`}
             >
               {pill.label}
@@ -225,7 +225,7 @@ export function PositionList({
           return (
             <div
               key={pos.ticker}
-              className="bg-[#1c1c1e] rounded-[20px] p-5 border border-white/[0.04] transition-all"
+              className="bg-[#121215] rounded-[20px] p-5 border border-white/[0.06] transition-all"
             >
               {/* Topo do Card: Ícone gráfico em caixa contornada branca + Ticker e Nome em maiúsculas */}
               <div className="flex items-center justify-between gap-3">
@@ -356,7 +356,7 @@ export function PositionList({
                   </div>
 
                   {/* Progresso do Número Mágico */}
-                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.04] space-y-1.5">
+                  <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-zinc-300 font-medium flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -376,7 +376,7 @@ export function PositionList({
 
                   {/* Payback em Proventos (se houver) */}
                   {pos.paybackReceived !== undefined && pos.paybackReceived > 0 && (
-                    <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.04] space-y-1.5">
+                    <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-zinc-300 font-medium">Payback em proventos</span>
                         <span className="font-semibold text-emerald-400 tabular-nums">
@@ -393,7 +393,7 @@ export function PositionList({
                   )}
 
                   {/* Edição de Dividendo por Cota */}
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/[0.04] text-xs">
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-xs">
                     <span className="text-zinc-400">
                       {isStock ? 'Dividendo médio / ação:' : 'Rendimento por cota:'}
                     </span>
@@ -458,7 +458,7 @@ export function PositionList({
                             triggerHaptic('light');
                             onOpenMapForTicker(pos.ticker);
                           }}
-                          className="flex-1 py-2 px-3 rounded-full bg-[#141416] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                          className="flex-1 py-2 px-3 rounded-full bg-[#1c1c1f] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
                         >
                           <MapPin className="w-3.5 h-3.5 text-[#f5b800]" />
                           <span>Imóveis no Mapa</span>
@@ -472,7 +472,7 @@ export function PositionList({
                           triggerHaptic('light');
                           onOpenAiForTicker(pos.ticker);
                         }}
-                        className="flex-1 py-2 px-3 rounded-full bg-[#141416] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                        className="flex-1 py-2 px-3 rounded-full bg-[#1c1c1f] text-zinc-200 hover:text-[#f5b800] border border-white/[0.06] text-[11px] font-semibold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-[#f5b800]" />
                         <span>IA & Fatos Relevantes</span>

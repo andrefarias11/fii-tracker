@@ -9,10 +9,15 @@ import {
   Calendar,
   TrendingUp,
   BarChart3,
+  List,
 } from 'lucide-react';
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
-import { calculateMonthDividends } from '../data/fiiDividendCalendar';
-import { DividendStatus } from '../types/dividend';
+import {
+  calculateMonthDividends,
+  formatDividendCalendarDate,
+  getDividendEventDates,
+} from '../data/fiiDividendCalendar';
+import { DividendEvent, DividendStatus } from '../types/dividend';
 import { PerformanceComparisonChart } from './PerformanceComparisonChart';
 import { DividendStaircaseChart } from './DividendStaircaseChart';
 
@@ -24,6 +29,18 @@ interface DividendFlowProps {
   isPrivacyMode?: boolean;
 }
 
+type EventView = 'timeline' | 'month';
+type CalendarGroup = { date: Date; key: string; cutoff: DividendEvent[]; payments: DividendEvent[] };
+
+const dateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const isSameDay = (a: Date, b: Date) => dateKey(a) === dateKey(b);
+
 export function DividendFlow({
   positions,
   transactions = [],
@@ -32,244 +49,266 @@ export function DividendFlow({
   isPrivacyMode = false,
 }: DividendFlowProps) {
   const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
+  const [eventView, setEventView] = useState<EventView>('timeline');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
 
-  const currentDate =
-    typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
+  const currentDate = typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ •••';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(val);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  const currentMonthName = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const currentMonthName = currentDate.toLocaleDateString('pt-BR', {
+    month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo',
+  });
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
-
   const { events, summary } = calculateMonthDividends(positions, currentDate, {}, transactions);
 
-  const filteredEvents = events.filter((ev) => {
-    if (filterStatus === 'ALL') return true;
-    return ev.status === filterStatus;
-  });
+  const filteredEvents = events.filter((event) => (
+    filterStatus === 'ALL' || event.status === filterStatus
+  ));
+
+  const eventDates = new Map<string, ReturnType<typeof getDividendEventDates>>();
+  for (const event of filteredEvents) {
+    eventDates.set(event.id, getDividendEventDates(event, currentDate));
+  }
+
+  const grouped = new Map<string, CalendarGroup>();
+  const getGroup = (date: Date) => {
+    const key = dateKey(date);
+    let group = grouped.get(key);
+    if (!group) {
+      group = { date, key, cutoff: [], payments: [] };
+      grouped.set(key, group);
+    }
+    return group;
+  };
+
+  for (const event of filteredEvents) {
+    const dates = eventDates.get(event.id);
+    if (!dates) continue;
+    getGroup(dates.paymentDate).payments.push(event);
+    if (dates.announcementDate) getGroup(dates.announcementDate).cutoff.push(event);
+  }
+  const groups = [...grouped.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+  const firstWeekday = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+  const monthDays = Array.from({ length: daysInMonth }, (_, index) => (
+    new Date(currentDate.getFullYear(), currentDate.getMonth(), index + 1)
+  ));
+  const todayKey = dateKey(currentDate);
+  const selectedKey = selectedCalendarDay ?? groups.find((group) => (
+    group.date.getFullYear() === currentDate.getFullYear() && group.date.getMonth() === currentDate.getMonth()
+  ))?.key ?? todayKey;
+  const selectedDate = monthDays.find((date) => dateKey(date) === selectedKey);
+  const selectedGroup = groups.find((group) => group.key === selectedKey);
+
+  const eventsForDay = (day: Date) => {
+    const key = dateKey(day);
+    return filteredEvents.filter((event) => {
+      const dates = eventDates.get(event.id);
+      return dates && (dateKey(dates.paymentDate) === key || (dates.announcementDate && dateKey(dates.announcementDate) === key));
+    });
+  };
+
+  const renderEventRow = (event: DividendEvent) => {
+    const dates = eventDates.get(event.id);
+    const estimated = event.status === 'ESTIMATED';
+    return (
+      <div key={event.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-sm font-bold text-white">{event.ticker}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              event.status === 'PAID'
+                ? 'bg-emerald-400/10 text-emerald-300'
+                : event.status === 'CONFIRMED'
+                ? 'bg-violet-400/10 text-violet-300'
+                : 'border border-dashed border-emerald-400/60 text-emerald-300'
+            }`}>
+              {event.status === 'PAID' ? 'Pago' : event.status === 'CONFIRMED' ? 'Confirmado' : 'Estimado'}
+            </span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+            {dates?.announcementDate && (
+              <span className="text-[11px] text-zinc-400">
+                Data-Com <span className="text-[13px] font-medium tabular-nums text-violet-200">· {formatDividendCalendarDate(dates.announcementDate)}</span>
+              </span>
+            )}
+            <span className="text-[11px] text-zinc-400">
+              Pagamento <span className="text-[13px] font-medium tabular-nums text-emerald-200">· {dates ? formatDividendCalendarDate(dates.paymentDate) : `${event.paymentDay}`}</span>
+            </span>
+          </div>
+          {event.shares > 0 && (
+            <p className="mt-1 text-[11px] text-zinc-500 tabular-nums">
+              {event.shares} {event.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(event.dividendPerShare)}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 pt-0.5 text-right text-sm font-bold tabular-nums text-emerald-300">
+          +{formatBRL(event.totalValue)}
+          {estimated && <span className="mt-0.5 block text-[10px] font-medium text-zinc-400">estimado</span>}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDayGroup = (group: CalendarGroup) => (
+    <section key={group.key} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121215]">
+      <h3 className="border-b border-white/[0.06] px-3.5 py-2.5 text-xs font-semibold text-white">
+        {group.date.toLocaleDateString('pt-BR', {
+          weekday: 'short', day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo',
+        })}
+      </h3>
+      {group.cutoff.length > 0 && (
+        <div className="border-b border-white/[0.06]">
+          <div className="flex items-center gap-2 px-3.5 pt-2.5 text-[11px] font-semibold text-violet-200">
+            <span className="h-2.5 w-2.5 rounded-full border-2 border-violet-400" /> Data-Com
+          </div>
+          <div className="divide-y divide-white/[0.04]">{group.cutoff.map(renderEventRow)}</div>
+        </div>
+      )}
+      {group.payments.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 px-3.5 pt-2.5 text-[11px] font-semibold text-emerald-200">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Pagamentos
+          </div>
+          <div className="divide-y divide-white/[0.04]">{group.payments.map(renderEventRow)}</div>
+        </div>
+      )}
+    </section>
+  );
 
   if (positions.length === 0 && events.length === 0) {
     return (
-      <div className="rounded-[24px] bg-[#121215] border border-white/[0.06] p-8 text-center">
-        <Coins className="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" />
-        <h3 className="text-sm font-bold text-white mb-1">Nenhum dividendo previsto ainda</h3>
-        <p className="text-xs text-zinc-500">
-          Quando você registrar seus primeiros FIIs ou Ações, o fluxo de proventos aparecerá aqui automaticamente.
-        </p>
+      <div className="rounded-[24px] border border-white/[0.06] bg-[#121215] p-8 text-center">
+        <Coins className="mx-auto mb-3 h-10 w-10 text-emerald-400 opacity-60" />
+        <h3 className="mb-1 text-sm font-bold text-white">Nenhum dividendo previsto ainda</h3>
+        <p className="text-xs text-zinc-500">Quando você registrar seus primeiros FIIs ou Ações, o fluxo de proventos aparecerá aqui automaticamente.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Seletor Segmentado 3-em-1 Estilo XP Investimentos */}
-      <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
-        <button
-          type="button"
-          onClick={() => setSubView('calendar')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-            subView === 'calendar'
-              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-          <span>Calendário</span>
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/[0.06] bg-[#1c1c1f] p-1">
+        <button type="button" onClick={() => setSubView('calendar')} aria-pressed={subView === 'calendar'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'calendar' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
+          <Calendar className="h-3.5 w-3.5 text-[#f5b800]" /> Proventos
         </button>
-
-        <button
-          type="button"
-          onClick={() => setSubView('staircase')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-            subView === 'staircase'
-              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-          <span>Evolução</span>
+        <button type="button" onClick={() => setSubView('staircase')} aria-pressed={subView === 'staircase'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'staircase' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
+          <BarChart3 className="h-3.5 w-3.5 text-[#f5b800]" /> Evolução
         </button>
-
-        <button
-          type="button"
-          onClick={() => setSubView('chart')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap min-w-0 ${
-            subView === 'chart'
-              ? 'bg-[#2b2512] text-[#f5b800] shadow-sm'
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          <TrendingUp className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
-          <span>Simulação</span>
+        <button type="button" onClick={() => setSubView('chart')} aria-pressed={subView === 'chart'} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1 text-xs font-semibold transition-colors ${subView === 'chart' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
+          <TrendingUp className="h-3.5 w-3.5 text-[#f5b800]" /> Simulação
         </button>
       </div>
 
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
-          {/* HERO CARD DE PROVENTOS */}
-          <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-zinc-400 font-medium truncate">
-                Proventos • {capitalizedMonth}
-              </span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800] border border-[#f5b800]/30 shrink-0">
-                Conferir no extrato
-              </span>
+          <div className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-5">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="truncate text-xs font-medium text-zinc-400">Proventos • {capitalizedMonth}</span>
+              <span className="shrink-0 rounded-full border border-[#f5b800]/30 bg-[#2b2512] px-2 py-0.5 text-[10px] font-medium text-[#f5b800]">Conferir no extrato</span>
+            </div>
+            <div className="mb-3 truncate text-[28px] font-extrabold tracking-tight text-white tabular-nums sm:text-[32px]">{formatBRL(summary.totalExpected)}</div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.06] pb-4 text-[11px]">
+              <span className="inline-flex items-center gap-1.5 text-zinc-300"><span className="h-2.5 w-2.5 rounded-full border-2 border-[#A78BFA]" />Data-Com</span>
+              <span className="inline-flex items-center gap-1.5 text-zinc-300"><span className="h-2.5 w-2.5 rounded-full bg-[#34D399]" />Pagamento</span>
+              <span className="inline-flex items-center gap-1.5 text-zinc-300"><span className="inline-flex h-3 w-3 items-center justify-center rounded-full border border-dashed border-[#34D399]"><span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" /></span>Estimado</span>
             </div>
 
-            <div className="text-[28px] sm:text-[32px] font-extrabold text-white tracking-tight mb-2 truncate tabular-nums">
-              {formatBRL(summary.totalExpected)}
-            </div>
-
-            {/* 3 Colunas Limpas Separadas por Divisória */}
-            <div className="grid grid-cols-3 divide-x divide-white/[0.06] pt-4 mt-4 border-t border-white/[0.06]">
-              <button
-                type="button"
-                onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')}
-                className={`pr-2 text-left transition-all cursor-pointer ${
-                  filterStatus === 'PAID' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 mb-0.5 whitespace-nowrap">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Pago</span>
-                </div>
-                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
-                  {formatBRL(summary.totalReceived)}
-                </div>
+            <div className="grid grid-cols-3 divide-x divide-white/[0.06]">
+              <button type="button" onClick={() => setFilterStatus(filterStatus === 'PAID' ? 'ALL' : 'PAID')} aria-pressed={filterStatus === 'PAID'} className="pr-2 text-left">
+                <div className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" /> Pago</div>
+                <div className="truncate text-xs font-bold text-white tabular-nums">{formatBRL(summary.totalReceived)}</div>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
-                className={`px-2 text-left transition-all cursor-pointer ${
-                  filterStatus === 'CONFIRMED' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400 mb-0.5 whitespace-nowrap">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Confirmado</span>
-                </div>
-                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
-                  {formatBRL(summary.totalConfirmed)}
-                </div>
+              <button type="button" onClick={() => setFilterStatus(filterStatus === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')} aria-pressed={filterStatus === 'CONFIRMED'} className="px-2 text-left">
+                <div className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-violet-300"><Clock className="h-3.5 w-3.5" /> Confirmado</div>
+                <div className="truncate text-xs font-bold text-white tabular-nums">{formatBRL(summary.totalConfirmed)}</div>
               </button>
-
-              <button
-                type="button"
-                onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')}
-                className={`pl-2 text-left transition-all cursor-pointer ${
-                  filterStatus === 'ESTIMATED' ? 'opacity-100' : 'opacity-75 hover:opacity-100'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-sky-400 mb-0.5 whitespace-nowrap">
-                  <HelpCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Previsto</span>
-                </div>
-                <div className="text-xs sm:text-sm font-bold text-white tabular-nums truncate">
-                  {formatBRL(summary.totalEstimated)}
-                </div>
+              <button type="button" onClick={() => setFilterStatus(filterStatus === 'ESTIMATED' ? 'ALL' : 'ESTIMATED')} aria-pressed={filterStatus === 'ESTIMATED'} className="pl-2 text-left">
+                <div className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-zinc-300"><HelpCircle className="h-3.5 w-3.5" /> Estimado</div>
+                <div className="truncate text-xs font-bold text-white tabular-nums">{formatBRL(summary.totalEstimated)}</div>
               </button>
             </div>
           </div>
 
-          {/* LISTA UNIFICADA ESTILO XP */}
-          <div className="space-y-2">
-            {filterStatus !== 'ALL' && (
-              <div className="flex justify-end px-1">
-                <button
-                  onClick={() => setFilterStatus('ALL')}
-                  className="text-xs text-[#f5b800] font-semibold"
-                >
-                  Mostrar todos ({events.length})
-                </button>
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.06] bg-[#1c1c1f] p-1" aria-label="Visualização dos proventos">
+            <button type="button" onClick={() => setEventView('timeline')} aria-pressed={eventView === 'timeline'} className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-colors ${eventView === 'timeline' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
+              <List className="h-4 w-4" /> Lista
+            </button>
+            <button type="button" onClick={() => setEventView('month')} aria-pressed={eventView === 'month'} className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-xs font-semibold transition-colors ${eventView === 'month' ? 'bg-[#121215] text-white' : 'text-zinc-400'}`}>
+              <Calendar className="h-4 w-4" /> Mês
+            </button>
+          </div>
+
+          {filterStatus !== 'ALL' && (
+            <div className="flex justify-end px-1">
+              <button type="button" onClick={() => setFilterStatus('ALL')} className="text-xs font-semibold text-[#f5b800]">Mostrar todos ({events.length})</button>
+            </div>
+          )}
+
+          {filteredEvents.length === 0 ? (
+            <div className="rounded-2xl border border-white/[0.06] bg-[#121215] p-5 text-center text-sm text-zinc-400">Nenhum evento neste filtro.</div>
+          ) : eventView === 'timeline' ? (
+            <div className="space-y-3">{groups.map(renderDayGroup)}</div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-3.5">
+                <div className="mb-3 px-1 text-sm font-semibold text-white">{capitalizedMonth}</div>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((weekday, index) => <span key={`${weekday}-${index}`} className="pb-1 text-[10px] font-medium text-zinc-500">{weekday}</span>)}
+                  {Array.from({ length: firstWeekday }, (_, index) => <span key={`empty-${index}`} aria-hidden="true" />)}
+                  {monthDays.map((day) => {
+                    const dayEvents = eventsForDay(day);
+                    const markers = dayEvents.flatMap((event) => {
+                      const dates = eventDates.get(event.id);
+                      const marks: Array<{ id: string; kind: 'cutoff' | 'payment'; estimated: boolean }> = [];
+                      if (dates?.announcementDate && isSameDay(dates.announcementDate, day)) marks.push({ id: `${event.id}-cutoff`, kind: 'cutoff', estimated: false });
+                      if (dates && isSameDay(dates.paymentDate, day)) marks.push({ id: `${event.id}-payment`, kind: 'payment', estimated: event.status === 'ESTIMATED' });
+                      return marks;
+                    });
+                    const past = dayKeyForCompare(day) < todayKey;
+                    return (
+                      <button key={dateKey(day)} type="button" onClick={() => { setSelectedCalendarDay(dateKey(day)); }} aria-label={`${day.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}${dayEvents.length ? `, ${dayEvents.length} evento(s)` : ''}`} aria-pressed={selectedKey === dateKey(day)} className={`flex min-h-[58px] min-w-0 flex-col items-center rounded-xl border px-0.5 py-1.5 transition-colors ${selectedKey === dateKey(day) ? 'border-white/20 bg-white/[0.08]' : 'border-transparent bg-transparent'} ${past ? 'opacity-45' : ''}`}>
+                        <span className="text-xs font-semibold tabular-nums text-zinc-200">{day.getDate()}</span>
+                        <span className="mt-1 flex h-3 items-center justify-center gap-0.5">
+                          {markers.slice(0, 3).map((marker) => marker.kind === 'cutoff' ? (
+                            <span key={marker.id} className="h-2 w-2 rounded-full border-[1.5px] border-[#A78BFA]" />
+                          ) : marker.estimated ? (
+                            <span key={marker.id} className="inline-flex h-2.5 w-2.5 items-center justify-center rounded-full border border-dashed border-[#34D399]"><span className="h-1 w-1 rounded-full bg-[#34D399]" /></span>
+                          ) : <span key={marker.id} className="h-2 w-2 rounded-full bg-[#34D399]" />)}
+                          {markers.length > 3 && <span className="text-[8px] leading-none text-zinc-400">+{markers.length - 3}</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-
-            <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] divide-y divide-white/[0.06] overflow-hidden">
-              {filteredEvents.map((ev) => {
-                const isPaid = ev.status === 'PAID';
-                const isConfirmed = ev.status === 'CONFIRMED';
-
-                return (
-                  <div
-                    key={ev.id}
-
-                    className="p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 ${
-                          isPaid
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : isConfirmed
-                            ? 'bg-amber-500/15 text-amber-400'
-                            : 'bg-white/[0.05] text-zinc-400'
-                        }`}
-                      >
-                        <span className="text-[8px] uppercase font-bold leading-none">Dia</span>
-                        <span className="text-xs font-bold leading-tight tabular-nums">{ev.paymentDay}</span>
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-white whitespace-nowrap">{ev.ticker}</span>
-                          <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                              isPaid
-                                ? 'bg-emerald-500/10 text-emerald-400'
-                                : isConfirmed
-                                ? 'bg-amber-500/10 text-amber-400'
-                                : 'bg-white/[0.06] text-zinc-400'
-                            }`}
-                          >
-                            {isPaid ? 'Pago' : isConfirmed ? 'Confirmado' : 'Previsto'}
-                          </span>
-                        </div>
-
-                        <div className="text-[11px] text-zinc-500 mt-0.5 truncate tabular-nums">
-                          {ev.shares} {ev.shares === 1 ? 'cota' : 'cotas'} × {formatBRL(ev.dividendPerShare)}
-                          {ev.announcementDate ? ` • Com ${ev.announcementDate.slice(0, 5)}` : ''}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-sm font-bold text-emerald-400 tabular-nums whitespace-nowrap">
-                        +{formatBRL(ev.totalValue)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121215]">
+                <h3 className="border-b border-white/[0.06] px-3.5 py-3 text-xs font-semibold text-white">
+                  {selectedDate ? selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : 'Eventos do dia'}
+                </h3>
+                {selectedGroup ? <>
+                  {selectedGroup.cutoff.length > 0 && <div className="border-b border-white/[0.06]"><div className="flex items-center gap-2 px-3.5 pt-2.5 text-[11px] font-semibold text-violet-200"><span className="h-2.5 w-2.5 rounded-full border-2 border-violet-400" />Data-Com</div><div className="divide-y divide-white/[0.04]">{selectedGroup.cutoff.map(renderEventRow)}</div></div>}
+                  {selectedGroup.payments.length > 0 && <div><div className="flex items-center gap-2 px-3.5 pt-2.5 text-[11px] font-semibold text-emerald-200"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />Pagamentos</div><div className="divide-y divide-white/[0.04]">{selectedGroup.payments.map(renderEventRow)}</div></div>}
+                </> : <p className="px-3.5 py-4 text-xs text-zinc-500">Nenhum evento neste dia. Selecione outro dia do mês.</p>}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : subView === 'staircase' ? (
-        <div className="animate-in fade-in duration-150">
-          <DividendStaircaseChart
-            positions={positions}
-            transactions={transactions}
-            isPrivacyMode={isPrivacyMode}
-          />
-        </div>
+        <div className="animate-in fade-in duration-150"><DividendStaircaseChart positions={positions} transactions={transactions} isPrivacyMode={isPrivacyMode} /></div>
       ) : (
-        <div className="animate-in fade-in duration-150">
-          <PerformanceComparisonChart
-            positions={positions}
-            transactions={transactions}
-            monthlyContribution={monthlyContributionGoal}
-            bcbIndicators={bcbIndicators}
-            isPrivacyMode={isPrivacyMode}
-          />
-        </div>
+        <div className="animate-in fade-in duration-150"><PerformanceComparisonChart positions={positions} transactions={transactions} monthlyContribution={monthlyContributionGoal} bcbIndicators={bcbIndicators} isPrivacyMode={isPrivacyMode} /></div>
       )}
     </div>
   );
+}
+
+function dayKeyForCompare(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }

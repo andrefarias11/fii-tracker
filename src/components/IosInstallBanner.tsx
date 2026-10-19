@@ -26,7 +26,7 @@ export function IosInstallBanner() {
   if (isDismissed) return null;
 
   return (
-    <div className="relative rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5 mb-4">
+    <div className="relative rounded-[20px] bg-[#121215] border border-white/[0.06] p-5 mb-4">
       <button
         onClick={handleDismiss}
         aria-label="Dispensar banner"
@@ -47,7 +47,7 @@ export function IosInstallBanner() {
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-2.5">
             Para usar em tela cheia como um app nativo, toque no botão{' '}
             <strong className="text-zinc-200">Compartilhar</strong> no Safari e selecione:{' '}
-            <span className="inline-flex items-center gap-1 font-semibold text-white bg-[#141416] border border-white/[0.06] px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 font-semibold text-white bg-[#1c1c1f] border border-white/[0.04] px-2 py-0.5 rounded-full">
               <PlusSquare className="w-3 h-3 text-[#f5b800]" />
               Adicionar à Tela de Início
             </span>

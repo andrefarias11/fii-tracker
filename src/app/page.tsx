@@ -245,7 +245,7 @@ export default function HomePage() {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-[100dvh] bg-[#0b0b0d] flex flex-col items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-4">
         <div className="w-10 h-10 rounded-full bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center animate-pulse mb-3">
           <div className="w-3.5 h-3.5 rounded-full bg-[#f5b800]" />
         </div>
@@ -284,7 +284,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#0b0b0d] text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
+    <div className="min-h-[100dvh] bg-black text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
       {/* Header Estilo XP */}
       <Header
         title={getTabTitle(activeTab)}
@@ -352,7 +352,7 @@ export default function HomePage() {
             />
 
             {/* Seletor Segmentado XP: Bolsa vs Caixinhas vs Extrato */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -474,7 +474,7 @@ export default function HomePage() {
         {activeTab === 'radar' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Seletor Segmentado XP: Radar | Busca B3 | Mapa | IA & Fatos | Mentores */}
-            <div className="flex items-center overflow-x-auto scrollbar-none p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
+            <div className="flex items-center overflow-x-auto scrollbar-none p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -620,7 +620,7 @@ export default function HomePage() {
         {activeTab === 'goals' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Seletor Segmentado XP: Platina (20) vs Bola de Neve vs Simulador */}
-            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#1c1c1e] border border-white/[0.04] gap-1">
+            <div className="grid grid-cols-3 p-1 rounded-2xl bg-[#121215] border border-white/[0.06] gap-1">
               <button
                 type="button"
                 onClick={() => {
@@ -724,7 +724,7 @@ export default function HomePage() {
 
       {/* DOCK FLUTUANTE ESTILO XP iOS (Apenas 4 Abas Limpas) */}
       <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none">
-        <div className="max-w-xs mx-auto pointer-events-auto rounded-full bg-[#1c1c1e]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
+        <div className="dock-glass max-w-xs mx-auto pointer-events-auto rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -735,7 +735,7 @@ export default function HomePage() {
                   triggerHaptic('selection');
                   setActiveTab(item.id);
                 }}
-                className={`flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
+                className={`dock-tab flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
                   isActive
                     ? 'bg-white/[0.1] text-white'
                     : 'text-zinc-500 hover:text-zinc-300'

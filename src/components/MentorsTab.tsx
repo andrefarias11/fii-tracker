@@ -1,24 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  GraduationCap,
-  Award,
-  Sparkles,
-  CheckCircle2,
-  ShieldCheck,
-  TrendingUp,
-  Coins,
-  Scale,
-  ChevronDown,
-  ChevronUp,
-  Quote,
-} from 'lucide-react';
+import { useState } from 'react';
 import { FiiPosition, QuoteData } from '../types/portfolio';
-import {
-  evaluateMentorsRecommendations,
-  MentorId,
-} from '../lib/mentorEngine';
+import { evaluateMentorsRecommendations, MentorId } from '../lib/mentorEngine';
 
 interface MentorsTabProps {
   quotes: Record<string, QuoteData>;
@@ -28,380 +12,63 @@ interface MentorsTabProps {
   onOpenBuyModal?: (ticker: string) => void;
 }
 
-export function MentorsTab({
-  quotes,
-  positions,
-  monthlyTarget,
-  isPrivacyMode = false,
-  onOpenBuyModal,
-}: MentorsTabProps) {
+const initials: Record<MentorId, string> = { barsi: 'LB', buffett: 'WB', graham: 'BG', baroni: 'PB' };
+
+export function MentorsTab({ quotes, positions, monthlyTarget, isPrivacyMode = false, onOpenBuyModal }: MentorsTabProps) {
   const [selectedMentor, setSelectedMentor] = useState<'ALL' | MentorId>('ALL');
-  const [expandedMentors, setExpandedMentors] = useState<Record<string, boolean>>({});
-
-  const { mentors, consensus } = useMemo(
-    () => evaluateMentorsRecommendations(quotes, positions, monthlyTarget),
-    [quotes, positions, monthlyTarget]
-  );
-
-  const formatBRL = (val: number, hideInPrivacy = false) => {
-    if (hideInPrivacy && isPrivacyMode) return 'R$ ••••';
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(val);
-  };
-
-  const toggleExpand = (id: string) => {
-    setExpandedMentors((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const visibleMentors =
-    selectedMentor === 'ALL'
-      ? mentors
-      : mentors.filter((m) => m.id === selectedMentor);
-
-  const getMentorIcon = (id: MentorId) => {
-    switch (id) {
-      case 'barsi':
-        return Coins;
-      case 'buffett':
-        return ShieldCheck;
-      case 'graham':
-        return TrendingUp;
-      case 'baroni':
-        return Scale;
-    }
-  };
+  const { mentors, consensus } = evaluateMentorsRecommendations(quotes, positions, monthlyTarget);
+  const visibleMentors = selectedMentor === 'ALL' ? mentors : mentors.filter((mentor) => mentor.id === selectedMentor);
+  const formatBRL = (value: number, privateValue = false) => privateValue && isPrivacyMode
+    ? 'R$ ••••'
+    : value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const updateTimes = Object.values(quotes).map((quote) => Date.parse(quote.updatedAt)).filter(Number.isFinite);
+  const latestUpdate = updateTimes.length ? new Date(Math.max(...updateTimes)) : null;
 
   return (
     <div className="space-y-4">
-      {/* 1. CABEÇALHO EXPLICATIVO + CONSENSO DOS MENTORES */}
-      <div className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
-              <GraduationCap className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                Visão dos Grandes Investidores
-              </h2>
-              <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-0.5">
-                FILOSOFIAS CLÁSSICAS APLICADAS À B3
-              </p>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#2b2512] text-[#f5b800]">
-            B3 Ao Vivo
-          </span>
-        </div>
-
-        {/* Consenso dos Mentores */}
-        {consensus.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-white/[0.06]">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#f5b800] uppercase tracking-wider mb-3">
-              <Award className="w-3.5 h-3.5" />
-              <span>Consenso Hoje (Aprovado por 2+ Mentores)</span>
-            </div>
-
-            <div className="space-y-2.5">
-              {consensus.slice(0, 2).map((item) => (
-                <div
-                  key={item.fii.ticker}
-                  className="p-3.5 rounded-2xl bg-[#141416] flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                      <span className="text-sm font-bold text-white">
-                        {item.fii.ticker}
-                      </span>
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-200 tabular-nums">
-                        {formatBRL(item.fii.currentPrice)} • P/VP {item.fii.pvp}
-                      </span>
-                      <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
-                        ▲ {item.fii.monthlyYieldPercent}% a.m.
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {item.mentors.map((m) => (
-                        <span
-                          key={m.id}
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]"
-                        >
-                          ✓ {m.name.split(' ')[0] === 'Prof.' ? 'Prof. Baroni' : m.name.split(' ').slice(0, 2).join(' ')}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 2. FILTRO POR MENTOR EM PÍLULAS ESTILO XP */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {[
-          { id: 'ALL', label: 'Todos os Mentores' },
-          { id: 'barsi', label: 'Luiz Barsi' },
-          { id: 'buffett', label: 'Warren Buffett' },
-          { id: 'graham', label: 'Benjamin Graham' },
-          { id: 'baroni', label: 'Prof. Baroni' },
-        ].map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            onClick={() => setSelectedMentor(chip.id as 'ALL' | MentorId)}
-            className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
-              selectedMentor === chip.id
-                ? 'bg-[#f5b800] text-zinc-950'
-                : 'bg-[#1c1c1e] text-zinc-300 hover:text-white'
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. CARDS DE CADA MENTOR */}
-      <div className="space-y-4">
-        {visibleMentors.map((mentor) => {
-          const MentorIcon = getMentorIcon(mentor.id);
-          const top1 = mentor.topPicks[0];
-          const otherPicks = mentor.topPicks.slice(1);
-          const isExpanded =
-            selectedMentor !== 'ALL' || Boolean(expandedMentors[mentor.id]);
-
-          if (!top1) return null;
-
-          return (
-            <div
-              key={mentor.id}
-              className="rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] p-5 transition-all"
-            >
-              {/* Cabeçalho do Mentor */}
-              <div className="flex items-start justify-between gap-2 mb-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center shrink-0 text-white">
-                    <MentorIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-bold text-white leading-tight">
-                        {mentor.name}
-                      </h3>
-                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
-                        {mentor.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 uppercase tracking-wide mt-0.5">
-                      {mentor.title.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Frase Clássica + Pilares */}
-              <div className="p-3.5 rounded-2xl bg-[#141416] mb-3.5">
-                <p className="text-xs italic text-zinc-300 flex items-start gap-2 leading-relaxed">
-                  <Quote className="w-3.5 h-3.5 text-[#f5b800] shrink-0 mt-0.5" />
-                  <span>{mentor.quote}</span>
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-white/[0.06]">
-                  {mentor.pillars.map((pillar) => (
-                    <span
-                      key={pillar}
-                      className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-white/[0.04] text-zinc-300"
-                    >
-                      • {pillar}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Diagnóstico da Carteira (Especial Prof. Baroni) */}
-              {mentor.portfolioDiagnosis && (
-                <div className="mb-3.5 p-3.5 rounded-2xl bg-[#141416] border border-white/[0.04] text-xs text-zinc-300 leading-relaxed">
-                  <strong className="text-[#f5b800]">Diagnóstico da sua carteira:</strong>{' '}
-                  {mentor.portfolioDiagnosis}
-                </div>
-              )}
-
-                {/* ESCOLHA Nº 1 DO MENTOR AGORA NA B3 */}
-              <div className="p-4 rounded-2xl bg-[#141416]">
-                <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
-                      Indicação #1 {mentor.name.split(' ')[0] === 'Prof.' ? 'Baroni' : mentor.name.split(' ')[1] || mentor.name}
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                      {top1.fii.qualityBadgeLabel}
-                    </span>
-                  </div>
-                  <span className="text-xs text-zinc-400 tabular-nums">
-                    {top1.keyMetricLabel}:{' '}
-                    <strong className="text-white">{top1.keyMetricValue}</strong>
-                  </span>
-                </div>
-
-                <div className="mb-3">
-                  <p className="text-xs font-bold text-white leading-snug">
-                    Usando a estratégia{' '}
-                    <span className="text-[#f5b800]">{mentor.name}</span>, investir em{' '}
-                    <span className="px-2 py-0.5 rounded-md bg-white/[0.08] text-white font-mono">
-                      {top1.fii.ticker}
-                    </span>{' '}
-                    devido a:
-                  </p>
-                </div>
-
-                {/* Lista de motivos */}
-                <ul className="space-y-1.5 mb-3.5">
-                  {top1.reasons.map((reason, idx) => (
-                    <li
-                      key={idx}
-                      className="text-xs text-zinc-300 flex items-start gap-1.5 leading-relaxed"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-400" />
-                      <span>{reason}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Tabela Key-Value Limpa Estilo XP */}
-                <div className="space-y-2 py-3 border-y border-white/[0.06] text-xs mb-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Preço atual na B3</span>
-                    <span className="text-white font-bold tabular-nums">
-                      {formatBRL(top1.fii.currentPrice)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">P/VP atual</span>
-                    <span className="text-white font-medium tabular-nums">
-                      {top1.fii.pvp}{' '}
-                      <span className="text-emerald-400">
-                        ({top1.fii.discountPercent > 0 ? `▼ -${top1.fii.discountPercent}%` : 'Justo'})
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Preço-Teto calculado</span>
-                    <span className="text-[#f5b800] font-semibold tabular-nums">
-                      {formatBRL(top1.fii.ceilingPrice)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Yield mensal isento</span>
-                    <span className="text-emerald-400 font-bold tabular-nums">
-                      ▲ {top1.fii.monthlyYieldPercent}% a.m.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
-                  <span>
-                    Com <span className="tabular-nums text-white">{formatBRL(monthlyTarget, true)}</span>:{' '}
-                    <strong className="text-white tabular-nums">
-                      +{top1.suggestedSharesForBudget}{' '}
-                      {top1.suggestedSharesForBudget === 1 ? 'cota' : 'cotas'}
-                    </strong>
-                  </span>
-                  <span className="text-emerald-400 font-semibold tabular-nums">
-                    +{formatBRL(top1.monthlyIncomeFromBudget, true)}/mês
-                  </span>
-                </div>
-              </div>
-
-              {/* Base do Card (Botões Pílula Estilo XP) */}
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                {otherPicks.length > 0 && selectedMentor === 'ALL' ? (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpand(mentor.id)}
-                    className="py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold flex items-center justify-center gap-1 active:scale-95 transition-all"
-                  >
-                    <span>{isExpanded ? 'Ocultar #2 e #3' : 'Ver #2 e #3'}</span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                ) : (
-                  <div className="py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold text-center">
-                    Top Pick B3
-                  </div>
-                )}
-
-                {onOpenBuyModal ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenBuyModal(top1.fii.ticker)}
-                    className="py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center active:scale-95 transition-all"
-                  >
-                    Aportar {top1.fii.ticker}
-                  </button>
-                ) : (
-                  <div className="py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center tabular-nums">
-                    Teto {formatBRL(top1.fii.ceilingPrice)}
-                  </div>
-                )}
-              </div>
-
-              {/* 2ª e 3ª opções do Mentor */}
-              {otherPicks.length > 0 && isExpanded && (
-                <div className="space-y-2.5 mt-4 pt-4 border-t border-white/[0.06] animate-in fade-in duration-150">
-                  {otherPicks.map((pick) => (
-                    <div
-                      key={pick.fii.ticker}
-                      className="p-3.5 rounded-2xl bg-[#141416]"
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
-                            #{pick.rank}
-                          </span>
-                          <span className="text-sm font-bold text-white">
-                            {pick.fii.ticker}
-                          </span>
-                          <span className="text-xs text-zinc-400">
-                            {pick.fii.segment}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white tabular-nums">
-                            {formatBRL(pick.fii.currentPrice)}
-                          </span>
-                          <span className="text-xs font-semibold text-emerald-400 tabular-nums">
-                            P/VP {pick.fii.pvp}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-zinc-300 leading-relaxed">
-                        <strong className="text-[#f5b800]">Por que investir:</strong>{' '}
-                        {pick.reasons[0]} {pick.reasons[1]}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Nota Educativa */}
-      <div className="p-4 rounded-[20px] bg-[#1c1c1e] border border-white/[0.04] text-xs text-zinc-400 flex items-start gap-2.5">
-        <Sparkles className="w-4 h-4 text-[#f5b800] shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          As análises acima aplicam automaticamente as regras matemáticas de cada mentor (Preço-Teto de Barsi, Fosso Competitivo de Buffett, Desconto P/VP de Graham e Equilíbrio 60/40 de Baroni) sobre os preços e dividendos sincronizados da B3.
+      <section className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-4">
+        <h2 className="text-base font-bold text-white">Consenso Hoje</h2>
+        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+          {latestUpdate ? <>Cotações recebidas · <time dateTime={latestUpdate.toISOString()}>{latestUpdate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</time></> : 'Sem horário verificável de atualização das cotações.'}
+          {' '}Fundamentos: catálogo de referência.
         </p>
+        <div className="mt-4 divide-y divide-white/[0.06]">
+          {consensus.map((item) => <article key={item.fii.ticker} className="py-3 first:pt-0 last:pb-0">
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-base font-bold text-white">{item.fii.ticker}</h3><span className="text-xs font-medium text-zinc-300 tabular-nums">{item.mentors.length}/4 mentores</span></div>
+            <div className="mt-2 flex items-center gap-1.5">{item.mentors.map((mentor) => <span key={mentor.id} title={mentor.name} aria-label={mentor.name} className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-white/[0.08] px-1 text-[10px] font-semibold text-zinc-400">{initials[mentor.id]}</span>)}</div>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-zinc-500">Preço</dt><dd className="mt-1 font-semibold text-white tabular-nums">{formatBRL(item.fii.currentPrice)}</dd></div><div><dt className="text-zinc-500">P/VP</dt><dd className="mt-1 font-semibold text-white tabular-nums">{item.fii.pvp.toFixed(2).replace('.', ',')}</dd></div></dl>
+            <details className="mt-2"><summary className="cursor-pointer py-2 text-xs text-[#f5b800]">Critérios do consenso</summary><p className="text-xs leading-relaxed text-zinc-400">{item.combinedReason}</p></details>
+          </article>)}
+          {consensus.length === 0 && <p className="text-sm text-zinc-400">Nenhum ativo reúne dois ou mais mentores nas condições atuais.</p>}
+        </div>
+      </section>
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtrar mentores">
+        {[{ id: 'ALL', name: 'Todos' }, ...mentors].map((mentor) => <button key={mentor.id} type="button" onClick={() => setSelectedMentor(mentor.id as 'ALL' | MentorId)} aria-pressed={selectedMentor === mentor.id} className={`min-h-11 shrink-0 rounded-full border px-3.5 text-xs font-semibold ${selectedMentor === mentor.id ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.06] bg-[#121215] text-zinc-400'}`}>{mentor.name}</button>)}
       </div>
+      {visibleMentors.map((mentor) => {
+        const topPick = mentor.topPicks[0];
+        return <article key={mentor.id} className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-4">
+          <h3 className="text-base font-bold text-white">{mentor.name}</h3><p className="mt-1 text-xs text-zinc-500">{mentor.title}</p>
+          {topPick ? <>
+            <div className="mt-4 flex items-start justify-between gap-3"><div><p className="text-[11px] text-zinc-500">Principal escolha</p><p className="mt-1 text-lg font-semibold text-white">{topPick.fii.ticker}</p></div><div className="text-right"><p className="text-[11px] text-zinc-500">{topPick.keyMetricLabel}</p><p className="mt-1 text-sm font-semibold text-white tabular-nums">{topPick.keyMetricValue}</p></div></div>
+            <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs"><div><dt className="inline text-zinc-500">Preço · </dt><dd className="inline text-zinc-200 tabular-nums">{formatBRL(topPick.fii.currentPrice)}</dd></div><div><dt className="inline text-zinc-500">P/VP · </dt><dd className="inline text-zinc-200 tabular-nums">{topPick.fii.pvp.toFixed(2).replace('.', ',')}</dd></div></dl>
+            <details className="mt-3 border-t border-white/[0.06] pt-1">
+              <summary className="cursor-pointer py-3 text-xs font-semibold text-[#f5b800]">Ver análise e fundamentos</summary>
+              <div className="space-y-4 text-xs leading-relaxed text-zinc-400">
+                <blockquote className="border-l border-white/15 pl-3">{mentor.quote}</blockquote>
+                <p>{mentor.philosophySummary}</p><ul className="list-disc space-y-1 pl-4">{mentor.pillars.map((pillar) => <li key={pillar}>{pillar}</li>)}</ul>
+                {mentor.portfolioDiagnosis && <p><strong className="text-zinc-200">Sua carteira: </strong>{mentor.portfolioDiagnosis}</p>}
+                <ul className="list-disc space-y-2 pl-4">{topPick.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                <p>Preço-teto: <span className="text-white tabular-nums">{formatBRL(topPick.fii.ceilingPrice)}</span> · Renda mensal estimada: <span className="tabular-nums">{topPick.fii.monthlyYieldPercent}%</span></p>
+                <p>Com {formatBRL(monthlyTarget, true)}: <span className="tabular-nums">{topPick.suggestedSharesForBudget} unidades</span> · renda estimada de {formatBRL(topPick.monthlyIncomeFromBudget, true)}/mês.</p>
+                {mentor.topPicks.slice(1).map((pick) => <div key={pick.fii.ticker} className="rounded-xl border border-white/[0.04] bg-[#1c1c1f] p-3"><div className="flex flex-wrap justify-between gap-2"><strong className="text-white">#{pick.rank} · {pick.fii.ticker}</strong><span className="tabular-nums">{formatBRL(pick.fii.currentPrice)} · P/VP {pick.fii.pvp}</span></div><ul className="mt-2 space-y-1">{pick.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div>)}
+              </div>
+            </details>
+            {onOpenBuyModal && <button type="button" onClick={() => onOpenBuyModal(topPick.fii.ticker)} className="mt-3 min-h-11 w-full rounded-full border border-white/10 text-xs font-semibold text-white">Aportar em {topPick.fii.ticker}</button>}
+          </> : <p className="mt-4 text-sm text-zinc-400">Sem candidatos disponíveis para este orçamento e as cotações recebidas.</p>}
+        </article>;
+      })}
+      <p className="px-1 text-[11px] leading-relaxed text-zinc-500">Análises automáticas aplicam critérios inspirados nas filosofias dos mentores aos dados disponíveis.</p>
     </div>
   );
 }

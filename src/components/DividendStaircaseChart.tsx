@@ -130,7 +130,7 @@ export function DividendStaircaseChart({
         <button
           type="button"
           onClick={handleCycleYear}
-          className="bg-[#1c1c1e] text-zinc-200 text-xs px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 hover:text-white transition-all border border-white/[0.04] active:scale-95"
+          className="bg-[#121215] text-zinc-200 text-xs px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 hover:text-white transition-all border border-white/[0.06] active:scale-95"
         >
           <span>No ano ({selectedYear})</span>
           <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
@@ -138,7 +138,7 @@ export function DividendStaircaseChart({
       </div>
 
       {/* Gráfico de 12 colunas (J F M A M J J A S O N D) estilo XP */}
-      <div className="bg-[#1c1c1e] rounded-[20px] p-5 border border-white/[0.04]">
+      <div className="bg-[#121215] rounded-[20px] p-5 border border-white/[0.06]">
         <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
           <span>Proventos Mensais</span>
           <span className="text-white font-semibold tabular-nums">
@@ -259,7 +259,7 @@ export function DividendStaircaseChart({
               {selectedMonth.breakdown.map((item) => (
                 <div
                   key={item.ticker}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#1c1c1e] border border-white/[0.04] flex items-center justify-between text-xs"
+                  className="px-3.5 py-2.5 rounded-xl bg-[#121215] border border-white/[0.06] flex items-center justify-between text-xs"
                 >
                   <span className="font-bold text-white">{item.ticker}</span>
                   <span className="font-semibold text-emerald-400 tabular-nums">

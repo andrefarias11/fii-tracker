@@ -198,7 +198,7 @@ export function AiInsightsTab({
               triggerHaptic('light');
               setShowKeyConfig((prev) => !prev);
             }}
-            className="p-2 rounded-full bg-[#1c1c1e] text-zinc-300 border border-white/[0.06] hover:border-[#f5b800]/50 active:scale-95 transition-all"
+            className="p-2 rounded-full bg-[#121215] text-zinc-300 border border-white/[0.06] hover:border-[#f5b800]/50 active:scale-95 transition-all"
             title="Configurar Chave Gemini / Groq (Opcional)"
           >
             <KeyRound className="w-4 h-4 text-[#f5b800]" />
@@ -211,7 +211,7 @@ export function AiInsightsTab({
               triggerHaptic('light');
               fetchInsights(promptType);
             }}
-            className="p-2 rounded-full bg-[#1c1c1e] text-zinc-300 border border-white/[0.06] hover:border-[#f5b800]/50 active:scale-95 transition-all disabled:opacity-50"
+            className="p-2 rounded-full bg-[#121215] text-zinc-300 border border-white/[0.06] hover:border-[#f5b800]/50 active:scale-95 transition-all disabled:opacity-50"
             title="Atualizar Análise"
           >
             <RefreshCw
@@ -223,7 +223,7 @@ export function AiInsightsTab({
 
       {/* Gaveta Opcional de Chave Gemini / Groq API */}
       {showKeyConfig && (
-        <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-[#f5b800]/30 space-y-3 animate-in fade-in duration-150">
+        <div className="bg-[#121215] rounded-[20px] p-4 border border-[#f5b800]/30 space-y-3 animate-in fade-in duration-150">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-white flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -242,7 +242,7 @@ export function AiInsightsTab({
               placeholder="Cole sua GEMINI_API_KEY ou GROQ_API_KEY..."
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
-              className="flex-1 px-3.5 py-2 rounded-xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none"
+              className="flex-1 px-3.5 py-2 rounded-xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none"
             />
             <button
               type="button"
@@ -257,7 +257,7 @@ export function AiInsightsTab({
 
       {/* Score de Saúde Institucional da Carteira */}
       {insights && (
-        <div className="bg-[#1c1c1e] rounded-[20px] p-5 border border-white/[0.04] space-y-4">
+        <div className="bg-[#121215] rounded-[20px] p-5 border border-white/[0.06] space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -273,7 +273,7 @@ export function AiInsightsTab({
               </h3>
             </div>
 
-            <div className="w-14 h-14 rounded-2xl bg-[#141416] border border-[#f5b800]/40 flex flex-col items-center justify-center shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-[#1c1c1f] border border-[#f5b800]/40 flex flex-col items-center justify-center shrink-0">
               <span className="text-lg font-extrabold text-[#f5b800] tabular-nums leading-none">
                 {insights.healthScore}
               </span>
@@ -293,7 +293,7 @@ export function AiInsightsTab({
               <span>Ações {insights.macroCorrelation.acoesPercent}%</span>
               <span>Caixinhas {insights.macroCorrelation.rendaFixaPercent}%</span>
             </div>
-            <div className="w-full h-2 rounded-full bg-[#141416] overflow-hidden flex">
+            <div className="w-full h-2 rounded-full bg-[#1c1c1f] overflow-hidden flex">
               <div
                 className="h-full bg-[#f5b800]"
                 style={{ width: `${insights.macroCorrelation.tijoloPercent}%` }}
@@ -319,7 +319,7 @@ export function AiInsightsTab({
       )}
 
       {/* Consultor Interativo de 1 Toque (Prompts) */}
-      <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] space-y-3">
+      <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-[#2b2512] flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -358,7 +358,7 @@ export function AiInsightsTab({
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
                 promptType === pill.id
                   ? 'bg-[#f5b800] text-zinc-950 font-bold'
-                  : 'bg-[#141416] text-zinc-300 hover:text-white border border-white/[0.06]'
+                  : 'bg-[#1c1c1f] text-zinc-300 hover:text-white border border-white/[0.06]'
               }`}
             >
               {pill.label}
@@ -379,7 +379,7 @@ export function AiInsightsTab({
                 fetchInsights('CUSTOM', customQuestion);
               }
             }}
-            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#141416] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none"
+            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-xs focus:border-[#f5b800] outline-none"
           />
           <button
             type="button"
@@ -398,7 +398,7 @@ export function AiInsightsTab({
 
         {/* Resposta Estruturada em Bullet Points */}
         {insights && (
-          <div className="p-4 rounded-2xl bg-[#141416] border border-white/[0.06] space-y-2.5">
+          <div className="p-4 rounded-2xl bg-[#1c1c1f] border border-white/[0.04] space-y-2.5">
             <div className="text-xs font-bold text-[#f5b800]">
               {insights.promptQuestion}
             </div>
@@ -418,7 +418,7 @@ export function AiInsightsTab({
 
       {/* Alertas de Correlação e Risco Oculto */}
       {insights && insights.riskAlerts.length > 0 && (
-        <div className="bg-[#1c1c1e] rounded-[20px] p-4 border border-white/[0.04] space-y-3">
+        <div className="bg-[#121215] rounded-[20px] p-4 border border-white/[0.06] space-y-3">
           <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
             <ShieldAlert className="w-3.5 h-3.5 text-[#f5b800]" />
             Check-up de Correlação & Riscos da Carteira
@@ -428,7 +428,7 @@ export function AiInsightsTab({
             {insights.riskAlerts.map((alert, idx) => (
               <div
                 key={idx}
-                className="p-3.5 rounded-2xl bg-[#141416] border border-white/[0.05] space-y-1"
+                className="p-3.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.05] space-y-1"
               >
                 <div className="flex items-center gap-2">
                   {alert.level === 'HIGH' ? (
@@ -476,7 +476,7 @@ export function AiInsightsTab({
         {filteredFacts.map((fact) => (
           <div
             key={fact.ticker}
-            className="bg-[#1c1c1e] rounded-[20px] p-5 border border-white/[0.04] space-y-3.5"
+            className="bg-[#121215] rounded-[20px] p-5 border border-white/[0.06] space-y-3.5"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -484,7 +484,7 @@ export function AiInsightsTab({
                   <span className="text-base font-bold text-white">
                     {fact.ticker}
                   </span>
-                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#141416] text-zinc-300 border border-white/[0.06]">
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#1c1c1f] text-zinc-300 border border-white/[0.06]">
                     {fact.segment}
                   </span>
                   <span
@@ -510,7 +510,7 @@ export function AiInsightsTab({
             </div>
 
             {/* Manchete Oficial / Comunicado */}
-            <div className="p-3 rounded-2xl bg-[#141416] border border-white/[0.05]">
+            <div className="p-3 rounded-2xl bg-[#1c1c1f] border border-white/[0.05]">
               <p className="text-xs font-semibold text-white leading-snug">
                 “{fact.headline}”
               </p>

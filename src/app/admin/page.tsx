@@ -383,7 +383,7 @@ export default function AdminDashboardPage() {
   // 1. Tela de Carregamento Inicial de Sessão
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-black text-zinc-100 flex flex-col items-center justify-center p-4">
         <Loader2 className="w-8 h-8 text-[#f5b800] animate-spin mb-3" />
         <p className="text-xs text-zinc-400 font-medium tracking-wide">
           Verificando credenciais de acesso...
@@ -395,11 +395,11 @@ export default function AdminDashboardPage() {
   // 2. Tela de Login Administrativo (XP Dark Gate)
   if (isAuthenticated === false) {
     return (
-      <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col items-center justify-center p-4 antialiased relative overflow-hidden">
+      <div className="min-h-screen bg-black text-zinc-100 flex flex-col items-center justify-center p-4 antialiased relative overflow-hidden">
         {/* Glow de fundo sutil */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#f5b800]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-md bg-[#1c1c1e] border border-white/[0.08] rounded-[24px] p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
+        <div className="w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-[24px] p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
           {/* Topo do Card de Login */}
           <div className="flex flex-col items-center text-center space-y-2">
             <div className="w-14 h-14 rounded-2xl bg-[#2b2512] border border-[#f5b800]/30 flex items-center justify-center text-[#f5b800] shadow-md shadow-[#f5b800]/10 mb-1">
@@ -498,15 +498,15 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0d] text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800]/20 selection:text-[#f5b800] pb-20">
+    <div className="min-h-screen bg-black text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800]/20 selection:text-[#f5b800] pb-20">
       {/* 1. Header Administrativo XP Dark */}
-      <header className="sticky top-0 z-40 bg-[#0b0b0d]/95 backdrop-blur-md border-b border-white/[0.06] px-4 sm:px-6 py-3.5 transition-all">
+      <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-white/[0.06] px-4 sm:px-6 py-3.5 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
               href="/"
               onClick={() => triggerHaptic('light')}
-              className="w-9 h-9 rounded-full bg-[#1c1c1e] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95 shadow-sm"
+              className="w-9 h-9 rounded-full bg-[#121215] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95 shadow-sm"
               title="Voltar para a Carteira"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -535,7 +535,7 @@ export default function AdminDashboardPage() {
               className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all active:scale-95 ${
                 isPrivacyMode
                   ? 'bg-[#f5b800]/15 border-[#f5b800]/30 text-[#f5b800]'
-                  : 'bg-[#1c1c1e] border-white/[0.08] text-zinc-400 hover:text-white'
+                  : 'bg-[#121215] border-white/[0.08] text-zinc-400 hover:text-white'
               }`}
               title={isPrivacyMode ? 'Desativar modo privacidade' : 'Ativar modo privacidade'}
             >
@@ -549,7 +549,7 @@ export default function AdminDashboardPage() {
                 fetchAdminData();
               }}
               disabled={isRefreshing}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1c1c1e] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-zinc-200 transition-all active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#121215] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-zinc-200 transition-all active:scale-95 disabled:opacity-50"
               title="Atualizar dados da nuvem"
             >
               <RefreshCw
@@ -590,7 +590,7 @@ export default function AdminDashboardPage() {
 
           {/* Grid de Métricas Secundárias */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-[#1c1c1e] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
+            <div className="bg-[#121215] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
               <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                 <Users className="w-3.5 h-3.5 text-[#f5b800]" />
                 <span>Contas Ativas</span>
@@ -603,7 +603,7 @@ export default function AdminDashboardPage() {
               </p>
             </div>
 
-            <div className="bg-[#1c1c1e] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
+            <div className="bg-[#121215] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
               <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
                 <span>Total em Bolsa</span>
@@ -614,7 +614,7 @@ export default function AdminDashboardPage() {
               <p className="text-[11px] text-zinc-500">FIIs e Ações B3</p>
             </div>
 
-            <div className="bg-[#1c1c1e] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
+            <div className="bg-[#121215] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
               <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                 <PiggyBank className="w-3.5 h-3.5 text-purple-400" />
                 <span>Total em Caixinhas</span>
@@ -625,7 +625,7 @@ export default function AdminDashboardPage() {
               <p className="text-[11px] text-zinc-500">Renda Fixa & Reservas</p>
             </div>
 
-            <div className="bg-[#1c1c1e] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
+            <div className="bg-[#121215] border border-white/[0.06] rounded-[20px] p-4 space-y-1">
               <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                 <Coins className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Proventos Mensais</span>
@@ -648,7 +648,7 @@ export default function AdminDashboardPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filtrar por nome, e-mail ou ticker (ex: MXRF11)..."
-              className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#f5b800]/50 transition-colors shadow-inner"
+              className="w-full bg-[#121215] border border-white/[0.08] rounded-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#f5b800]/50 transition-colors shadow-inner"
             />
           </div>
 
@@ -663,7 +663,7 @@ export default function AdminDashboardPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
                 sortBy === 'equity'
                   ? 'bg-[#f5b800] text-zinc-950 shadow-sm'
-                  : 'bg-[#1c1c1e] text-zinc-400 hover:text-white border border-white/[0.06]'
+                  : 'bg-[#121215] text-zinc-400 hover:text-white border border-white/[0.06]'
               }`}
             >
               Maior Patrimônio
@@ -677,7 +677,7 @@ export default function AdminDashboardPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
                 sortBy === 'income'
                   ? 'bg-[#f5b800] text-zinc-950 shadow-sm'
-                  : 'bg-[#1c1c1e] text-zinc-400 hover:text-white border border-white/[0.06]'
+                  : 'bg-[#121215] text-zinc-400 hover:text-white border border-white/[0.06]'
               }`}
             >
               Maior Renda
@@ -691,7 +691,7 @@ export default function AdminDashboardPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
                 sortBy === 'positions'
                   ? 'bg-[#f5b800] text-zinc-950 shadow-sm'
-                  : 'bg-[#1c1c1e] text-zinc-400 hover:text-white border border-white/[0.06]'
+                  : 'bg-[#121215] text-zinc-400 hover:text-white border border-white/[0.06]'
               }`}
             >
               Mais Ativos
@@ -705,7 +705,7 @@ export default function AdminDashboardPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
                 sortBy === 'recent'
                   ? 'bg-[#f5b800] text-zinc-950 shadow-sm'
-                  : 'bg-[#1c1c1e] text-zinc-400 hover:text-white border border-white/[0.06]'
+                  : 'bg-[#121215] text-zinc-400 hover:text-white border border-white/[0.06]'
               }`}
             >
               Último Acesso
@@ -713,14 +713,14 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* 4. Lista de Cards de Cada Conta (Molde XP bg-[#1c1c1e] rounded-[20px] p-5) */}
+        {/* 4. Lista de Cards de Cada Conta (Molde XP bg-[#121215] rounded-[20px] p-5) */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
             <Loader2 className="w-8 h-8 text-[#f5b800] animate-spin" />
             <p className="text-sm text-zinc-400">Carregando visão geral das contas...</p>
           </div>
         ) : filteredAndSortedAccounts.length === 0 ? (
-          <div className="bg-[#1c1c1e] border border-white/[0.06] rounded-[20px] p-10 text-center space-y-2">
+          <div className="bg-[#121215] border border-white/[0.06] rounded-[20px] p-10 text-center space-y-2">
             <Users className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
             <h3 className="text-base font-bold text-white">Nenhuma conta encontrada</h3>
             <p className="text-xs text-zinc-400">
@@ -743,7 +743,7 @@ export default function AdminDashboardPage() {
               return (
                 <div
                   key={acc.userId}
-                  className={`bg-[#1c1c1e] border rounded-[20px] p-5 transition-all flex flex-col justify-between ${
+                  className={`bg-[#121215] border rounded-[20px] p-5 transition-all flex flex-col justify-between ${
                     isCurrentActive
                       ? 'border-[#f5b800]/50 shadow-lg shadow-[#f5b800]/5'
                       : 'border-white/[0.06] hover:border-white/[0.12]'
@@ -800,8 +800,8 @@ export default function AdminDashboardPage() {
                     </div>
 
                     {/* Tabela Key-Value da Conta */}
-                    <div className="bg-black/30 border border-white/[0.04] rounded-2xl p-4 space-y-2.5">
-                      <div className="flex items-center justify-between text-xs pb-2 border-b border-white/[0.04]">
+                    <div className="bg-black/30 border border-white/[0.06] rounded-2xl p-4 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs pb-2 border-b border-white/[0.06]">
                         <span className="text-zinc-400 font-medium">Patrimônio Total (Bolsa + RF)</span>
                         <span className="text-base font-bold text-white tabular-nums">
                           {formatBRL(acc.totalGlobalEquity)}
@@ -889,7 +889,7 @@ export default function AdminDashboardPage() {
                               {acc.positions.map((pos) => (
                                 <div
                                   key={pos.ticker}
-                                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] text-xs"
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs"
                                 >
                                   <div>
                                     <span className="font-bold text-white text-sm">
@@ -929,7 +929,7 @@ export default function AdminDashboardPage() {
                               {acc.fixedIncome.map((fi) => (
                                 <div
                                   key={fi.id}
-                                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] text-xs"
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs"
                                 >
                                   <div>
                                     <span className="font-semibold text-white">{fi.name}</span>
