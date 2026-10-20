@@ -463,7 +463,7 @@ export async function fetchRemoteFixedIncome(
       investedAmount: Number(row.invested_amount || 0),
       currentBalance: Number(row.current_balance || 0),
       rateType: row.rate_type || 'CDI',
-      ratePercent: Number(row.rate_percent || 100),
+      ratePercent: Number(row.rate_percent ?? 100),
       isExempt: Boolean(row.is_exempt),
       maturityDate: row.maturity_date || undefined,
       notes: row.notes || undefined,

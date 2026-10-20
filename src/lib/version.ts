@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.17';
+export const APP_VERSION = '5.1.18';
 export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,11 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.18', date: '20/10/2026', highlights: [
+      'Associa rótulos aos campos de Renda Fixa, amplia alvos e foco dos controles e preserva taxa zero após sincronização.',
+    ],
+  },
   {
     version: '5.1.17', date: '20/10/2026', highlights: [
       'Melhora os alvos de toque e o foco da lista de Renda Fixa e valida valores decimais no formulário sem substituir zero informado.',

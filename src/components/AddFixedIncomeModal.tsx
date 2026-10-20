@@ -237,7 +237,8 @@ export function AddFixedIncomeModal({
               triggerHaptic('light');
               onClose();
             }}
-            className="p-2 rounded-full bg-[#1c1c1f] text-zinc-400 hover:text-white transition-colors"
+            aria-label="Fechar formulário de Renda Fixa"
+            className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-[#1c1c1f] text-zinc-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -257,7 +258,8 @@ export function AddFixedIncomeModal({
                     key={p.id}
                     type="button"
                     onClick={() => handleApplyPreset(p)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                    aria-pressed={isSelected}
+                    className={`min-h-11 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] ${
                       isSelected
                         ? 'bg-[#f5b800] text-zinc-950'
                         : 'bg-[#1c1c1f] text-zinc-300 hover:text-white'
@@ -278,10 +280,11 @@ export function AddFixedIncomeModal({
           {formError && <p role="alert" className="text-sm text-rose-400">{formError}</p>}
           {/* Nome da Caixinha / Título */}
           <div>
-            <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
+            <label htmlFor="fixed-income-name" className="text-xs font-semibold text-zinc-300 block mb-1.5">
               Nome da Aplicação / Caixinha
             </label>
             <input
+              id="fixed-income-name"
               type="text"
               required
               value={name}
@@ -294,10 +297,11 @@ export function AddFixedIncomeModal({
           {/* Instituição & Tipo */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
+              <label htmlFor="fixed-income-institution" className="text-xs font-semibold text-zinc-300 block mb-1.5">
                 Instituição / Banco
               </label>
               <input
+                id="fixed-income-institution"
                 type="text"
                 required
                 value={institution}
@@ -308,10 +312,11 @@ export function AddFixedIncomeModal({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
+              <label htmlFor="fixed-income-type" className="text-xs font-semibold text-zinc-300 block mb-1.5">
                 Categoria
               </label>
               <select
+                id="fixed-income-type"
                 value={type}
                 onChange={(e) => {
                   const newType = e.target.value as FixedIncomeType;
@@ -339,7 +344,7 @@ export function AddFixedIncomeModal({
           {/* Valores: Saldo Atual & Valor Investido */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
+              <label htmlFor="fixed-income-balance" className="text-xs font-semibold text-zinc-300 block mb-1.5">
                 Saldo Atual (R$)
               </label>
               <div className="relative">
@@ -347,6 +352,7 @@ export function AddFixedIncomeModal({
                   R$
                 </span>
                 <input
+                  id="fixed-income-balance"
                   type="text"
                   inputMode="decimal"
                   required
@@ -359,7 +365,7 @@ export function AddFixedIncomeModal({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
+              <label htmlFor="fixed-income-invested" className="text-xs font-semibold text-zinc-400 block mb-1.5">
                 Total Aplicado (R$)
               </label>
               <div className="relative">
@@ -367,6 +373,7 @@ export function AddFixedIncomeModal({
                   R$
                 </span>
                 <input
+                  id="fixed-income-invested"
                   type="text"
                   inputMode="decimal"
                   value={investedAmount}
@@ -381,10 +388,11 @@ export function AddFixedIncomeModal({
           {/* Taxa & Indexador */}
           <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#1c1c1f]">
             <div>
-              <label className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
+              <label htmlFor="fixed-income-rate-type" className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
                 Indexador
               </label>
               <select
+                id="fixed-income-rate-type"
                 value={rateType}
                 onChange={(e) => setRateType(e.target.value as 'CDI' | 'IPCA' | 'PREFIXADO')}
                 className="w-full px-2.5 py-2 rounded-xl bg-[#121215] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60"
@@ -396,7 +404,7 @@ export function AddFixedIncomeModal({
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
+              <label htmlFor="fixed-income-rate-percent" className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
                 {rateType === 'CDI'
                   ? 'Percentual (% CDI)'
                   : rateType === 'IPCA'
@@ -405,6 +413,7 @@ export function AddFixedIncomeModal({
               </label>
               <div className="relative">
                 <input
+                  id="fixed-income-rate-percent"
                   type="text"
                   inputMode="decimal"
                   value={ratePercent}
@@ -419,33 +428,33 @@ export function AddFixedIncomeModal({
             </div>
 
             {/* Isenção de IR */}
-            <div className="col-span-2 flex items-center justify-between pt-2 border-t border-white/[0.06]">
+            <div className="col-span-2 flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
               <div className="flex items-center gap-1.5 text-xs text-zinc-300">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Isento de Imposto de Renda (LCI/LCA/CRI/CRA)</span>
               </div>
               <button
                 type="button"
+                role="switch"
+                aria-checked={isExempt}
+                aria-label="Isento de Imposto de Renda"
                 onClick={() => setIsExempt(!isExempt)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${
-                  isExempt ? 'bg-[#f5b800]' : 'bg-white/[0.1]'
-                }`}
+                className="w-11 min-w-11 h-11 flex items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
               >
-                <div
-                  className={`w-5 h-5 rounded-full bg-zinc-950 transition-transform absolute top-0.5 left-0.5 ${
-                    isExempt ? 'translate-x-5' : 'translate-x-0 bg-white'
-                  }`}
-                />
+                <span className={`w-11 h-6 rounded-full transition-colors relative ${isExempt ? 'bg-[#f5b800]' : 'bg-white/[0.1]'}`}>
+                  <span className={`w-5 h-5 rounded-full bg-zinc-950 transition-transform absolute top-0.5 left-0.5 ${isExempt ? 'translate-x-5' : 'translate-x-0 bg-white'}`} />
+                </span>
               </button>
             </div>
           </div>
 
           {/* Notas / Objetivo (opcional) */}
           <div>
-            <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
+            <label htmlFor="fixed-income-notes" className="text-xs font-semibold text-zinc-400 block mb-1.5">
               Objetivo / Notas (Opcional)
             </label>
             <input
+              id="fixed-income-notes"
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -460,7 +469,8 @@ export function AddFixedIncomeModal({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="p-3.5 rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 active:scale-95 transition-all"
+                aria-label="Excluir aplicação de Renda Fixa"
+                className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
                 title="Excluir"
               >
                 <Trash2 className="w-5 h-5" />
