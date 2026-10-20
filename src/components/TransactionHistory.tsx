@@ -166,30 +166,30 @@ export function TransactionHistory({
           return (
             <div key={group.yearMonth} className="space-y-2.5">
               {/* Cabeçalho do Mês Solto Estilo XP */}
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-col items-start gap-2 px-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-white">{group.label}</span>
                   {hitMonthlyGoal && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2b2512] text-[#f5b800]">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#2b2512] px-2 py-0.5 text-[10px] font-bold text-[#f5b800]">
                       <CheckCircle2 className="w-3 h-3" />
                       Meta batida
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2.5 text-xs tabular-nums">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs tabular-nums sm:justify-end">
                   {group.totalDividends > 0 && (
-                    <span className="font-semibold text-emerald-400">
+                    <span className="min-w-0 break-words font-semibold text-emerald-400">
                       ▲ {formatBRL(group.totalDividends)}
                     </span>
                   )}
                   {group.totalBought > 0 && (
-                    <span className="font-semibold text-zinc-300">
+                    <span className="min-w-0 break-words font-semibold text-zinc-300">
                       Aportes: {formatBRL(group.totalBought)}
                     </span>
                   )}
                   {group.totalSold > 0 && (
-                    <span className="font-semibold text-rose-400">
+                    <span className="min-w-0 break-words font-semibold text-rose-400">
                       ▼ {formatBRL(group.totalSold)}
                     </span>
                   )}
