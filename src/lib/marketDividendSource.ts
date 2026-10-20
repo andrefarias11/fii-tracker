@@ -2,7 +2,7 @@ import { findFiiInfo } from '../data/fiiDatabase';
 import { normalizeB3Ticker } from './ticker';
 import { isValidIsoCalendarDate } from './pushNavigation';
 
-export type VerifiedDividendSourceName = 'STATUS_INVEST' | 'BRAPI';
+export type VerifiedDividendSourceName = 'STATUS_INVEST' | 'BRAPI' | 'FUNDAMENTUS';
 
 export interface VerifiedDividendAnnouncement {
   ticker: string;
@@ -15,6 +15,11 @@ export interface VerifiedDividendAnnouncement {
   referenceCycle: string; // YYYY-MM
   dataVersion: string; // v=...|ed=...|pd=...
   fetchedAt: string; // ISO timestamp
+}
+
+export interface VerifiedAnnouncementsBatch {
+  announcements: Record<string, VerifiedDividendAnnouncement[]>;
+  unavailableTickers: string[];
 }
 
 export function normalizeBrOrIsoDate(value?: string | null): { iso: string; br: string } | null {
@@ -72,8 +77,12 @@ export function buildVerifiedAnnouncement(input: {
   const cleanTicker = normalizeB3Ticker(input.ticker || '');
   if (!cleanTicker) return null;
 
-  // Nunca aceita fontes manuais, catálogo estático ou estimativas de mercado sem comunicado completo
-  if (input.source !== 'STATUS_INVEST' && input.source !== 'BRAPI') {
+  // Nunca aceita fontes manuais, catálogo estático ou estimativas sem datas e valor completos.
+  if (
+    input.source !== 'STATUS_INVEST' &&
+    input.source !== 'BRAPI' &&
+    input.source !== 'FUNDAMENTUS'
+  ) {
     return null;
   }
 
@@ -130,18 +139,6 @@ interface StatusInvestEarningItem {
 
 interface StatusInvestProventsResponse {
   assetEarningsModels?: StatusInvestEarningItem[];
-}
-
-interface BrapiCashDividend {
-  paymentDate?: string;
-  rate?: number;
-  approvedOn?: string;
-  lastDatePrior?: string;
-  exDate?: string;
-}
-
-interface BrapiDividendResponse {
-  dividends?: BrapiCashDividend[];
 }
 
 const BROWSER_HEADERS = {
@@ -219,54 +216,72 @@ async function fetchFromStatusInvest(
         .filter((event): event is VerifiedDividendAnnouncement => Boolean(event));
       return { announcements, available: true };
     } catch {
-      // Tenta próximo endpoint ou fallback Brapi
+      // Tenta próximo endpoint ou fallback gratuito.
     }
   }
 
   return { announcements: [], available: false };
 }
 
-async function fetchFromBrapi(
+function decodeHtmlText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseFundamentusAmount(value: string): number | null {
+  const amount = Number(value.trim().replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+async function fetchFromFundamentus(
   ticker: string,
   referenceDateIso: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<{ announcements: VerifiedDividendAnnouncement[]; available: boolean }> {
-  const token = (process.env.BRAPI_TOKEN || '').trim();
-  if (!token) return { announcements: [], available: false };
-
   try {
-    const catalogInfo = findFiiInfo(ticker);
-    const isStock = catalogInfo.assetClass === 'ACAO';
-    const isFiagro = catalogInfo.segment === 'Fiagro';
-    const endpoint = isStock ? 'stocks' : isFiagro ? 'funds' : 'fii';
-    const url = `https://brapi.dev/api/v2/${endpoint}/dividends?symbols=${encodeURIComponent(ticker)}`;
+    const url = `https://www.fundamentus.com.br/fii_proventos.php?papel=${encodeURIComponent(ticker)}&tipo=2`;
     const res = await fetchImpl(url, {
-      headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(4000),
+      headers: { ...BROWSER_HEADERS, Accept: 'text/html,application/xhtml+xml' },
+      signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return { announcements: [], available: false };
 
-    const json: BrapiDividendResponse = await res.json();
-    const dividends = json?.dividends;
-    if (!Array.isArray(dividends)) return { announcements: [], available: false };
+    const html = await res.text();
+    const table = html.match(/<table\b[^>]*\bid=["']resultado["'][^>]*>([\s\S]*?)<\/table>/i)?.[1];
+    if (!table || !/Data de Pagamento/i.test(decodeHtmlText(table))) {
+      return { announcements: [], available: false };
+    }
 
-    const candidates: Array<{ rate: number; exIso: string; payIso: string }> = [];
-    for (const d of dividends) {
-      if (typeof d.rate !== 'number' || d.rate <= 0) continue;
-      // approvedOn e exDate não comprovam a última data com direito (Data-Com).
-      const ex = normalizeBrOrIsoDate(d.lastDatePrior);
-      const pay = normalizeBrOrIsoDate(d.paymentDate);
+    const rows = Array.from(table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi));
+    const candidates: Array<{ amount: number; exIso: string; payIso: string }> = [];
+    for (const [, row] of rows.slice(1)) {
+      const cells = Array.from(row.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi))
+        .map(([, cell]) => decodeHtmlText(cell));
+      if (cells.length < 4 || !/^rendimento$/i.test(cells[1])) continue;
+
+      const ex = normalizeBrOrIsoDate(cells[0]);
+      const pay = normalizeBrOrIsoDate(cells[2]);
+      const amount = parseFundamentusAmount(cells[3]);
       if (!ex || !pay) continue;
+      if (!amount) continue;
       if (!isCycleRelevantForReferenceDate(ex.iso, pay.iso, referenceDateIso)) continue;
-      candidates.push({ rate: d.rate, exIso: ex.iso, payIso: pay.iso });
+      candidates.push({ amount, exIso: ex.iso, payIso: pay.iso });
     }
 
     const announcements = candidates
-      .map(({ rate, exIso, payIso }) =>
+      .map(({ amount, exIso, payIso }) =>
         buildVerifiedAnnouncement({
           ticker,
-          source: 'BRAPI',
-          amountPerShare: rate,
+          source: 'FUNDAMENTUS',
+          amountPerShare: amount,
           exDate: exIso,
           paymentDate: payIso,
           isCurrentMonthAnnounced: true,
@@ -318,15 +333,16 @@ export async function fetchVerifiedAnnouncementForTicker(
 
   const lookupPromise = (async () => {
     const fetchImpl = options.fetchImpl || fetch;
-    const [fromStatusInvest, fromBrapi] = await Promise.all([
-      fetchFromStatusInvest(cleanTicker, refDate, fetchImpl),
-      fetchFromBrapi(cleanTicker, refDate, fetchImpl),
-    ]);
-    if (!fromStatusInvest.available && !fromBrapi.available) {
+    const fromStatusInvest = await fetchFromStatusInvest(cleanTicker, refDate, fetchImpl);
+    const fromFundamentus =
+      !fromStatusInvest.available || fromStatusInvest.announcements.length === 0
+        ? await fetchFromFundamentus(cleanTicker, refDate, fetchImpl)
+        : { announcements: [], available: true };
+    if (!fromStatusInvest.available && !fromFundamentus.available) {
       throw new Error(`Fontes de proventos indisponíveis para ${cleanTicker}.`);
     }
     const unique = new Map<string, VerifiedDividendAnnouncement>();
-    for (const event of [...fromStatusInvest.announcements, ...fromBrapi.announcements]) {
+    for (const event of [...fromStatusInvest.announcements, ...fromFundamentus.announcements]) {
       const key = `${event.exDate}:${event.paymentDate}:${event.amountPerShare}`;
       if (!unique.has(key)) unique.set(key, event);
     }
@@ -362,21 +378,28 @@ export async function fetchVerifiedAnnouncementsBatch(
     fetchImpl?: typeof fetch;
     bypassCache?: boolean;
   } = {}
-): Promise<Record<string, VerifiedDividendAnnouncement[]>> {
+): Promise<VerifiedAnnouncementsBatch> {
   const uniqueTickers = Array.from(
     new Set(tickers.map((t) => normalizeB3Ticker(t)).filter((t) => /^[A-Z]{4}\d{1,2}B?$/.test(t)))
   );
 
-  const results = await Promise.all(
-    uniqueTickers.map(async (ticker) => ({
-      ticker,
-      announcement: await fetchVerifiedAnnouncementForTicker(ticker, options),
-    }))
-  );
-
   const map: Record<string, VerifiedDividendAnnouncement[]> = {};
-  for (const item of results) {
-    map[item.ticker] = item.announcement;
+  const unavailableTickers: string[] = [];
+  const concurrency = 20;
+  for (let offset = 0; offset < uniqueTickers.length; offset += concurrency) {
+    const chunk = uniqueTickers.slice(offset, offset + concurrency);
+    const results = await Promise.all(chunk.map(async (ticker) => {
+      try {
+        return { ticker, announcement: await fetchVerifiedAnnouncementForTicker(ticker, options) };
+      } catch {
+        return { ticker, announcement: null };
+      }
+    }));
+
+    for (const result of results) {
+      if (result.announcement === null) unavailableTickers.push(result.ticker);
+      else map[result.ticker] = result.announcement;
+    }
   }
-  return map;
+  return { announcements: map, unavailableTickers };
 }

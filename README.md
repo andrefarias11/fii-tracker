@@ -24,7 +24,7 @@ Variáveis principais (sem valores secretos):
 - `VAPID_PRIVATE_KEY`: chave privada VAPID (escalar P-256 de 32 bytes em `base64url`) mantida exclusivamente no servidor para assinar tokens JWT ES256 (RFC 8292).
 - `VAPID_SUBJECT`: contato do emissor VAPID (ex.: `mailto:seu-email@example.com`).
 - `CRON_SECRET`: segredo exclusivo com pelo menos 16 caracteres (distinto de `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET` e `VAPID_PRIVATE_KEY`) para autenticar o endpoint `/api/push/cron`.
-- `BRAPI_TOKEN`: token privado da Brapi usado como fonte secundária de proventos quando o StatusInvest estiver indisponível. Configure-o no servidor (por exemplo, Vercel); a rota de dividendos de FIIs da Brapi usa a API v2 e requer o plano Pro.
+- `BRAPI_TOKEN` (opcional): usado por recursos de cotação e análise que consultam a Brapi. O cron de notificações Push não depende desse token nem do plano Pro.
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD` (mín. 12 caracteres) e `ADMIN_SECRET` (mín. 32 caracteres): credenciais do painel administrativo.
 
 ### Banco de Dados e Migrations
@@ -57,7 +57,8 @@ curl -X POST "https://seu-dominio.com/api/push/cron" \
 
 ### 3. Escopo de Eventos, Fontes e Sincronização
 - **Dependência de sincronização:** o servidor processa exclusivamente as carteiras sincronizadas no Supabase (`public.transactions`). Alterações locais ainda pendentes na fila offline não participam dos alertas até que a sincronização seja concluída.
-- **Fontes verificáveis:** apenas comunicados oficiais retornados por **StatusInvest** (primário) ou **Brapi** (secundário) com `exDate`, `paymentDate` e `amountPerShare > 0` válidos geram alertas de anúncio confirmado (`DIVIDEND_ANNOUNCED`) ou alteração de anúncio (`DIVIDEND_UPDATED`). Estimativas, catálogo estático (`fiiDividendCalendar.ts`), Yahoo Finance e lançamentos manuais nunca geram alertas de anúncio confirmado.
+- **Fontes verificáveis:** StatusInvest (primária) e a tabela pública de proventos do Fundamentus (fallback) são consultados. O alerta só é criado quando a fonte retorna Data-Com, pagamento e valor positivos explícitos; a origem é identificada na notificação. O fallback Fundamentus lê uma página pública sem API contratada e pode atrasar ou mudar de formato. Estimativas, catálogo estático (`fiiDividendCalendar.ts`), Yahoo Finance e lançamentos manuais nunca geram alertas.
+- **Falhas parciais de fonte:** um ativo indisponível não cancela o lote. O cron processa os demais e volta a tentar o ativo pendente em execuções seguintes, sem marcá-lo como verificado naquele dia.
 - **Pagamento anunciado vs. recebido:** no dia `paymentDate`, o alerta informa *"pagamento anunciado para hoje"* (`PAYMENT_DATE_REMINDER`) com base nas cotas elegíveis até a Data-Com. Só é considerado *"recebido"* quando houver lançamento correspondente `DIVIDEND` no extrato sincronizado.
 - **Privacidade na tela bloqueada:** por padrão (`privacyMode: 'discreet'`), a notificação não exibe patrimônio, quantidade de cotas nem valores pessoais em R\$. Ao tocar na notificação, o Service Worker abre/foca o app em **Proventos** e destaca o ativo correspondente usando uma URL limpa (`/?tab=proventos&ticker=...&date=...&event=...`), sem tokens ou valores financeiros na URL.
 

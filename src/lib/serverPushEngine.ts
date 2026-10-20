@@ -7,7 +7,9 @@ import { unscopeIdFromUser } from './supabase';
 import { buildSafePushUrl, type PushAlertEventType } from './pushNavigation';
 import {
   buildVerifiedAnnouncement,
+  type VerifiedAnnouncementsBatch,
   type VerifiedDividendAnnouncement,
+  type VerifiedDividendSourceName,
 } from './marketDividendSource';
 import type {
   WebPushPayloadInput,
@@ -82,7 +84,7 @@ export interface CandidateAlertEvent {
   eventType: PushAlertEventType;
   eventReference: string;
   dataVersion: string;
-  source: 'STATUS_INVEST' | 'BRAPI';
+  source: VerifiedDividendSourceName;
   sourceEventDate: string;
   amountPerShare: number;
   exDate: string;
@@ -732,8 +734,10 @@ export function evaluateUserPortfolioEvents(params: {
 const formatPublicBRL = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-function formatSourceLabel(source: 'STATUS_INVEST' | 'BRAPI'): string {
-  return source === 'STATUS_INVEST' ? 'StatusInvest' : 'Brapi';
+function formatSourceLabel(source: VerifiedDividendSourceName): string {
+  if (source === 'STATUS_INVEST') return 'StatusInvest';
+  if (source === 'FUNDAMENTUS') return 'Fundamentus';
+  return 'Brapi';
 }
 
 export function computeDigestKey(events: CandidateAlertEvent[]): string {
@@ -859,7 +863,7 @@ export function buildDailySummaryNotification(
     title: `FII Tracker • Resumo diário (${uniqueTickers.length} ${
       uniqueTickers.length === 1 ? 'ativo' : 'ativos'
     })`,
-    body: `Eventos confirmados: ${parts.join('; ')}${extraCount} (Fonte: ${sources}).${detailedSuffix} Toque para abrir em Proventos.`,
+    body: `Eventos publicados: ${parts.join('; ')}${extraCount} (Fonte: ${sources}).${detailedSuffix} Toque para abrir em Proventos.`,
     url,
     tag,
     digestKey,
@@ -893,6 +897,7 @@ export interface CronRunMetrics {
   deliveriesFailed: number;
   subscriptionsExpired: number;
   tickersQueried: number;
+  tickersUnavailable: number;
 }
 
 export async function runServerPushCron(params: {
@@ -901,7 +906,8 @@ export async function runServerPushCron(params: {
     tickers: string[],
     referenceDateIso: string
   ) => Promise<
-    Record<string, VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]>
+    | Record<string, VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]>
+    | VerifiedAnnouncementsBatch
   >;
   pushSender: (
     subscription: WebPushSubscriptionInput,
@@ -933,6 +939,7 @@ export async function runServerPushCron(params: {
     deliveriesFailed: 0,
     subscriptionsExpired: 0,
     tickersQueried: 0,
+    tickersUnavailable: 0,
   };
 
   const candidateUsers = await params.storage.listCandidateUsers(nowIso);
@@ -987,17 +994,44 @@ export async function runServerPushCron(params: {
   const referenceDateForMarket =
     dueUsers[0]?.localDate ||
     now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-  const sharedAnnouncements =
-    uniqueTickers.length > 0
-      ? await params.marketFetcher(uniqueTickers, referenceDateForMarket)
-      : {};
+  let sharedAnnouncements: Record<
+    string,
+    VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]
+  > = {};
+  let unavailableTickers = new Set<string>();
+  if (uniqueTickers.length > 0) {
+    try {
+      const result = await params.marketFetcher(uniqueTickers, referenceDateForMarket);
+      const batchResult = result as VerifiedAnnouncementsBatch;
+      if (Array.isArray(batchResult.unavailableTickers) && batchResult.announcements) {
+        sharedAnnouncements = batchResult.announcements;
+        unavailableTickers = new Set(batchResult.unavailableTickers);
+      } else {
+        sharedAnnouncements = result as Record<
+          string,
+          VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]
+        >;
+      }
+    } catch {
+      // Uma falha agregada também fica pendente para nova tentativa, sem interromper o lote.
+      unavailableTickers = new Set(uniqueTickers);
+    }
+  }
+  metrics.tickersUnavailable = unavailableTickers.size;
+  if (metrics.tickersUnavailable > 0) {
+    console.warn('[push-cron] Fontes temporariamente indisponíveis; ativos pendentes serão retentados.', {
+      count: metrics.tickersUnavailable,
+    });
+  }
 
   // Helper interno para entregar um digest aos dispositivos ativos do usuário
   const deliverDigestToDevices = async (
     digest: StoredDailyDigest,
     prefs: ServerPushPreferences,
-    localDate: string
+    localDate: string,
+    marketDataIncomplete = false
   ) => {
+    const processDate = marketDataIncomplete ? addCalendarDays(localDate, -1) : localDate;
     const activeSubs = await params.storage.listUserSubscriptions(digest.userId, true);
     if (activeSubs.length === 0) {
       await params.storage.updateDigestStatus(digest.id, {
@@ -1010,9 +1044,11 @@ export async function runServerPushCron(params: {
       await params.storage.updateAlertEventsStatus(digest.id, 'failed', nowIso);
       await params.storage.updateUserProcessStatus(digest.userId, {
         lastProcessedAt: nowIso,
-        lastProcessedLocalDate: localDate,
-        lastProcessStatus: 'skipped_no_devices',
-        lastProcessMessage: 'Nenhum dispositivo ativo inscrito para receber notificações.',
+        lastProcessedLocalDate: processDate,
+        lastProcessStatus: marketDataIncomplete ? 'partial_failure' : 'skipped_no_devices',
+        lastProcessMessage: marketDataIncomplete
+          ? 'Fontes de mercado indisponíveis para parte da carteira; nova tentativa agendada.'
+          : 'Nenhum dispositivo ativo inscrito para receber notificações.',
       });
       return;
     }
@@ -1170,9 +1206,11 @@ export async function runServerPushCron(params: {
       });
       await params.storage.updateUserProcessStatus(digest.userId, {
         lastProcessedAt: nowIso,
-        lastProcessedLocalDate: localDate,
-        lastProcessStatus: anyAcceptedInDigest ? 'partial_failure' : 'queued',
-        lastProcessMessage: anyAcceptedInDigest
+        lastProcessedLocalDate: processDate,
+        lastProcessStatus: marketDataIncomplete || anyAcceptedInDigest ? 'partial_failure' : 'queued',
+        lastProcessMessage: marketDataIncomplete
+          ? 'Resumo enviado ou retentado; fontes de mercado indisponíveis para parte da carteira. Nova consulta será feita.'
+          : anyAcceptedInDigest
           ? 'Envio aceito em parte dos aparelhos; retentativa agendada para os demais.'
           : 'Falha transitória no serviço Push; retentativa automática agendada.',
         lastPushAcceptedAt: latestAcceptedAt,
@@ -1193,12 +1231,13 @@ export async function runServerPushCron(params: {
       await params.storage.updateAlertEventsStatus(digest.id, 'sent', nowIso);
       await params.storage.updateUserProcessStatus(digest.userId, {
         lastProcessedAt: nowIso,
-        lastProcessedLocalDate: localDate,
-        lastProcessStatus: failedList.length > 0 ? 'partial_failure' : 'sent',
-        lastProcessMessage:
-          failedList.length > 0
-            ? `Envio aceito pelo serviço Push em ${acceptedList.length} aparelho(s); ${failedList.length} com falha/expirado.`
-            : `Envio aceito pelo serviço Push em ${acceptedList.length} aparelho(s).`,
+        lastProcessedLocalDate: processDate,
+        lastProcessStatus: marketDataIncomplete || failedList.length > 0 ? 'partial_failure' : 'sent',
+        lastProcessMessage: marketDataIncomplete
+          ? `Envio aceito pelo serviço Push em ${acceptedList.length} aparelho(s); parte das fontes de mercado segue pendente e será retentada.`
+          : failedList.length > 0
+          ? `Envio aceito pelo serviço Push em ${acceptedList.length} aparelho(s); ${failedList.length} com falha/expirado.`
+          : `Envio aceito pelo serviço Push em ${acceptedList.length} aparelho(s).`,
         lastPushAcceptedAt: latestAcceptedAt,
       });
     } else {
@@ -1213,10 +1252,11 @@ export async function runServerPushCron(params: {
       await params.storage.updateAlertEventsStatus(digest.id, 'failed', nowIso);
       await params.storage.updateUserProcessStatus(digest.userId, {
         lastProcessedAt: nowIso,
-        lastProcessedLocalDate: localDate,
-        lastProcessStatus: 'failed',
-        lastProcessMessage:
-          'Falha ao enviar para os dispositivos inscritos. Verifique a inscrição do aparelho.',
+        lastProcessedLocalDate: processDate,
+        lastProcessStatus: marketDataIncomplete ? 'partial_failure' : 'failed',
+        lastProcessMessage: marketDataIncomplete
+          ? 'Falha no envio; fontes de mercado pendentes serão consultadas novamente.'
+          : 'Falha ao enviar para os dispositivos inscritos. Verifique a inscrição do aparelho.',
         lastPushAcceptedAt: latestAcceptedAt,
       });
     }
@@ -1225,6 +1265,11 @@ export async function runServerPushCron(params: {
   // 3. Processa cada usuário com reserva atômica (lock por usuário)
   for (const item of dueUsers) {
     const { prefs, localDate, isScheduleDue, transactions } = item;
+    const userTickers = isScheduleDue
+      ? extractActivePortfolioTickers(transactions, localDate)
+      : [];
+    const userMarketDataIncomplete = userTickers.some((ticker) => unavailableTickers.has(ticker));
+    const retryDate = userMarketDataIncomplete ? addCalendarDays(localDate, -1) : localDate;
     const lockNowIso = (params.now || new Date()).toISOString();
     const claimed = await params.storage.claimUserLock(
       prefs.userId,
@@ -1309,7 +1354,16 @@ export async function runServerPushCron(params: {
       });
 
       if (candidateEvents.length === 0) {
-        if (prefs.lastProcessedLocalDate !== localDate || !prefs.lastProcessStatus) {
+        if (userMarketDataIncomplete) {
+          await params.storage.updateUserProcessStatus(prefs.userId, {
+            lastProcessedAt: nowIso,
+            lastProcessedLocalDate: retryDate,
+            lastProcessStatus: 'partial_failure',
+            lastProcessMessage:
+              'Fontes temporariamente indisponíveis para parte da carteira; nova tentativa automática agendada.',
+            lastPushAcceptedAt: prefs.lastPushAcceptedAt || null,
+          });
+        } else if (prefs.lastProcessedLocalDate !== localDate || !prefs.lastProcessStatus) {
           await params.storage.updateUserProcessStatus(prefs.userId, {
             lastProcessedAt: nowIso,
             lastProcessedLocalDate: localDate,
@@ -1325,10 +1379,11 @@ export async function runServerPushCron(params: {
       if (activeSubs.length === 0) {
         await params.storage.updateUserProcessStatus(prefs.userId, {
           lastProcessedAt: nowIso,
-          lastProcessedLocalDate: localDate,
-          lastProcessStatus: 'skipped_no_devices',
-          lastProcessMessage:
-            'Eventos detectados, mas nenhum dispositivo ativo está inscrito nesta conta.',
+          lastProcessedLocalDate: retryDate,
+          lastProcessStatus: userMarketDataIncomplete ? 'partial_failure' : 'skipped_no_devices',
+          lastProcessMessage: userMarketDataIncomplete
+            ? 'Fontes temporariamente indisponíveis para parte da carteira; nova tentativa automática agendada.'
+            : 'Eventos detectados, mas nenhum dispositivo ativo está inscrito nesta conta.',
           lastPushAcceptedAt: prefs.lastPushAcceptedAt || null,
         });
         continue;
@@ -1355,11 +1410,21 @@ export async function runServerPushCron(params: {
       });
 
       if (!reserved || reserved.reservedEventsCount === 0) {
+        if (userMarketDataIncomplete) {
+          await params.storage.updateUserProcessStatus(prefs.userId, {
+            lastProcessedAt: nowIso,
+            lastProcessedLocalDate: retryDate,
+            lastProcessStatus: 'partial_failure',
+            lastProcessMessage:
+              'Fontes temporariamente indisponíveis para parte da carteira; nova tentativa automática agendada.',
+            lastPushAcceptedAt: prefs.lastPushAcceptedAt || null,
+          });
+        }
         continue;
       }
 
       metrics.digestsCreated++;
-      await deliverDigestToDevices(reserved.digest, prefs, localDate);
+      await deliverDigestToDevices(reserved.digest, prefs, localDate, userMarketDataIncomplete);
     } finally {
       await params.storage.releaseUserLock(prefs.userId, workerId);
     }

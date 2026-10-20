@@ -821,9 +821,7 @@ test('estimates, static catalog, Yahoo fallback, and manual dividends never gene
   assert.equal(verified.amountPerShare, 1.1);
 });
 
-test('verified market source retains multiple payout cycles and rejects inferred ex-dates', async () => {
-  const originalBrapiToken = process.env.BRAPI_TOKEN;
-  delete process.env.BRAPI_TOKEN;
+test('verified market source retains multiple payout cycles and uses explicit free-source fields', async () => {
   clearAnnouncementCache();
   try {
     const rows = [
@@ -861,7 +859,6 @@ test('verified market source retains multiple payout cycles and rejects inferred
       event.eventType === 'PAYMENT_REMINDER' && event.paymentDate === '2026-10-19'
     ));
 
-    process.env.BRAPI_TOKEN = 'test-token';
     clearAnnouncementCache();
     const fallback = await fetchVerifiedAnnouncementForTicker('HGLG11', {
       referenceDateIso: '2026-10-19',
@@ -870,42 +867,36 @@ test('verified market source retains multiple payout cycles and rejects inferred
         if (String(input).includes('statusinvest.com.br')) {
           return new Response('unavailable', { status: 503 });
         }
-        return new Response(JSON.stringify({
-          dividends: [{
-            rate: 1.1,
-            approvedOn: '2026-10-10T00:00:00.000Z',
-            lastDatePrior: null,
-            exDate: '2026-10-15 00:00:00+00',
-            paymentDate: '2026-10-25 00:00:00+00',
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response('<table id="resultado"><thead><tr><th>Última Data Com</th><th>Tipo</th><th>Data de Pagamento</th><th>Valor</th></tr></thead><tbody><tr><td>15/10/2026</td><td>Rendimento</td><td>25/10/2026</td><td>1,10</td></tr></tbody></table>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=iso-8859-1' },
+        });
       },
     });
-    assert.deepEqual(fallback, []);
+    assert.equal(fallback[0]?.source, 'FUNDAMENTUS');
+    assert.equal(fallback[0]?.amountPerShare, 1.1);
+    assert.equal(fallback[0]?.exDate, '2026-10-15');
+    assert.equal(fallback[0]?.paymentDate, '2026-10-25');
 
     clearAnnouncementCache();
-    let brapiUrl = '';
-    let brapiAuthorization = '';
+    let fundamentusUrl = '';
     const verifiedFallback = await fetchVerifiedAnnouncementForTicker('HGLG11', {
       referenceDateIso: '2026-10-19',
       bypassCache: true,
-      fetchImpl: async (input, init) => {
+      fetchImpl: async (input) => {
         if (String(input).includes('statusinvest.com.br')) {
           return new Response('unavailable', { status: 503 });
         }
-        brapiUrl = String(input);
-        brapiAuthorization = new Headers(init?.headers).get('Authorization') || '';
-        return new Response(JSON.stringify({
-          dividends: [{
-            rate: 1.1,
-            lastDatePrior: '2026-10-14 00:00:00+00',
-            paymentDate: '2026-10-25 00:00:00+00',
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        fundamentusUrl = String(input);
+        return new Response('<table id="resultado"><thead><tr><th>Última Data Com</th><th>Tipo</th><th>Data de Pagamento</th><th>Valor</th></tr></thead><tbody><tr><td>14/10/2026</td><td>Amortização</td><td>25/10/2026</td><td>2,00</td></tr><tr><td>14/10/2026</td><td>Rendimento</td><td>25/10/2026</td><td>1,10</td></tr></tbody></table>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=iso-8859-1' },
+        });
       },
     });
-    assert.equal(brapiUrl, 'https://brapi.dev/api/v2/fii/dividends?symbols=HGLG11');
-    assert.equal(brapiAuthorization, 'Bearer test-token');
+    assert.equal(fundamentusUrl, 'https://www.fundamentus.com.br/fii_proventos.php?papel=HGLG11&tipo=2');
+    assert.equal(verifiedFallback.length, 1);
+    assert.equal(verifiedFallback[0]?.source, 'FUNDAMENTUS');
     assert.equal(verifiedFallback[0]?.exDate, '2026-10-14');
     assert.equal(verifiedFallback[0]?.paymentDate, '2026-10-25');
 
@@ -919,8 +910,6 @@ test('verified market source retains multiple payout cycles and rejects inferred
       /fontes de proventos indisponíveis/i
     );
   } finally {
-    if (originalBrapiToken === undefined) delete process.env.BRAPI_TOKEN;
-    else process.env.BRAPI_TOKEN = originalBrapiToken;
     clearAnnouncementCache();
   }
 });
