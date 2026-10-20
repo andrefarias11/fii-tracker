@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.14';
+export const APP_VERSION = '5.1.15';
 export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,11 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.15', date: '20/10/2026', highlights: [
+      'Melhora a nitidez e a leitura do cabeçalho no iPhone ao remover o blur da barra sticky e ampliar o contraste da marca.',
+    ],
+  },
   {
     version: '5.1.14', date: '20/10/2026', highlights: [
       'Organiza os subtotais mensais do Extrato em telas estreitas sem sobrepor mês ou meta, preservando o modo Privacidade.',

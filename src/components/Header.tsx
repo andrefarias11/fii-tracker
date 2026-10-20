@@ -63,11 +63,11 @@ export function Header({
       : 'Conectar nuvem';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-black/95 px-4 pb-2 pt-safe-header backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-black px-4 pb-2 pt-safe-header">
       <div className="mx-auto max-w-md">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-medium tracking-wide text-zinc-500">
+            <p className="text-[11px] font-medium tracking-[0.1em] text-zinc-400">
               FII TRACKER <span className="font-normal">· v{APP_VERSION}</span>
             </p>
             <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-white">
