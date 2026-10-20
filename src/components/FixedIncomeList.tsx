@@ -62,8 +62,8 @@ export function FixedIncomeList({
   return (
     <div className="space-y-4">
       {/* Topo da Lista Estilo XP */}
-      <div className="flex items-center justify-between pt-1">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="min-w-0">
           <h2 className="text-base font-bold text-white">
             Renda Fixa & Caixinhas ({assets.length})
           </h2>
@@ -83,7 +83,7 @@ export function FixedIncomeList({
             triggerHaptic('light');
             onAddNew();
           }}
-          className="rounded-full py-2 px-4 bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-xs active:scale-95 transition-all inline-flex items-center gap-1.5"
+          className="min-h-11 rounded-full py-2 px-4 bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-xs active:scale-95 transition-all inline-flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           Adicionar
@@ -180,11 +180,12 @@ export function FixedIncomeList({
                 <div className="grid grid-cols-2 gap-3 mt-5">
                   <button
                     type="button"
+                    aria-label={`Editar ou atualizar saldo de ${asset.name}`}
                     onClick={() => {
                       triggerHaptic('light');
                       onEdit(asset);
                     }}
-                    className="py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold text-center active:scale-95 transition-all"
+                    className="min-h-11 px-2 py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold text-center active:scale-95 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
                   >
                     Editar / Saldo
                   </button>
@@ -195,7 +196,7 @@ export function FixedIncomeList({
                       triggerHaptic('light');
                       onAddNew();
                     }}
-                    className="py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center active:scale-95 transition-all"
+                    className="min-h-11 px-2 py-2.5 rounded-full bg-[#f5b800] text-zinc-950 text-xs font-bold text-center active:scale-95 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
                   >
                     Nova Aplicação
                   </button>
@@ -228,7 +229,7 @@ export function FixedIncomeList({
                 triggerHaptic('light');
                 onResetDemo();
               }}
-              className="py-2.5 px-4 rounded-full bg-[#2b2512] text-[#f5b800] font-bold text-xs active:scale-95 transition-all"
+              className="min-h-11 px-2 py-2.5 rounded-full bg-[#2b2512] text-[#f5b800] font-bold text-xs active:scale-95 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
             >
               Carregar Exemplo
             </button>
@@ -239,7 +240,7 @@ export function FixedIncomeList({
                 triggerHaptic('light');
                 onAddNew();
               }}
-              className="py-2.5 px-4 rounded-full bg-[#f5b800] text-zinc-950 font-bold text-xs active:scale-95 transition-all"
+              className="min-h-11 px-2 py-2.5 rounded-full bg-[#f5b800] text-zinc-950 font-bold text-xs active:scale-95 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800]"
             >
               + Nova Caixinha
             </button>

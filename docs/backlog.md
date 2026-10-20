@@ -6,9 +6,11 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 | --- | --- | --- |
 | P2 · média | Confirmação de sincronização de operações | Distinguir operação salva neste dispositivo de operação sincronizada na conta e oferecer recuperação visível quando a sincronização falhar. Definir comportamento offline antes de implementar; não depende de alteração de dados no Supabase. |
 | P2 · média | Recuperação de fila local corrompida | Preservar os dados brutos de alterações pendentes ilegíveis, impedir conciliação que possa sobrescrevê-las e oferecer diagnóstico e recuperação explícitos. Definir fluxo seguro antes de alterar `readQueue`. |
+| P3 · baixa | Revisar rótulos e alvos do formulário de Renda Fixa | Associar rótulos aos campos e ampliar alvos de controles compactos; concluir sem alterar o fluxo de salvamento. |
 
 ## Concluídos
 
+- 5.1.17: lista de Renda Fixa ganha alvos de 44 px, foco visível e edição contextual; formulário rejeita entradas numéricas inválidas e preserva taxa zero.
 - 5.1.16: ações do aviso de instalação no iPhone têm alvos de 44 px, foco visível e nome acessível específico.
 - 5.1.15: cabeçalho sticky do iPhone ganhou texto mais nítido e contraste maior na marca.
 - 5.1.14: cabeçalhos mensais do Extrato empilham e quebram subtotais no celular sem sobreposição; privacidade preservada.

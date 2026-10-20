@@ -91,6 +91,13 @@ const PRESETS: PresetOption[] = [
   },
 ];
 
+const parseDecimal = (value: string): number => {
+  const normalized = value.trim();
+  return /^-?\d+(?:[.,]\d+)?$/.test(normalized)
+    ? Number(normalized.replace(',', '.'))
+    : Number.NaN;
+};
+
 export function AddFixedIncomeModal({
   isOpen,
   onClose,
@@ -124,6 +131,7 @@ export function AddFixedIncomeModal({
   );
   const [notes, setNotes] = useState(editingAsset?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const dialogRef = useModalAccessibility(isOpen, onClose);
   if (!isOpen) return null;
@@ -142,9 +150,19 @@ export function AddFixedIncomeModal({
     e.preventDefault();
     if (!name.trim()) return;
 
-    const balanceNum = parseFloat(currentBalance.replace(',', '.')) || 0;
-    const investedNum = parseFloat(investedAmount.replace(',', '.')) || balanceNum;
-    const rateNum = parseFloat(ratePercent.replace(',', '.')) || 100;
+    const balanceNum = parseDecimal(currentBalance);
+    const investedNum = investedAmount.trim()
+      ? parseDecimal(investedAmount)
+      : balanceNum;
+    const rateNum = ratePercent.trim()
+      ? parseDecimal(ratePercent)
+      : 100;
+
+    if (!Number.isFinite(balanceNum) || balanceNum < 0 || !Number.isFinite(investedNum) || investedNum < 0 || !Number.isFinite(rateNum)) {
+      setFormError('Confira os valores informados. Use apenas números com vírgula ou ponto decimal.');
+      return;
+    }
+    setFormError(null);
 
     setIsSubmitting(true);
     triggerHaptic('success');
@@ -257,6 +275,7 @@ export function AddFixedIncomeModal({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && <p role="alert" className="text-sm text-rose-400">{formError}</p>}
           {/* Nome da Caixinha / Título */}
           <div>
             <label className="text-xs font-semibold text-zinc-300 block mb-1.5">
