@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.0';
-export const APP_UPDATED_AT = '19/10/2026';
+export const APP_VERSION = '5.1.1';
+export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.1', date: '20/10/2026', highlights: [
+      'Corrige recuperação de notificações Push para respeitar preferências atuais, evitar dados pessoais obsoletos e descartar eventos expirados.',
+      'Torna atômica a reserva de resumos e eventos, protege retentativas concorrentes e preserva anúncios confirmados de múltiplos ciclos.',
+      'Trata indisponibilidade das fontes de mercado como falha recuperável, sem inventar Data-Com nem marcar consulta incompleta como concluída.',
+    ],
+  },
   {
     version: '5.1.0', date: '19/10/2026', highlights: [
       'Notificações Web Push no servidor (/api/push/cron e serverPushEngine.ts) com resumo diário no horário e fuso IANA do usuário, funcionando com o PWA fechado.',

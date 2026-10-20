@@ -195,7 +195,7 @@ export interface PushStorageAdapter {
     maxAttempts: number,
     nowIso: string
   ): Promise<StoredDeviceDelivery[]>;
-  markDeliverySending(deliveryId: string, attemptCount: number, nowIso: string): Promise<void>;
+  markDeliverySending(deliveryId: string, attemptCount: number, nowIso: string): Promise<boolean>;
   updateDeliveryResult(
     deliveryId: string,
     update: {
@@ -489,14 +489,12 @@ export function hasStatementDividendReceipt(
 ): boolean {
   const cleanTicker = normalizeB3Ticker(ticker);
   if (!cleanTicker) return false;
-  const paymentMonth = paymentDateIso.slice(0, 7);
-
   return transactions.some((tx) => {
     if (!tx || tx.id?.startsWith('demo-')) return false;
     if (tx.type !== 'DIVIDEND') return false;
     if (normalizeB3Ticker(tx.ticker) !== cleanTicker) return false;
     if (exDateIso && tx.date < exDateIso) return false;
-    return tx.date === paymentDateIso || tx.date.slice(0, 7) === paymentMonth;
+    return tx.date === paymentDateIso;
   });
 }
 
@@ -536,7 +534,10 @@ export function evaluateUserPortfolioEvents(params: {
     'notifyConfirmedDividend' | 'notifyExDate' | 'notifyPaymentDay'
   >;
   transactions: Transaction[];
-  announcements: Record<string, VerifiedDividendAnnouncement | null | undefined>;
+  announcements: Record<
+    string,
+    VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[] | null | undefined
+  >;
   existingEvents: StoredAlertEvent[];
 }): CandidateAlertEvent[] {
   const { localDate, preferences, transactions, announcements, existingEvents } = params;
@@ -546,9 +547,10 @@ export function evaluateUserPortfolioEvents(params: {
   const candidateEvents: CandidateAlertEvent[] = [];
 
   for (const ticker of activeTickers) {
-    const rawAnn = announcements[ticker];
-    if (!rawAnn) continue;
+    const rawValue = announcements[ticker];
+    const rawAnnouncements = Array.isArray(rawValue) ? rawValue : rawValue ? [rawValue] : [];
 
+    for (const rawAnn of rawAnnouncements) {
     // Revalidação defensiva: garante que somente anúncios oficiais completos passem
     const verified = buildVerifiedAnnouncement({
       ticker: rawAnn.ticker,
@@ -581,15 +583,13 @@ export function evaluateUserPortfolioEvents(params: {
 
     // 1. Novo anúncio confirmado OU alteração confirmada de anúncio previamente conhecido
     if (preferences.notifyConfirmedDividend && verified.paymentDate >= localDate) {
-      const cycleRef = `cycle:${verified.referenceCycle}`;
+      const cycleRef = `cycle:${verified.exDate}:${verified.paymentDate}`;
       const priorAnnouncements = existingEvents.filter(
         (ev) =>
           ev.ticker === ticker &&
           (ev.eventType === 'DIVIDEND_ANNOUNCED' || ev.eventType === 'DIVIDEND_UPDATED') &&
-          (ev.eventReference === cycleRef ||
-            ev.payload?.exDate === verified.exDate ||
-            ev.payload?.paymentDate === verified.paymentDate ||
-            ev.payload?.referenceCycle === verified.referenceCycle)
+          ev.eventReference === cycleRef ||
+          (ev.payload?.exDate === verified.exDate && ev.payload?.paymentDate === verified.paymentDate)
       );
 
       if (priorAnnouncements.length === 0) {
@@ -691,12 +691,14 @@ export function evaluateUserPortfolioEvents(params: {
         verified.exDate
       );
       if (sharesOnExDate > 0 && !alreadyReceivedInStatement) {
-        const payRef = `pay:${verified.paymentDate}`;
+        const payRef = `pay:${verified.exDate}:${verified.paymentDate}`;
         const alreadySentPay = existingEvents.some(
           (ev) =>
             ev.ticker === ticker &&
             ev.eventType === 'PAYMENT_REMINDER' &&
-            ev.eventReference === payRef &&
+            (ev.eventReference === payRef ||
+              (ev.payload?.exDate === verified.exDate &&
+                ev.payload?.paymentDate === verified.paymentDate)) &&
             ev.dataVersion === verified.dataVersion
         );
         if (!alreadySentPay) {
@@ -718,6 +720,7 @@ export function evaluateUserPortfolioEvents(params: {
           });
         }
       }
+    }
     }
   }
 
@@ -841,9 +844,14 @@ export function buildDailySummaryNotification(
   });
 
   const extraCount = events.length > 4 ? ` e +${events.length - 4}` : '';
+  const uniquePayments = new Map<string, number>();
+  for (const event of events) {
+    const key = `${event.ticker}:${event.exDate}:${event.paymentDate}:${event.amountPerShare}`;
+    if (!uniquePayments.has(key)) uniquePayments.set(key, event.personalTotalAmount);
+  }
   const detailedSuffix = isDetailed
-    ? ` • Total estimado nos eventos: ${formatPublicBRL(
-        events.reduce((acc, e) => acc + e.personalTotalAmount, 0)
+    ? ` • Total estimado nos pagamentos: ${formatPublicBRL(
+        Array.from(uniquePayments.values()).reduce((acc, value) => acc + value, 0)
       )}.`
     : '';
 
@@ -892,7 +900,9 @@ export async function runServerPushCron(params: {
   marketFetcher: (
     tickers: string[],
     referenceDateIso: string
-  ) => Promise<Record<string, VerifiedDividendAnnouncement>>;
+  ) => Promise<
+    Record<string, VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]>
+  >;
   pushSender: (
     subscription: WebPushSubscriptionInput,
     payload: WebPushPayloadInput
@@ -906,7 +916,7 @@ export async function runServerPushCron(params: {
   const now = params.now || new Date();
   const nowIso = now.toISOString();
   const workerId = params.workerId || `worker-${randomUUID()}`;
-  const leaseSeconds = params.leaseSeconds ?? 60;
+  const leaseSeconds = params.leaseSeconds ?? 300;
   const maxAttempts = params.maxAttempts ?? 3;
   const baseRetrySeconds = params.baseRetrySeconds ?? 60;
 
@@ -1048,7 +1058,12 @@ export async function runServerPushCron(params: {
 
       const nextAttemptNumber = delivery.attemptCount + 1;
       // Nunca marca como enviado antes do serviço Push aceitar
-      await params.storage.markDeliverySending(delivery.id, nextAttemptNumber, nowIso);
+      const claimedDelivery = await params.storage.markDeliverySending(
+        delivery.id,
+        nextAttemptNumber,
+        nowIso
+      );
+      if (!claimedDelivery) continue;
 
       const sendResult = await params.pushSender(
         {
@@ -1132,7 +1147,7 @@ export async function runServerPushCron(params: {
     );
 
     const retryPendingList = refreshedDeliveries.filter(
-      (d) => d.status === 'retry_pending' || d.status === 'pending'
+      (d) => d.status === 'retry_pending' || d.status === 'pending' || d.status === 'sending'
     );
     const acceptedList = refreshedDeliveries.filter((d) => d.status === 'accepted');
     const failedList = refreshedDeliveries.filter(
@@ -1210,11 +1225,12 @@ export async function runServerPushCron(params: {
   // 3. Processa cada usuário com reserva atômica (lock por usuário)
   for (const item of dueUsers) {
     const { prefs, localDate, isScheduleDue, transactions } = item;
+    const lockNowIso = (params.now || new Date()).toISOString();
     const claimed = await params.storage.claimUserLock(
       prefs.userId,
       workerId,
       leaseSeconds,
-      nowIso
+      lockNowIso
     );
     if (!claimed) {
       metrics.usersLocked++;
@@ -1223,6 +1239,7 @@ export async function runServerPushCron(params: {
 
     try {
       metrics.usersEvaluated++;
+      const currentPrefs = (await params.storage.getUserPreferences(prefs.userId)) || prefs;
 
       // 3a. Recupera processamentos interrompidos ou retentativas pendentes vencidas
       const currentRecoverable = await params.storage.getRecoverableDigests(
@@ -1231,7 +1248,50 @@ export async function runServerPushCron(params: {
       );
       for (const digest of currentRecoverable) {
         metrics.digestsRecovered++;
-        await deliverDigestToDevices(digest, prefs, digest.localDate || localDate);
+        if (!currentPrefs.enabled) {
+          await params.storage.updateDigestStatus(digest.id, {
+            status: 'failed',
+            lockedBy: null,
+            lockedUntil: null,
+            lastError: 'Envio cancelado porque as notificações foram desativadas.',
+            nowIso,
+          });
+          await params.storage.updateAlertEventsStatus(digest.id, 'failed', nowIso);
+          continue;
+        }
+        const recoveryDate = getUserLocalDateTime(now, currentPrefs.timezone).localDate;
+        const recoverableEvents = digest.eventsJson.filter((event) => {
+          if (
+            (event.eventType === 'DIVIDEND_ANNOUNCED' || event.eventType === 'DIVIDEND_UPDATED') &&
+            !currentPrefs.notifyConfirmedDividend
+          ) return false;
+          if (event.eventType === 'EX_DATE_REMINDER' && !currentPrefs.notifyExDate) return false;
+          if (event.eventType === 'PAYMENT_REMINDER' && !currentPrefs.notifyPaymentDay) return false;
+          if (event.paymentDate < recoveryDate) return false;
+          if (event.eventType === 'EX_DATE_REMINDER' && event.exDate < recoveryDate) return false;
+          return true;
+        });
+        if (recoverableEvents.length === 0) {
+          await params.storage.updateDigestStatus(digest.id, {
+            status: 'failed',
+            lockedBy: null,
+            lockedUntil: null,
+            lastError: 'Resumo expirado: os eventos já passaram.',
+            nowIso,
+          });
+          await params.storage.updateAlertEventsStatus(digest.id, 'failed', nowIso);
+          continue;
+        }
+        const refreshedNotification = buildDailySummaryNotification(
+          recoverableEvents,
+          recoveryDate,
+          currentPrefs.privacyMode
+        );
+        await deliverDigestToDevices(
+          { ...digest, ...refreshedNotification, eventsJson: recoverableEvents },
+          currentPrefs,
+          recoveryDate
+        );
       }
 
       if (!isScheduleDue) {
@@ -1242,7 +1302,7 @@ export async function runServerPushCron(params: {
       const existingEvents = await params.storage.getExistingAlertEvents(prefs.userId);
       const candidateEvents = evaluateUserPortfolioEvents({
         localDate,
-        preferences: prefs,
+        preferences: currentPrefs,
         transactions,
         announcements: sharedAnnouncements,
         existingEvents,
@@ -1646,7 +1706,8 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
         .eq('user_id', userId)
         .in('status', ['processing', 'retry_pending'])
         .order('created_at', { ascending: true });
-      if (error || !data) return [];
+      if (error) throw new Error('Falha ao consultar resumos Push recuperáveis.');
+      if (!data) return [];
 
       return data
         .map((row) => {
@@ -1682,75 +1743,28 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
     },
 
     async reserveDigestAndEvents(params) {
-      const lockedUntilIso = new Date(
-        new Date(params.nowIso).getTime() + params.leaseSeconds * 1000
-      ).toISOString();
-
-      const { data: digestData, error: digestErr } = await db
-        .from('push_daily_digests')
-        .upsert(
-          {
-            user_id: params.userId,
-            local_date: params.localDate,
-            digest_key: params.digestKey,
-            title: params.title,
-            body: params.body,
-            url: params.url,
-            tag: params.tag,
-            events_json: params.events,
-            status: 'processing',
-            next_attempt_at: params.nowIso,
-            locked_by: params.workerId,
-            locked_until: lockedUntilIso,
-            updated_at: params.nowIso,
-          },
-          { onConflict: 'user_id,local_date,digest_key', ignoreDuplicates: true }
-        )
-        .select('*')
-        .maybeSingle();
-
-      if (digestErr || !digestData) {
-        return null;
-      }
-
-      const dRow = digestData as Record<string, unknown>;
+      const { data, error } = await db.rpc('reserve_push_digest_and_events', {
+        p_user_id: params.userId,
+        p_local_date: params.localDate,
+        p_digest_key: params.digestKey,
+        p_title: params.title,
+        p_body: params.body,
+        p_url: params.url,
+        p_tag: params.tag,
+        p_events: params.events,
+        p_worker_id: params.workerId,
+        p_lease_seconds: params.leaseSeconds,
+        p_now: params.nowIso,
+      });
+      if (error) throw error;
+      if (!data || typeof data !== 'object') return null;
+      const result = data as {
+        digest?: Record<string, unknown>;
+        reservedEventsCount?: number;
+      };
+      const dRow = result.digest;
+      if (!dRow) return null;
       const digestId = String(dRow.id);
-
-      let reservedEventsCount = 0;
-      for (const ev of params.events) {
-        const { data: evData, error: evErr } = await db
-          .from('push_alert_events')
-          .upsert(
-            {
-              user_id: params.userId,
-              ticker: ev.ticker,
-              event_type: ev.eventType,
-              event_reference: ev.eventReference,
-              data_version: ev.dataVersion,
-              source: ev.source,
-              source_event_date: ev.sourceEventDate,
-              payload: {
-                amountPerShare: ev.amountPerShare,
-                exDate: ev.exDate,
-                paymentDate: ev.paymentDate,
-                referenceCycle: ev.paymentDate.slice(0, 7),
-              },
-              digest_id: digestId,
-              status: 'reserved',
-              updated_at: params.nowIso,
-            },
-            {
-              onConflict: 'user_id,ticker,event_type,event_reference,data_version',
-              ignoreDuplicates: true,
-            }
-          )
-          .select('id')
-          .maybeSingle();
-
-        if (!evErr && evData) {
-          reservedEventsCount++;
-        }
-      }
 
       return {
         digest: {
@@ -1771,7 +1785,7 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
           sentAt: toIsoTimestampOrNull(dRow.sent_at),
           lastError: dRow.last_error ? String(dRow.last_error) : null,
         },
-        reservedEventsCount,
+        reservedEventsCount: Number(result.reservedEventsCount || 0),
       };
     },
 
@@ -1787,17 +1801,28 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
           next_attempt_at: nowIso,
           updated_at: nowIso,
         }));
-        await db
+        const { error: upsertError } = await db
           .from('push_device_deliveries')
           .upsert(rows, { onConflict: 'digest_id,subscription_id', ignoreDuplicates: true });
+        if (upsertError) throw upsertError;
       }
+
+      const staleSendingBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { error: staleError } = await db
+        .from('push_device_deliveries')
+        .update({ status: 'retry_pending', next_attempt_at: nowIso })
+        .eq('digest_id', digestId)
+        .eq('status', 'sending')
+        .lt('updated_at', staleSendingBefore);
+      if (staleError) throw staleError;
 
       const { data, error } = await db
         .from('push_device_deliveries')
         .select('*')
         .eq('digest_id', digestId)
         .order('created_at', { ascending: true });
-      if (error || !data) return [];
+      if (error) throw error;
+      if (!data) return [];
 
       const subMap = new Map(subscriptions.map((s) => [s.id, s]));
       return data.map((row) => {
@@ -1822,14 +1847,20 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
     },
 
     async markDeliverySending(deliveryId, attemptCount, nowIso) {
-      await db
+      const { data, error } = await db
         .from('push_device_deliveries')
         .update({
           status: 'sending',
           attempt_count: attemptCount,
           updated_at: nowIso,
         })
-        .eq('id', deliveryId);
+        .eq('id', deliveryId)
+        .in('status', ['pending', 'retry_pending'])
+        .lte('next_attempt_at', nowIso)
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      return Boolean(data);
     },
 
     async updateDeliveryResult(deliveryId, update) {
@@ -1843,16 +1874,21 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
       if (update.lastError !== undefined) patch.last_error = update.lastError;
       if (update.acceptedAt !== undefined) patch.accepted_at = update.acceptedAt;
 
-      await db.from('push_device_deliveries').update(patch).eq('id', deliveryId);
+      const { error: deliveryError } = await db
+        .from('push_device_deliveries')
+        .update(patch)
+        .eq('id', deliveryId);
+      if (deliveryError) throw deliveryError;
 
       if (update.status === 'accepted' && update.acceptedAt) {
-        const { data: deliv } = await db
+        const { data: deliv, error: readError } = await db
           .from('push_device_deliveries')
           .select('subscription_id')
           .eq('id', deliveryId)
           .maybeSingle();
+        if (readError) throw readError;
         if (deliv) {
-          await db
+          const { error: subscriptionError } = await db
             .from('push_subscriptions')
             .update({
               last_accepted_at: update.acceptedAt,
@@ -1861,6 +1897,7 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
               updated_at: update.nowIso,
             })
             .eq('id', String((deliv as Record<string, unknown>).subscription_id));
+          if (subscriptionError) throw subscriptionError;
         }
       }
     },
@@ -1877,14 +1914,19 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
       if (update.lockedBy !== undefined) patch.locked_by = update.lockedBy;
       if (update.lockedUntil !== undefined) patch.locked_until = update.lockedUntil;
 
-      await db.from('push_daily_digests').update(patch).eq('id', digestId);
+      const { error } = await db
+        .from('push_daily_digests')
+        .update(patch)
+        .eq('id', digestId);
+      if (error) throw error;
     },
 
     async updateAlertEventsStatus(digestId, status, nowIso) {
-      await db
+      const { error } = await db
         .from('push_alert_events')
         .update({ status, updated_at: nowIso })
         .eq('digest_id', digestId);
+      if (error) throw error;
     },
 
     async updateUserProcessStatus(userId, update) {
@@ -1898,10 +1940,11 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
       if (update.lastPushAcceptedAt !== undefined) {
         patch.last_push_accepted_at = update.lastPushAcceptedAt;
       }
-      await db
+      const { error } = await db
         .from('push_notification_preferences')
         .update(patch)
         .eq('user_id', userId);
+      if (error) throw error;
     },
 
     async getUserStatusSummary(userId: string) {

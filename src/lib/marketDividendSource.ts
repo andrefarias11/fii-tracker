@@ -168,7 +168,7 @@ async function fetchFromStatusInvest(
   ticker: string,
   referenceDateIso: string,
   fetchImpl: typeof fetch = fetch
-): Promise<VerifiedDividendAnnouncement | null> {
+): Promise<{ announcements: VerifiedDividendAnnouncement[]; available: boolean }> {
   const catalogInfo = findFiiInfo(ticker);
   const isFiagro = catalogInfo.segment === 'Fiagro';
   const isStock = catalogInfo.assetClass === 'ACAO';
@@ -197,7 +197,7 @@ async function fetchFromStatusInvest(
 
       const data: StatusInvestProventsResponse = await res.json();
       const list = data?.assetEarningsModels;
-      if (!Array.isArray(list) || list.length === 0) continue;
+      if (!Array.isArray(list)) continue;
 
       const candidates: Array<{ item: StatusInvestEarningItem; exIso: string; payIso: string }> = [];
       for (const item of list) {
@@ -209,34 +209,34 @@ async function fetchFromStatusInvest(
         candidates.push({ item, exIso: ex.iso, payIso: pay.iso });
       }
 
-      if (candidates.length === 0) continue;
-
-      candidates.sort((a, b) => b.payIso.localeCompare(a.payIso) || b.exIso.localeCompare(a.exIso));
-      const best = candidates[0];
-
-      return buildVerifiedAnnouncement({
-        ticker,
-        source: 'STATUS_INVEST',
-        amountPerShare: best.item.v,
-        exDate: best.exIso,
-        paymentDate: best.payIso,
-        isCurrentMonthAnnounced: true,
-      });
+      const announcements = candidates
+        .map(({ item, exIso, payIso }) =>
+          buildVerifiedAnnouncement({
+            ticker,
+            source: 'STATUS_INVEST',
+            amountPerShare: item.v,
+            exDate: exIso,
+            paymentDate: payIso,
+            isCurrentMonthAnnounced: true,
+          })
+        )
+        .filter((event): event is VerifiedDividendAnnouncement => Boolean(event));
+      return { announcements, available: true };
     } catch {
       // Tenta próximo endpoint ou fallback Brapi
     }
   }
 
-  return null;
+  return { announcements: [], available: false };
 }
 
 async function fetchFromBrapi(
   ticker: string,
   referenceDateIso: string,
   fetchImpl: typeof fetch = fetch
-): Promise<VerifiedDividendAnnouncement | null> {
+): Promise<{ announcements: VerifiedDividendAnnouncement[]; available: boolean }> {
   const token = (process.env.BRAPI_TOKEN || '').trim();
-  if (!token) return null;
+  if (!token) return { announcements: [], available: false };
 
   try {
     const url = `https://brapi.dev/api/quote/${encodeURIComponent(ticker)}?dividends=true&token=${encodeURIComponent(token)}`;
@@ -244,46 +244,47 @@ async function fetchFromBrapi(
       headers: BROWSER_HEADERS,
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { announcements: [], available: false };
 
     const json: BrapiDividendResponse = await res.json();
     const cashDividends = json?.results?.[0]?.dividendsData?.cashDividends;
-    if (!Array.isArray(cashDividends) || cashDividends.length === 0) return null;
+    if (!Array.isArray(cashDividends)) return { announcements: [], available: false };
 
     const candidates: Array<{ rate: number; exIso: string; payIso: string }> = [];
     for (const d of cashDividends) {
       if (typeof d.rate !== 'number' || d.rate <= 0) continue;
-      const ex = normalizeBrOrIsoDate(d.lastDatePrior || d.approvedOn);
+      // approvedOn informa a aprovação do evento; não comprova a Data-Com.
+      const ex = normalizeBrOrIsoDate(d.lastDatePrior);
       const pay = normalizeBrOrIsoDate(d.paymentDate);
       if (!ex || !pay) continue;
       if (!isCycleRelevantForReferenceDate(ex.iso, pay.iso, referenceDateIso)) continue;
       candidates.push({ rate: d.rate, exIso: ex.iso, payIso: pay.iso });
     }
 
-    if (candidates.length === 0) return null;
-
-    candidates.sort((a, b) => b.payIso.localeCompare(a.payIso) || b.exIso.localeCompare(a.exIso));
-    const best = candidates[0];
-
-    return buildVerifiedAnnouncement({
-      ticker,
-      source: 'BRAPI',
-      amountPerShare: best.rate,
-      exDate: best.exIso,
-      paymentDate: best.payIso,
-      isCurrentMonthAnnounced: true,
-    });
+    const announcements = candidates
+      .map(({ rate, exIso, payIso }) =>
+        buildVerifiedAnnouncement({
+          ticker,
+          source: 'BRAPI',
+          amountPerShare: rate,
+          exDate: exIso,
+          paymentDate: payIso,
+          isCurrentMonthAnnounced: true,
+        })
+      )
+      .filter((event): event is VerifiedDividendAnnouncement => Boolean(event));
+    return { announcements, available: true };
   } catch {
-    return null;
+    return { announcements: [], available: false };
   }
 }
 
 const ANNOUNCEMENT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache compartilhado entre usuários
 const announcementCache = new Map<
   string,
-  { announcement: VerifiedDividendAnnouncement | null; expiresAt: number }
+  { announcements: VerifiedDividendAnnouncement[]; expiresAt: number }
 >();
-const inFlightLookups = new Map<string, Promise<VerifiedDividendAnnouncement | null>>();
+const inFlightLookups = new Map<string, Promise<VerifiedDividendAnnouncement[]>>();
 
 export function clearAnnouncementCache(): void {
   announcementCache.clear();
@@ -297,9 +298,9 @@ export async function fetchVerifiedAnnouncementForTicker(
     fetchImpl?: typeof fetch;
     bypassCache?: boolean;
   } = {}
-): Promise<VerifiedDividendAnnouncement | null> {
+): Promise<VerifiedDividendAnnouncement[]> {
   const cleanTicker = normalizeB3Ticker(ticker);
-  if (!cleanTicker) return null;
+  if (!cleanTicker) return [];
 
   const refDate =
     options.referenceDateIso ||
@@ -309,7 +310,7 @@ export async function fetchVerifiedAnnouncementForTicker(
   if (!options.bypassCache) {
     const cached = announcementCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.announcement;
+      return cached.announcements;
     }
     const inflight = inFlightLookups.get(cacheKey);
     if (inflight) return inflight;
@@ -317,15 +318,28 @@ export async function fetchVerifiedAnnouncementForTicker(
 
   const lookupPromise = (async () => {
     const fetchImpl = options.fetchImpl || fetch;
-    const fromStatusInvest = await fetchFromStatusInvest(cleanTicker, refDate, fetchImpl);
-    const resolved = fromStatusInvest || (await fetchFromBrapi(cleanTicker, refDate, fetchImpl));
+    const [fromStatusInvest, fromBrapi] = await Promise.all([
+      fetchFromStatusInvest(cleanTicker, refDate, fetchImpl),
+      fetchFromBrapi(cleanTicker, refDate, fetchImpl),
+    ]);
+    if (!fromStatusInvest.available && !fromBrapi.available) {
+      throw new Error(`Fontes de proventos indisponíveis para ${cleanTicker}.`);
+    }
+    const unique = new Map<string, VerifiedDividendAnnouncement>();
+    for (const event of [...fromStatusInvest.announcements, ...fromBrapi.announcements]) {
+      const key = `${event.exDate}:${event.paymentDate}:${event.amountPerShare}`;
+      if (!unique.has(key)) unique.set(key, event);
+    }
+    const resolved = Array.from(unique.values()).sort(
+      (a, b) => a.paymentDate.localeCompare(b.paymentDate) || a.exDate.localeCompare(b.exDate)
+    );
 
     if (announcementCache.size >= 1000) {
       const oldestKey = announcementCache.keys().next().value;
       if (oldestKey) announcementCache.delete(oldestKey);
     }
     announcementCache.set(cacheKey, {
-      announcement: resolved,
+      announcements: resolved,
       expiresAt: Date.now() + ANNOUNCEMENT_CACHE_TTL_MS,
     });
 
@@ -348,7 +362,7 @@ export async function fetchVerifiedAnnouncementsBatch(
     fetchImpl?: typeof fetch;
     bypassCache?: boolean;
   } = {}
-): Promise<Record<string, VerifiedDividendAnnouncement>> {
+): Promise<Record<string, VerifiedDividendAnnouncement[]>> {
   const uniqueTickers = Array.from(
     new Set(tickers.map((t) => normalizeB3Ticker(t)).filter((t) => /^[A-Z]{4}\d{1,2}B?$/.test(t)))
   );
@@ -360,11 +374,9 @@ export async function fetchVerifiedAnnouncementsBatch(
     }))
   );
 
-  const map: Record<string, VerifiedDividendAnnouncement> = {};
+  const map: Record<string, VerifiedDividendAnnouncement[]> = {};
   for (const item of results) {
-    if (item.announcement) {
-      map[item.ticker] = item.announcement;
-    }
+    map[item.ticker] = item.announcement;
   }
   return map;
 }

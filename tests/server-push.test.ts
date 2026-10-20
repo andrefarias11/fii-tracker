@@ -8,6 +8,7 @@ import {
   isUserDueForDailySummary,
   evaluateUserPortfolioEvents,
   buildDailySummaryNotification,
+  hasStatementDividendReceipt,
   calculateNextRetryTimestamp,
   runServerPushCron,
   type PushStorageAdapter,
@@ -20,6 +21,8 @@ import {
 } from '../src/lib/serverPushEngine';
 import {
   buildVerifiedAnnouncement,
+  clearAnnouncementCache,
+  fetchVerifiedAnnouncementForTicker,
   type VerifiedDividendAnnouncement,
 } from '../src/lib/marketDividendSource';
 import { buildSafePushUrl, parsePushNavigationUrl } from '../src/lib/pushNavigation';
@@ -58,8 +61,10 @@ async function createPgLitePushStorage(): Promise<{
   `);
   const schema = readFileSync('supabase/schema.sql', 'utf8');
   const migration = readFileSync('supabase/migrations/20261020_server_web_push.sql', 'utf8');
+  const recoveryMigration = readFileSync('supabase/migrations/20261021_push_recovery_fixes.sql', 'utf8');
   await db.exec(schema);
   await db.exec(migration);
+  await db.exec(recoveryMigration);
   await db.exec('SET ROLE service_role;');
 
   const toIsoTs = (v: unknown): string | null =>
@@ -105,7 +110,11 @@ async function createPgLitePushStorage(): Promise<{
   const storage: PushStorageAdapter = {
     async listCandidateUsers() {
       const res = await db.query(
-        `SELECT * FROM public.push_notification_preferences WHERE enabled = true`
+        `SELECT p.* FROM public.push_notification_preferences p
+         WHERE p.enabled = true OR EXISTS (
+           SELECT 1 FROM public.push_daily_digests d
+           WHERE d.user_id = p.user_id AND d.status IN ('processing', 'retry_pending')
+         )`
       );
       return res.rows.map((r) => mapPrefs(r as Record<string, unknown>));
     },
@@ -450,10 +459,11 @@ async function createPgLitePushStorage(): Promise<{
     },
 
     async markDeliverySending(deliveryId, attemptCount, nowIso) {
-      await db.query(
-        `UPDATE public.push_device_deliveries SET status = 'sending', attempt_count = $2, updated_at = $3::timestamptz WHERE id = $1::uuid`,
+      const res = await db.query(
+        `UPDATE public.push_device_deliveries SET status = 'sending', attempt_count = $2, updated_at = $3::timestamptz WHERE id = $1::uuid AND status IN ('pending','retry_pending') AND next_attempt_at <= $3::timestamptz RETURNING id`,
         [deliveryId, attemptCount, nowIso]
       );
+      return res.rows.length > 0;
     },
 
     async updateDeliveryResult(deliveryId, update) {
@@ -590,6 +600,73 @@ test('cron authentication fails closed when CRON_SECRET is missing, short, reuse
     }),
     { ok: true, status: 200 }
   );
+});
+
+test('digest and alert events are reserved atomically by the recovery migration', async () => {
+  const { db } = await createPgLitePushStorage();
+  const validEvent = {
+    ticker: 'HGLG11',
+    eventType: 'DIVIDEND_ANNOUNCED',
+    eventReference: 'cycle:2026-10-08:2026-10-15',
+    dataVersion: 'v1',
+    source: 'StatusInvest',
+    sourceEventDate: '2026-10-08',
+    amountPerShare: 1.1,
+    exDate: '2026-10-08',
+    exDateBr: '08 out',
+    paymentDate: '2026-10-15',
+    paymentDateBr: '15 out',
+    eligibleShares: 10,
+    personalTotalAmount: 11,
+    priority: 80,
+  };
+  const baseArgs = [
+    USER_A,
+    '2026-10-08',
+    'atomic-digest',
+    'Resumo diário',
+    'Há eventos na carteira.',
+    '/?tab=proventos',
+    'daily:2026-10-08',
+    null,
+    'test-worker',
+    300,
+    '2026-10-08T11:00:00.000Z',
+  ] as const;
+  const reserve = (events: unknown) =>
+    db.query(
+      `SELECT public.reserve_push_digest_and_events(
+        $1::uuid, $2::date, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::integer, $11::timestamptz
+      ) AS result`,
+      [...baseArgs.slice(0, 7), JSON.stringify(events), ...baseArgs.slice(8)]
+    );
+
+  await assert.rejects(
+    reserve([
+      validEvent,
+      { ...validEvent, eventType: 'INVALID_EVENT_TYPE', eventReference: 'invalid-cycle' },
+    ])
+  );
+  const afterRollback = await db.query(
+    `SELECT
+      (SELECT count(*) FROM public.push_daily_digests WHERE digest_key = 'atomic-digest') AS digests,
+      (SELECT count(*) FROM public.push_alert_events WHERE event_reference LIKE '%atomic%') AS events`
+  );
+  const rollbackCounts = afterRollback.rows[0] as Record<string, unknown>;
+  assert.equal(Number(rollbackCounts.digests), 0);
+  assert.equal(Number(rollbackCounts.events), 0);
+
+  const successful = await reserve([validEvent]);
+  assert.ok((successful.rows[0] as Record<string, unknown>).result);
+  const persisted = await db.query(
+    `SELECT
+      (SELECT count(*) FROM public.push_daily_digests WHERE digest_key = 'atomic-digest') AS digests,
+      (SELECT count(*) FROM public.push_alert_events WHERE event_reference = 'cycle:2026-10-08:2026-10-15') AS events`
+  );
+  const persistedCounts = persisted.rows[0] as Record<string, unknown>;
+  assert.equal(Number(persistedCounts.digests), 1);
+  assert.equal(Number(persistedCounts.events), 1);
+  await db.close();
 });
 
 test('schedule evaluation respects user dailyTime, IANA timezone, and day rollover', () => {
@@ -742,6 +819,108 @@ test('estimates, static catalog, Yahoo fallback, and manual dividends never gene
   assert.equal(verified.exDate, '2026-10-14');
   assert.equal(verified.paymentDate, '2026-10-25');
   assert.equal(verified.amountPerShare, 1.1);
+});
+
+test('verified market source retains multiple payout cycles and rejects inferred ex-dates', async () => {
+  const originalBrapiToken = process.env.BRAPI_TOKEN;
+  delete process.env.BRAPI_TOKEN;
+  clearAnnouncementCache();
+  try {
+    const rows = [
+      { v: 1.1, ed: '15/10/2026', pd: '19/10/2026' },
+      { v: 1.2, ed: '15/11/2026', pd: '19/11/2026' },
+    ];
+    const announcements = await fetchVerifiedAnnouncementForTicker('HGLG11', {
+      referenceDateIso: '2026-10-19',
+      bypassCache: true,
+      fetchImpl: async () =>
+        new Response(JSON.stringify({ assetEarningsModels: rows }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    });
+    assert.deepEqual(announcements.map((event) => event.paymentDate), [
+      '2026-10-19',
+      '2026-11-19',
+    ]);
+    const evaluation = evaluateUserPortfolioEvents({
+      localDate: '2026-10-19',
+      preferences: {
+        notifyConfirmedDividend: true,
+        notifyExDate: true,
+        notifyPaymentDay: true,
+      },
+      transactions: [{
+        id: 'tx-hglg-buy', ticker: 'HGLG11', type: 'BUY', date: '2026-10-01',
+        shares: 20, price: 160, total: 3200, broker: 'XP',
+      }],
+      announcements: { HGLG11: announcements },
+      existingEvents: [],
+    });
+    assert.ok(evaluation.some((event) =>
+      event.eventType === 'PAYMENT_REMINDER' && event.paymentDate === '2026-10-19'
+    ));
+
+    process.env.BRAPI_TOKEN = 'test-token';
+    clearAnnouncementCache();
+    const fallback = await fetchVerifiedAnnouncementForTicker('HGLG11', {
+      referenceDateIso: '2026-10-19',
+      bypassCache: true,
+      fetchImpl: async (input) => {
+        if (String(input).includes('statusinvest.com.br')) {
+          return new Response('unavailable', { status: 503 });
+        }
+        return new Response(JSON.stringify({
+          results: [{
+            dividendsData: {
+              cashDividends: [{
+                rate: 1.1,
+                approvedOn: '2026-10-10T00:00:00.000Z',
+                lastDatePrior: null,
+                paymentDate: '2026-10-25T00:00:00.000Z',
+              }],
+            },
+          }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      },
+    });
+    assert.deepEqual(fallback, []);
+
+    clearAnnouncementCache();
+    await assert.rejects(
+      fetchVerifiedAnnouncementForTicker('HGLG11', {
+        referenceDateIso: '2026-10-19',
+        bypassCache: true,
+        fetchImpl: async () => new Response('unavailable', { status: 503 }),
+      }),
+      /fontes de proventos indisponíveis/i
+    );
+  } finally {
+    if (originalBrapiToken === undefined) delete process.env.BRAPI_TOKEN;
+    else process.env.BRAPI_TOKEN = originalBrapiToken;
+    clearAnnouncementCache();
+  }
+});
+
+test('a receipt from another payout date in the same month does not suppress the event', () => {
+  const transactions: Transaction[] = [{
+    id: 'tx-div-earlier',
+    ticker: 'XPML11',
+    type: 'DIVIDEND',
+    date: '2026-10-10',
+    shares: 50,
+    price: 0.9,
+    total: 45,
+    broker: 'XP',
+  }];
+  assert.equal(
+    hasStatementDividendReceipt(transactions, 'XPML11', '2026-10-25', '2026-09-30'),
+    false
+  );
+  assert.equal(
+    hasStatementDividendReceipt(transactions, 'XPML11', '2026-10-10', '2026-09-30'),
+    true
+  );
 });
 
 test('announcement modification generates DIVIDEND_UPDATED and payment reminder respects statement receipts', () => {
@@ -947,6 +1126,12 @@ test('discreet privacy mode hides personal quantities/values and URLs contain ze
     detailed.url,
     '/?tab=proventos&ticker=HGLG11&date=2026-10-15&event=PAYMENT_REMINDER'
   );
+  const repeatedPayment = buildDailySummaryNotification([
+    sampleEvent,
+    { ...sampleEvent, eventType: 'DIVIDEND_ANNOUNCED', eventReference: 'cycle:2026-09-30:2026-10-15' },
+  ], '2026-10-15', 'detailed');
+  assert.ok(repeatedPayment.body.includes('R$ 135,30'));
+  assert.ok(!repeatedPayment.body.includes('R$ 270,60'));
 
   // External or protocol-relative URLs are rejected
   assert.equal(parsePushNavigationUrl('https://evil.example/?tab=proventos'), null);
@@ -1110,16 +1295,24 @@ test('server cron deduplication, multi-device 410 expiration, bounded retries, r
     assert.ok(retry3 > retry2);
 
     // Simulate an interrupted digest ('processing' with expired lock) for User A on the next day
+    const recoveryEvent: CandidateAlertEvent = {
+      ticker: 'HGLG11', eventType: 'DIVIDEND_ANNOUNCED',
+      eventReference: 'cycle:2026-10-20:2026-10-25', dataVersion: 'v=1.1|ed=2026-10-20|pd=2026-10-25',
+      source: 'STATUS_INVEST', sourceEventDate: '2026-10-20', amountPerShare: 1.1,
+      exDate: '2026-10-20', exDateBr: '20/10/2026',
+      paymentDate: '2026-10-25', paymentDateBr: '25/10/2026',
+      eligibleShares: 20, personalTotalAmount: 22, priority: 95,
+    };
     const interruptedInsert = await db.query<{ id: string }>(
       `INSERT INTO public.push_daily_digests (
         user_id, local_date, digest_key, title, body, url, tag, events_json,
         status, attempt_count, next_attempt_at, locked_by, locked_until
       ) VALUES (
         $1::uuid, '2026-10-16', 'interrupted-digest-key',
-        'FII Tracker • Resumo Recuperado', 'Corpo do resumo recuperado', '/?tab=proventos&ticker=HGLG11', 'tag-rec', '[]'::jsonb,
+        'FII Tracker • Resumo Recuperado', 'Corpo do resumo recuperado', '/?tab=proventos&ticker=HGLG11', 'tag-rec', $2::jsonb,
         'processing', 0, '2026-10-16T11:00:00Z'::timestamptz, 'crashed-worker', '2026-10-16T11:02:00Z'::timestamptz
       ) RETURNING id`,
-      [USER_A]
+      [USER_A, JSON.stringify([recoveryEvent])]
     );
     assert.ok(interruptedInsert.rows[0].id);
 

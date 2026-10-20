@@ -32,7 +32,8 @@ Variáveis principais (sem valores secretos):
 - **Instalação nova:** execute `supabase/schema.sql` no SQL Editor do seu Supabase.
 - **Atualização de banco existente:** faça backup do banco e aplique em ordem:
   1. `supabase/migrations/20261019_security_and_sync.sql` (caso ainda não aplicada)
-  2. `supabase/migrations/20261020_server_web_push.sql` (cria `push_notification_preferences`, `push_subscriptions`, `push_daily_digests`, `push_alert_events`, `push_device_deliveries`, `push_user_locks`, políticas RLS por `auth.uid()` e as funções de lock atômico `claim_push_user_lock` / `release_push_user_lock`).
+  2. `supabase/migrations/20261020_server_web_push.sql` (cria as tabelas, políticas RLS e funções de lock do Web Push).
+  3. `supabase/migrations/20261021_push_recovery_fixes.sql` (reserva cada resumo e seus eventos em uma única transação).
 
 Consulte [o roteiro de atualização](docs/upgrade-5.0.0.md) para detalhes adicionais de segurança.
 
