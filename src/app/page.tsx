@@ -80,7 +80,9 @@ export default function HomePage() {
     isCloudConnected,
     isSyncing,
     pendingChanges,
+    corruptQueueCount,
     syncError,
+    exportCorruptQueue,
     undoLastImport,
     syncWithCloud,
     addTransaction,
@@ -337,7 +339,7 @@ export default function HomePage() {
   const feedbackNotice: Notice | null = !feedback ? null : feedback.kind === 'message'
     ? { id: feedback.id, message: feedback.message, tone: feedback.tone }
     : feedback.kind === 'sync'
-    ? { id: feedback.id, busy: isSyncing, tone: syncError || !isCloudConnected ? 'error' : pendingChanges ? 'info' : 'success', message: isSyncing ? 'Sincronizando sua conta…' : syncError || (!isCloudConnected ? 'Nuvem indisponível. Dados locais preservados.' : pendingChanges ? 'Há alterações aguardando envio.' : 'Sua conta está sincronizada.') }
+    ? { id: feedback.id, busy: isSyncing, tone: corruptQueueCount || syncError || !isCloudConnected ? 'error' : pendingChanges ? 'info' : 'success', message: isSyncing ? 'Sincronizando sua conta…' : corruptQueueCount ? 'Sincronização pausada: há alterações pendentes ilegíveis neste dispositivo.' : syncError || (!isCloudConnected ? 'Nuvem indisponível. Dados locais preservados.' : pendingChanges ? 'Há alterações aguardando envio.' : 'Sua conta está sincronizada.') }
     : { id: feedback.id, busy: isLoadingQuotes, tone: lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'success' : 'info', message: isLoadingQuotes ? 'Consultando cotações…' : lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'Cotações atualizadas.' : 'Sem novas cotações. As últimas referências foram mantidas.' };
 
   return (
@@ -374,7 +376,22 @@ export default function HomePage() {
 
       {/* Conteúdo Principal com Respiro Estilo iOS */}
       <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 7rem)' }}>
-        {(pendingChanges > 0 || syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
+        {corruptQueueCount > 0 ? (
+          <div role="alert" className="rounded-2xl border border-amber-300/40 bg-[#1b1710] p-4 text-sm leading-relaxed text-amber-50">
+            <p className="font-semibold">Sincronização pausada neste dispositivo</p>
+            <p className="mt-1 text-amber-100/80">
+              {corruptQueueCount} {corruptQueueCount === 1 ? 'alteração pendente está ilegível' : 'alterações pendentes estão ilegíveis'}. Os registros locais foram preservados. Não limpe os dados deste navegador enquanto recupera a fila.
+            </p>
+            <button
+              type="button"
+              className="mt-3 min-h-11 rounded-lg border border-amber-200/40 px-3 py-2 font-medium text-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+              onClick={exportCorruptQueue}
+            >
+              Baixar diagnóstico
+            </button>
+            <p className="mt-2 text-xs text-amber-100/70">O arquivo pode conter dados da sua conta. Guarde-o em local privado para análise e recuperação.</p>
+          </div>
+        ) : (pendingChanges > 0 || syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
           {pendingChanges > 0 ? `${pendingChanges} alteração(ões) aguardando envio. ` : ''}{syncError}
           <button className="underline ml-2" onClick={() => syncWithCloud()}>Tentar sincronizar</button>
         </div>}

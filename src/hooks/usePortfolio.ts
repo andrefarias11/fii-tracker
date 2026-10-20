@@ -38,7 +38,7 @@ import {
   getSupabaseClient,
 } from '../lib/supabase';
 import { parsePortfolioBackup, validateTransaction } from '../lib/backupValidation';
-import { flushQueue, readQueue, SYNC_EVENT } from '../lib/syncQueue';
+import { CorruptSyncQueueError, flushQueue, inspectQueue, readRawQueue, SYNC_EVENT } from '../lib/syncQueue';
 import { getActiveAccount, subscribeAuthAccounts } from '../lib/authManager';
 
 import { BASE_KEY_TRANSACTIONS, BASE_KEY_GOALS, BASE_KEY_DIVIDENDS, BASE_KEY_FIXED_INCOME, DEFAULT_GOALS, DEMO_TRANSACTIONS, DEMO_FIXED_INCOME, getScopedStorageKey, loadScopedData } from '../lib/portfolioStorage';
@@ -71,10 +71,15 @@ export function usePortfolio(explicitUserId?: string | null) {
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [pendingChanges, setPendingChanges] = useState(0);
+  const [corruptQueueCount, setCorruptQueueCount] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncRunning = useRef(false);
   useEffect(() => {
-    const update = () => setPendingChanges(activeUserId ? readQueue(activeUserId).length : 0);
+    const update = () => {
+      const queue = activeUserId ? inspectQueue(activeUserId) : { items: [], corrupt: [] };
+      setPendingChanges(queue.items.length);
+      setCorruptQueueCount(queue.corrupt.length);
+    };
     update();
     window.addEventListener(SYNC_EVENT, update);
     window.addEventListener('storage', update);
@@ -105,6 +110,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     setIsSyncing(true);
     setSyncError(null);
     try {
+      if (inspectQueue(syncUser).corrupt.length) throw new CorruptSyncQueueError();
       const isConnected = await checkSupabaseConnection();
       setIsCloudConnected(isConnected);
 
@@ -116,7 +122,10 @@ export function usePortfolio(explicitUserId?: string | null) {
       if (!isConnected) throw new Error('Sem conexão autenticada com a nuvem. Alterações locais preservadas.');
       if (isConnected) {
         const client = getSupabaseClient();
-        if (!client || !await flushQueue(client, syncUser)) throw new Error('Há alterações pendentes de envio.');
+        if (!client || !await flushQueue(client, syncUser)) {
+          if (inspectQueue(syncUser).corrupt.length) throw new CorruptSyncQueueError();
+          throw new Error('Há alterações pendentes de envio.');
+        }
         const syncKeys = [BASE_KEY_TRANSACTIONS, BASE_KEY_FIXED_INCOME, BASE_KEY_GOALS, BASE_KEY_DIVIDENDS];
         const snapshot = new Map(syncKeys.map(key => [key, localStorage.getItem(getScopedStorageKey(key, syncUser))]));
         const changed = (key: string) => snapshot.get(key) !== localStorage.getItem(getScopedStorageKey(key, syncUser));
@@ -132,6 +141,8 @@ export function usePortfolio(explicitUserId?: string | null) {
         if (currentSyncUserId.current !== syncUser) {
           return;
         }
+
+        if (inspectQueue(syncUser).corrupt.length) throw new CorruptSyncQueueError();
 
         // A response fetched before a local edit must never overwrite that edit.
         if (syncKeys.some(changed)) return;
@@ -262,6 +273,9 @@ export function usePortfolio(explicitUserId?: string | null) {
       }
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : 'Falha na sincronização. Dados locais preservados.');
+      if (currentSyncUserId.current === syncUser) {
+        setCorruptQueueCount(inspectQueue(syncUser).corrupt.length);
+      }
       setIsCloudConnected(false);
     } finally {
       syncRunning.current = false;
@@ -672,6 +686,22 @@ export function usePortfolio(explicitUserId?: string | null) {
     return JSON.stringify(data, null, 2);
   };
 
+  const exportCorruptQueue = () => {
+    const user = currentSyncUserId.current;
+    if (!user) return;
+    if (!inspectQueue(user).corrupt.length) return;
+    const entries = readRawQueue(user);
+    const file = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), entries }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'fii-tracker-fila-local-ilegivel.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   // Importar Backup JSON (com Batch Upsert no Supabase)
   const importBackup = async (jsonStr: string) => {
     const user = currentSyncUserId.current;
@@ -737,7 +767,9 @@ export function usePortfolio(explicitUserId?: string | null) {
     isCloudConnected,
     isSyncing,
     pendingChanges,
+    corruptQueueCount,
     syncError,
+    exportCorruptQueue,
     syncWithCloud,
     addTransaction,
     updateTransaction,
