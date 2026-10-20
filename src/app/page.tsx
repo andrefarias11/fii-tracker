@@ -80,6 +80,7 @@ export default function HomePage() {
     isCloudConnected,
     isSyncing,
     pendingChanges,
+    pendingFixedIncomeChanges,
     corruptQueueCount,
     syncError,
     exportCorruptQueue,
@@ -391,7 +392,7 @@ export default function HomePage() {
             </button>
             <p className="mt-2 text-xs text-amber-100/70">O arquivo pode conter dados da sua conta. Guarde-o em local privado para análise e recuperação.</p>
           </div>
-        ) : (pendingChanges > 0 || syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
+        ) : (pendingChanges > 0 || syncError) && !(activeTab === 'portfolio' && homeSubView === 'fixed_income' && pendingChanges === pendingFixedIncomeChanges && !syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
           {pendingChanges > 0 ? `${pendingChanges} alteração(ões) aguardando envio. ` : ''}{syncError}
           <button className="underline ml-2" onClick={() => syncWithCloud()}>Tentar sincronizar</button>
         </div>}
@@ -466,6 +467,9 @@ export default function HomePage() {
                     setIsFixedIncomeModalOpen(true);
                   }}
                   onResetDemo={resetFixedIncomeDemo}
+                  pendingSyncCount={corruptQueueCount > 0 ? 0 : pendingFixedIncomeChanges}
+                  isSyncing={isSyncing}
+                  onRetrySync={() => { void syncWithCloud(); }}
                 />
               </div>
             ) : (

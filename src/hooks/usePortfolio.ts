@@ -71,6 +71,7 @@ export function usePortfolio(explicitUserId?: string | null) {
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [pendingChanges, setPendingChanges] = useState(0);
+  const [pendingFixedIncomeChanges, setPendingFixedIncomeChanges] = useState(0);
   const [corruptQueueCount, setCorruptQueueCount] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncRunning = useRef(false);
@@ -78,6 +79,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     const update = () => {
       const queue = activeUserId ? inspectQueue(activeUserId) : { items: [], corrupt: [] };
       setPendingChanges(queue.items.length);
+      setPendingFixedIncomeChanges(queue.items.filter((item) => item.table === 'fixed_income_assets').length);
       setCorruptQueueCount(queue.corrupt.length);
     };
     update();
@@ -767,6 +769,7 @@ export function usePortfolio(explicitUserId?: string | null) {
     isCloudConnected,
     isSyncing,
     pendingChanges,
+    pendingFixedIncomeChanges,
     corruptQueueCount,
     syncError,
     exportCorruptQueue,

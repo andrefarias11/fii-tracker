@@ -6,10 +6,11 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 | --- | --- | --- |
 | P2 · média | Confirmação de sincronização de operações | Distinguir operação salva neste dispositivo de operação sincronizada na conta e oferecer recuperação visível quando a sincronização falhar. Definir comportamento offline antes de implementar; não depende de alteração de dados no Supabase. |
 | P2 · média | Restaurar fila local após diagnóstico | Oferecer fluxo seguro para validar e restaurar entradas a partir do arquivo exportado, com confirmação do usuário e sem substituir alterações pendentes existentes. |
-| P3 · baixa | Diferenciar falha local de falha de sincronização da Renda Fixa | Informar quando a gravação local foi concluída mas o envio à conta ficou pendente, com ação de nova tentativa; definir o estado offline antes de implementar. |
+| P3 · baixa | Confirmar envio por aplicação de Renda Fixa | Identificar quais aplicações ainda aguardam envio e confirmar individualmente após sincronização, inclusive exclusões, sem expor valores no modo Privacidade. |
 
 ## Concluídos
 
+- 5.1.21: área de Renda Fixa distingue alterações salvas no dispositivo e aguardando envio à conta, com nova tentativa e aviso global preservado para problemas de outros módulos.
 - 5.1.20: entradas ilegíveis pausam o envio e a conciliação, permanecem intactas no navegador e podem ser exportadas junto com toda a fila pendente para diagnóstico e recuperação manual.
 - 5.1.19: falha de gravação ou exclusão local da Renda Fixa aparece no formulário, preserva os dados para nova tentativa e não altera o estado ou inicia envio remoto.
 - 5.1.18: formulário de Renda Fixa associa rótulos aos campos e amplia alvos/foco; taxa zero permanece zero após leitura remota.
@@ -24,5 +25,6 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 ## Notas da auditoria
 
 - Operações são salvas localmente e enfileiradas para envio; a sincronização tenta novamente ao voltar a conexão e periodicamente. A interface já exibe pendências, erro e ação de nova tentativa. A confirmação por operação ainda precisa de definição para o caso offline e conta ausente.
+- O aviso contextual de Renda Fixa conta somente pendências da fila da conta ativa. Sem conta, alterações ficam locais e o contador permanece zero; a confirmação por aplicação deve cobrir esse estado.
 - `src/app/page.tsx` encaminha a exclusão do Extrato a `deleteTransaction` em `src/hooks/usePortfolio.ts`; o hook atualiza a lista local e agenda exclusão remota. Alterar a apresentação da confirmação não exige mudar esse fluxo.
 - A seleção de ativo fica no estado de `TransactionHistory`. Quando o último lançamento do ativo selecionado é removido, a seleção pode permanecer sem resultados; tratar em uma entrega própria para não misturar a mudança de comportamento com a ampliação dos botões.

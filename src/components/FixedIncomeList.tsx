@@ -16,6 +16,9 @@ interface FixedIncomeListProps {
   onAddNew: () => void;
   onEdit: (asset: FixedIncomeAsset) => void;
   onResetDemo: () => void;
+  pendingSyncCount?: number;
+  isSyncing?: boolean;
+  onRetrySync?: () => void;
 }
 
 export function FixedIncomeList({
@@ -25,6 +28,9 @@ export function FixedIncomeList({
   onAddNew,
   onEdit,
   onResetDemo,
+  pendingSyncCount = 0,
+  isSyncing = false,
+  onRetrySync,
 }: FixedIncomeListProps) {
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ •••••';
@@ -89,6 +95,25 @@ export function FixedIncomeList({
           Adicionar
         </button>
       </div>
+
+      {pendingSyncCount > 0 && (
+        <div role="status" className="rounded-2xl border border-amber-300/20 bg-[#1b1710] p-4 text-sm leading-relaxed text-amber-50">
+          <p className="font-semibold">Alterações de Renda Fixa neste dispositivo</p>
+          <p className="mt-1 text-amber-100/80">
+            {pendingSyncCount} {pendingSyncCount === 1 ? 'alteração aguarda' : 'alterações aguardam'} envio à sua conta.
+          </p>
+          {onRetrySync && (
+            <button
+              type="button"
+              onClick={onRetrySync}
+              disabled={isSyncing}
+              className="mt-2 min-h-11 rounded-lg border border-amber-200/40 px-3 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-60"
+            >
+              {isSyncing ? 'Sincronizando…' : 'Tentar sincronizar'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Lista de Ativos de Renda Fixa no Molde "Meus ativos" da XP */}
       {assets.length > 0 ? (
