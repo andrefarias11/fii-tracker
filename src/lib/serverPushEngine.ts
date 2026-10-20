@@ -749,7 +749,7 @@ export function computeDigestKey(events: CandidateAlertEvent[]): string {
 }
 
 /**
- * Monta o conteúdo do resumo diário respeitando a preferência de privacidade.
+ * Monta o conteúdo do alerta respeitando a preferência de privacidade.
  * No modo 'discreet' (padrão), NUNCA inclui patrimônio, quantidade de cotas ou valores pessoais.
  * Também nunca coloca valores financeiros ou dados sensíveis na URL.
  */
@@ -765,7 +765,7 @@ export function buildDailySummaryNotification(
   digestKey: string;
 } {
   if (events.length === 0) {
-    throw new Error('Não é possível gerar resumo diário sem eventos.');
+    throw new Error('Não é possível gerar alerta sem eventos.');
   }
 
   const primary = events[0];
@@ -830,7 +830,7 @@ export function buildDailySummaryNotification(
     };
   }
 
-  // Múltiplos eventos consolidados em um único Resumo Diário
+  // Agrupa em uma notificação os eventos encontrados na mesma execução do cron.
   const uniqueTickers = Array.from(new Set(events.map((e) => e.ticker)));
   const sources = Array.from(new Set(events.map((e) => formatSourceLabel(e.source)))).join('/');
 
@@ -860,7 +860,7 @@ export function buildDailySummaryNotification(
     : '';
 
   return {
-    title: `FII Tracker • Resumo diário (${uniqueTickers.length} ${
+    title: `FII Tracker • Novidades da carteira (${uniqueTickers.length} ${
       uniqueTickers.length === 1 ? 'ativo' : 'ativos'
     })`,
     body: `Eventos publicados: ${parts.join('; ')}${extraCount} (Fonte: ${sources}).${detailedSuffix} Toque para abrir em Proventos.`,
@@ -945,11 +945,12 @@ export async function runServerPushCron(params: {
   const candidateUsers = await params.storage.listCandidateUsers(nowIso);
   if (candidateUsers.length === 0) return metrics;
 
-  // 1. Filtra usuários elegíveis por horário/fuso OU que tenham digest pendente de recuperação
+  // 1. Avalia cada conta ativa em todas as execuções do cron. A frequência de
+  // verificação é definida pelo agendador externo; o histórico de eventos evita duplicatas.
   const dueUsers: Array<{
     prefs: ServerPushPreferences;
     localDate: string;
-    isScheduleDue: boolean;
+    shouldScan: boolean;
     recoverableDigests: StoredDailyDigest[];
     transactions: Transaction[];
   }> = [];
@@ -957,23 +958,13 @@ export async function runServerPushCron(params: {
   const allTickersSet = new Set<string>();
 
   for (const prefs of candidateUsers) {
-    const schedule = isUserDueForDailySummary(
-      now,
-      prefs.dailyTime,
-      prefs.timezone,
-      prefs.lastProcessedLocalDate
-    );
+    const localDate = getUserLocalDateTime(now, prefs.timezone).localDate;
     const recoverableDigests = await params.storage.getRecoverableDigests(prefs.userId, nowIso);
 
-    if (!schedule.due && recoverableDigests.length === 0) {
-      metrics.usersSkippedSchedule++;
-      continue;
-    }
-
     let transactions: Transaction[] = [];
-    if ( prefs.enabled && schedule.due ) {
+    if (prefs.enabled) {
       transactions = await params.storage.getUserTransactions(prefs.userId);
-      const activeTickers = extractActivePortfolioTickers(transactions, schedule.localDate);
+      const activeTickers = extractActivePortfolioTickers(transactions, localDate);
       for (const ticker of activeTickers) {
         allTickersSet.add(ticker);
       }
@@ -981,8 +972,8 @@ export async function runServerPushCron(params: {
 
     dueUsers.push({
       prefs,
-      localDate: schedule.localDate,
-      isScheduleDue: prefs.enabled && schedule.due,
+      localDate,
+      shouldScan: prefs.enabled,
       recoverableDigests,
       transactions,
     });
@@ -991,8 +982,7 @@ export async function runServerPushCron(params: {
   // 2. Consulta compartilhada de dados de mercado (uma única vez por ativo no lote)
   const uniqueTickers = Array.from(allTickersSet);
   metrics.tickersQueried = uniqueTickers.length;
-  const referenceDateForMarket =
-    dueUsers[0]?.localDate ||
+  const referenceDateForMarket = dueUsers[0]?.localDate ||
     now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
   let sharedAnnouncements: Record<
     string,
@@ -1264,8 +1254,8 @@ export async function runServerPushCron(params: {
 
   // 3. Processa cada usuário com reserva atômica (lock por usuário)
   for (const item of dueUsers) {
-    const { prefs, localDate, isScheduleDue, transactions } = item;
-    const userTickers = isScheduleDue
+    const { prefs, localDate, shouldScan, transactions } = item;
+    const userTickers = shouldScan
       ? extractActivePortfolioTickers(transactions, localDate)
       : [];
     const userMarketDataIncomplete = userTickers.some((ticker) => unavailableTickers.has(ticker));
@@ -1339,11 +1329,12 @@ export async function runServerPushCron(params: {
         );
       }
 
-      if (!isScheduleDue) {
+      if (!shouldScan) {
         continue;
       }
 
-      // 3b. Avalia novos eventos para o resumo diário
+      // 3b. Avalia novos eventos em cada execução; eventos já reservados ou enviados
+      // são excluídos pela chave persistente de ticker, tipo, referência e versão.
       const existingEvents = await params.storage.getExistingAlertEvents(prefs.userId);
       const candidateEvents = evaluateUserPortfolioEvents({
         localDate,

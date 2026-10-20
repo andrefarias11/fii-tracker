@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.5';
-export const APP_UPDATED_AT = '19/10/2026';
+export const APP_VERSION = '5.1.6';
+export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,12 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.6', date: '20/10/2026', highlights: [
+      'Push automático passa a verificar eventos elegíveis em cada execução do cron e envia novas confirmações ao longo do dia, com deduplicação persistente para evitar repetições.',
+      'Configurações esclarecem que a frequência depende do cron externo e mantêm o fuso horário para avaliar corretamente Data-Com e pagamentos.',
+    ],
+  },
   {
     version: '5.1.5', date: '19/10/2026', highlights: [
       'Adiciona o Fundamentus como fallback gratuito de proventos com campos explícitos e mantém a origem do dado na notificação.',

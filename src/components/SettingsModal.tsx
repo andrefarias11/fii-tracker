@@ -17,11 +17,11 @@ import {
   RefreshCw,
   Unlink,
   Bell,
+  Clock,
   Smartphone,
   Copy,
   LayoutGrid,
   ShieldCheck,
-  Clock,
   Lock,
 } from 'lucide-react';
 import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
@@ -473,7 +473,7 @@ export function SettingsModal({
             <div className="flex items-center gap-2">
               <Bell className={`w-4 h-4 ${pushPrefs.enabled ? 'text-[#f5b800]' : 'text-zinc-400'}`} />
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Alertas Diários no Servidor (Web Push)
+                Alertas ao Longo do Dia (Web Push)
               </h3>
             </div>
             <span
@@ -494,7 +494,7 @@ export function SettingsModal({
           </div>
 
           <p className="text-[11px] text-zinc-400 leading-relaxed mb-3">
-            Receba um <strong className="text-white">resumo diário</strong> com o PWA fechado quando houver{' '}
+            Receba alertas com o PWA fechado quando o servidor detectar eventos da carteira, como{' '}
             <strong className="text-white">novo anúncio confirmado</strong>,{' '}
             <strong className="text-white">alteração de provento</strong>,{' '}
             <strong className="text-white">Data-Com</strong> ou{' '}
@@ -550,7 +550,7 @@ export function SettingsModal({
 
           {/* Controle de ativação geral */}
           <label className="flex items-center justify-between gap-2 p-2.5 mb-2.5 rounded-xl bg-[#121215] border border-white/[0.06] cursor-pointer text-xs font-semibold text-white">
-            <span>Receber resumo diário de notificações</span>
+            <span>Receber alertas automáticos</span>
             <input
               type="checkbox"
               checked={pushPrefs.enabled}
@@ -559,48 +559,33 @@ export function SettingsModal({
             />
           </label>
 
-          {/* Horário Diário e Fuso Horário IANA */}
+          {/* Fuso horário para avaliar Data-Com e pagamento na data local */}
           <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
               <Clock className="w-3.5 h-3.5 text-[#f5b800]" />
-              <span>Horário e Fuso do Resumo Diário</span>
+              <span>Fuso horário dos eventos</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label htmlFor="push-daily-time" className="text-[10px] text-zinc-400 block mb-1">
-                  Horário preferido
-                </label>
-                <input
-                  id="push-daily-time"
-                  type="time"
-                  value={pushPrefs.dailyTime || '08:00'}
-                  onChange={(e) => void handleUpdatePushPref({ dailyTime: e.target.value || '08:00' })}
-                  className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2.5 py-1.5 text-xs text-white font-semibold outline-none focus:border-[#f5b800]/60 tabular-nums"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="push-timezone" className="text-[10px] text-zinc-400 block mb-1">
-                  Fuso horário (IANA)
-                </label>
-                <select
-                  id="push-timezone"
-                  value={pushPrefs.timezone || 'America/Sao_Paulo'}
-                  onChange={(e) => void handleUpdatePushPref({ timezone: e.target.value })}
-                  className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5b800]/60"
-                >
-                  {IANA_TIMEZONE_OPTIONS.map((tz) => (
-                    <option key={tz.value} value={tz.value} className="bg-[#121215] text-white">
-                      {tz.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <label htmlFor="push-timezone" className="text-[10px] text-zinc-400 block mb-1">
+                Fuso horário (IANA)
+              </label>
+              <select
+                id="push-timezone"
+                value={pushPrefs.timezone || 'America/Sao_Paulo'}
+                onChange={(e) => void handleUpdatePushPref({ timezone: e.target.value })}
+                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5b800]/60"
+              >
+                {IANA_TIMEZONE_OPTIONS.map((tz) => (
+                  <option key={tz.value} value={tz.value} className="bg-[#121215] text-white">
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <p className="text-[10px] text-zinc-500 leading-relaxed">
-              O servidor verifica novos eventos a partir do horário configurado conforme a janela de execução do agendador (ex.: a cada 5–15 min), enviando apenas quando existirem eventos relevantes.
+              O servidor verifica novos eventos em cada execução do cron e envia alertas únicos para anúncios confirmados, alterações, Data-Com e pagamentos. A frequência depende do cron externo; para começar, recomendamos executá-lo a cada 30 minutos.
             </p>
           </div>
 
