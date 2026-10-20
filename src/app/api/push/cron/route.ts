@@ -8,6 +8,25 @@ import {
 import { fetchVerifiedAnnouncementsBatch } from '../../../../lib/marketDividendSource';
 import { getServerVapidConfig, sendWebPushMessage } from '../../../../lib/webPushCrypto';
 
+function safeErrorSummary(error: unknown) {
+  if (error && typeof error === 'object') {
+    const candidate = error as { name?: unknown; code?: unknown; message?: unknown };
+    return {
+      name: typeof candidate.name === 'string' ? candidate.name : 'Error',
+      code: typeof candidate.code === 'string' ? candidate.code : undefined,
+      message:
+        typeof candidate.message === 'string'
+          ? candidate.message.slice(0, 300)
+          : 'Erro sem mensagem.',
+    };
+  }
+
+  return {
+    name: 'Error',
+    message: typeof error === 'string' ? error.slice(0, 300) : 'Erro desconhecido.',
+  };
+}
+
 async function handleCronRequest(request: NextRequest) {
   const auth = verifyCronAuthorization(request);
   if (!auth.ok) {
@@ -28,7 +47,9 @@ async function handleCronRequest(request: NextRequest) {
   let db;
   try {
     db = serverDatabase();
-  } catch {
+  } catch (error) {
+    // Não registrar headers, URL de autorização, payloads nem valores de usuário.
+    console.error('[push-cron] Falha durante o processamento.', safeErrorSummary(error));
     return NextResponse.json(
       { ok: false, error: 'Configuração de banco de dados do servidor ausente.' },
       { status: 503, headers: { 'Cache-Control': 'private, no-store' } }

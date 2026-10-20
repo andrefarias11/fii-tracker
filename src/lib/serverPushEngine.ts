@@ -1481,8 +1481,20 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
             .in('status', ['processing', 'retry_pending'])
             .lte('next_attempt_at', nowIso),
         ]);
-      if (err1) throw new Error('Falha ao listar preferências de Push.');
-      if (err2) throw new Error('Falha ao listar resumos pendentes.');
+      if (err1) {
+        console.error('[push-cron] Falha ao consultar preferências.', {
+          code: err1.code,
+          message: err1.message.slice(0, 300),
+        });
+        throw new Error('Falha ao listar preferências de Push.');
+      }
+      if (err2) {
+        console.error('[push-cron] Falha ao consultar resumos pendentes.', {
+          code: err2.code,
+          message: err2.message.slice(0, 300),
+        });
+        throw new Error('Falha ao listar resumos pendentes.');
+      }
 
       const map = new Map<string, ServerPushPreferences>();
       for (const row of enabledRows || []) {
