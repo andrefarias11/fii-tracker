@@ -70,9 +70,16 @@ async function handleCronRequest(request: NextRequest) {
       status: 200,
       headers: { 'Cache-Control': 'private, no-store' },
     });
-  } catch {
+  } catch (error) {
+    const diagnostic = safeErrorSummary(error);
+    // Não registrar headers, URL de autorização, payloads nem valores de usuário.
+    console.error('[push-cron] Falha durante o processamento.', diagnostic);
     return NextResponse.json(
-      { ok: false, error: 'Falha ao processar alertas agendados.' },
+      {
+        ok: false,
+        error: 'Falha ao processar alertas agendados.',
+        diagnostic,
+      },
       { status: 500, headers: { 'Cache-Control': 'private, no-store' } }
     );
   }

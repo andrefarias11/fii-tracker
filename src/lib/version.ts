@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.2';
+export const APP_VERSION = '5.1.3';
 export const APP_UPDATED_AT = '19/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,11 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.3', date: '19/10/2026', highlights: [
+      'Registra e retorna diagnóstico sanitizado para falhas no processamento do cron Push, sem expor segredos ou dados de usuário.',
+    ],
+  },
   {
     version: '5.1.2', date: '19/10/2026', highlights: [
       'Adiciona diagnóstico seguro para falhas do cron Push nos logs do servidor, sem registrar tokens, cabeçalhos ou dados de usuário.',
