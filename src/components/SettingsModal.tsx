@@ -935,31 +935,31 @@ export function SettingsModal({
           <section className="mt-3 pt-3 border-t border-white/[0.06]" aria-labelledby="push-history-heading">
             <div className="flex items-start justify-between gap-3 mb-2">
               <div>
-                <h3 id="push-history-heading" className="text-[11px] font-bold text-white">Central de Alertas</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Histórico recente, origem e estado do envio</p>
+                <h3 id="push-history-heading" className="text-xs font-bold text-white">Central de Alertas</h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Histórico recente, origem e estado do envio</p>
               </div>
               <button
                 type="button"
                 onClick={() => void refreshPushState()}
                 disabled={isLoadingPushState || isLoadingPushHistory}
                 aria-label="Atualizar histórico de alertas"
-                className="p-1.5 rounded-lg bg-[#121215] text-zinc-400 hover:text-white disabled:opacity-50"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#121215] text-zinc-400 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPushHistory ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
             {pushHistoryError ? (
-              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-rose-300">{pushHistoryError}</div>
+              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-rose-300">{pushHistoryError}</div>
             ) : (isLoadingPushHistory || (!pushHistory && !pushHistoryError)) ? (
-              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-zinc-500">Carregando alertas...</div>
+              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-zinc-400">Carregando alertas...</div>
             ) : pushHistory?.items.length ? (
               <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
                 {pushHistory.items.map((item) => (
                   <article key={item.id} className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.04]">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-[10px] text-zinc-500">{item.createdAt ? `Detectado ${new Date(item.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : `Data ${item.localDate.split('-').reverse().join('/')}`}{item.sentAt ? ` · Enviado ${new Date(item.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}` : ''}</span>
-                      <span className={`text-[9px] font-semibold text-right ${item.deliveries.accepted > 0 ? 'text-emerald-400' : item.status === 'failed' ? 'text-rose-300' : 'text-amber-300'}`}>
+                      <span className="min-w-0 text-[11px] leading-snug text-zinc-400">{item.createdAt ? `Detectado ${new Date(item.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : `Data ${item.localDate.split('-').reverse().join('/')}`}{item.sentAt ? ` · Enviado ${new Date(item.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}` : ''}</span>
+                      <span className={`shrink-0 text-[11px] font-semibold text-right ${item.deliveries.accepted > 0 ? 'text-emerald-400' : item.status === 'failed' ? 'text-rose-300' : 'text-amber-300'}`}>
                         {formatAlertHistoryStatus(item)}
                       </span>
                     </div>
@@ -968,7 +968,7 @@ export function SettingsModal({
                         <div key={`${event.eventType}-${event.ticker}-${index}`} className="text-[11px] leading-snug text-zinc-300">
                           <span className="font-bold text-white">{event.ticker}</span>
                           <span className="text-zinc-400"> · {event.headline}</span>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[9px] text-zinc-500">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-400">
                             <span>{formatAlertSource(event.source)}</span>
                             {event.date && <span>{new Date(`${event.date}T12:00:00-03:00`).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>}
                             {event.sourceUrl && (
@@ -982,15 +982,15 @@ export function SettingsModal({
                     </div>
                   </article>
                 ))}
-                <p className="px-1 text-[9px] leading-snug text-zinc-600">“Aceito” significa que o serviço Push recebeu o envio; não confirma exibição ou leitura no aparelho.</p>
+                <p className="px-1 text-[11px] leading-snug text-zinc-400">“Aceito” significa que o serviço Push recebeu o envio; não confirma exibição ou leitura no aparelho.</p>
                 {pushHistory.nextCursor !== null && (
-                  <button type="button" onClick={() => void loadMorePushHistory()} disabled={isLoadingMorePushHistory} className="w-full py-2 rounded-lg bg-[#121215] text-[10px] font-semibold text-zinc-300 hover:text-white disabled:opacity-50">
+                  <button type="button" onClick={() => void loadMorePushHistory()} disabled={isLoadingMorePushHistory} className="min-h-11 w-full rounded-lg bg-[#121215] text-[11px] font-semibold text-zinc-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50">
                     {isLoadingMorePushHistory ? 'Carregando...' : 'Carregar mais'}
                   </button>
                 )}
               </div>
             ) : (
-              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-zinc-500">Ainda não há alertas no histórico. As verificações sem evento continuam disponíveis no estado deste aparelho acima.</div>
+              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-zinc-400">Ainda não há alertas no histórico. As verificações sem evento continuam disponíveis no estado deste aparelho acima.</div>
             )}
           </section>
 
