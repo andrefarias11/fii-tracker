@@ -576,7 +576,6 @@ export function usePortfolio(explicitUserId?: string | null) {
 
   // Salvar renda fixa localmente
   const persistFixedIncome = (newList: FixedIncomeAsset[]) => {
-    setFixedIncomeAssets(newList);
     try {
       localStorage.setItem(
         getScopedStorageKey(BASE_KEY_FIXED_INCOME, currentSyncUserId.current),
@@ -584,7 +583,9 @@ export function usePortfolio(explicitUserId?: string | null) {
       );
     } catch (e) {
       console.error('Erro ao salvar renda fixa:', e);
+      throw new Error('Não foi possível salvar a Renda Fixa neste dispositivo. Verifique o espaço disponível e tente novamente.');
     }
+    setFixedIncomeAssets(newList);
   };
 
   const addFixedIncomeAsset = async (data: Omit<FixedIncomeAsset, 'id' | 'updatedAt'>) => {

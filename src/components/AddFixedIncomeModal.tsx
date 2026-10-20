@@ -165,7 +165,6 @@ export function AddFixedIncomeModal({
     setFormError(null);
 
     setIsSubmitting(true);
-    triggerHaptic('success');
 
     try {
       if (editingAsset && onUpdate) {
@@ -193,9 +192,11 @@ export function AddFixedIncomeModal({
           notes: notes.trim() || undefined,
         });
       }
+      triggerHaptic('success');
       onClose();
     } catch (err) {
       console.error('Erro ao salvar renda fixa:', err);
+      setFormError('Não foi possível salvar a aplicação neste dispositivo. Confira o espaço disponível e tente novamente. Seus dados continuam preenchidos.');
     } finally {
       setIsSubmitting(false);
     }
@@ -204,9 +205,15 @@ export function AddFixedIncomeModal({
   const handleDelete = async () => {
     if (!editingAsset || !onDelete) return;
     if (confirm(`Excluir permanentemente "${editingAsset.name}"?`)) {
-      triggerHaptic('medium');
-      await onDelete(editingAsset.id);
-      onClose();
+      try {
+        setFormError(null);
+        await onDelete(editingAsset.id);
+        triggerHaptic('medium');
+        onClose();
+      } catch (err) {
+        console.error('Erro ao excluir renda fixa:', err);
+        setFormError('Não foi possível excluir a aplicação neste dispositivo. Tente novamente.');
+      }
     }
   };
 

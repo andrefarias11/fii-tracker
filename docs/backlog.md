@@ -6,10 +6,11 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 | --- | --- | --- |
 | P2 · média | Confirmação de sincronização de operações | Distinguir operação salva neste dispositivo de operação sincronizada na conta e oferecer recuperação visível quando a sincronização falhar. Definir comportamento offline antes de implementar; não depende de alteração de dados no Supabase. |
 | P2 · média | Recuperação de fila local corrompida | Preservar os dados brutos de alterações pendentes ilegíveis, impedir conciliação que possa sobrescrevê-las e oferecer diagnóstico e recuperação explícitos. Definir fluxo seguro antes de alterar `readQueue`. |
-| P3 · baixa | Revisar a recuperação de falha ao salvar Renda Fixa | Mostrar erro compreensível se o salvamento falhar, manter os dados preenchidos e permitir nova tentativa. |
+| P3 · baixa | Diferenciar falha local de falha de sincronização da Renda Fixa | Informar quando a gravação local foi concluída mas o envio à conta ficou pendente, com ação de nova tentativa; definir o estado offline antes de implementar. |
 
 ## Concluídos
 
+- 5.1.19: falha de gravação ou exclusão local da Renda Fixa aparece no formulário, preserva os dados para nova tentativa e não altera o estado ou inicia envio remoto.
 - 5.1.18: formulário de Renda Fixa associa rótulos aos campos e amplia alvos/foco; taxa zero permanece zero após leitura remota.
 - 5.1.17: lista de Renda Fixa ganha alvos de 44 px, foco visível e edição contextual; formulário rejeita entradas numéricas inválidas e preserva taxa zero.
 - 5.1.16: ações do aviso de instalação no iPhone têm alvos de 44 px, foco visível e nome acessível específico.
