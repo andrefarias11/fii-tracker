@@ -7,6 +7,7 @@ import {
 } from '../../../../lib/serverPushEngine';
 import { fetchVerifiedAnnouncementsBatch } from '../../../../lib/marketDividendSource';
 import { getServerVapidConfig, sendWebPushMessage } from '../../../../lib/webPushCrypto';
+import { fetchRelevantPushNews } from '../../../../lib/pushNewsSource';
 
 function safeErrorSummary(error: unknown) {
   if (error && typeof error === 'object') {
@@ -62,6 +63,7 @@ async function handleCronRequest(request: NextRequest) {
       storage,
       marketFetcher: (tickers, referenceDateIso) =>
         fetchVerifiedAnnouncementsBatch(tickers, { referenceDateIso }),
+      newsFetcher: fetchRelevantPushNews,
       pushSender: (subscription, payload) =>
         sendWebPushMessage(subscription, payload, vapidConfig),
     });

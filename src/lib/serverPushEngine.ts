@@ -16,6 +16,7 @@ import type {
   WebPushSendResult,
   WebPushSubscriptionInput,
 } from './webPushCrypto';
+import { filterPushNewsForUser } from './pushNewsSource';
 
 export type NotificationPrivacyMode = 'discreet' | 'detailed';
 
@@ -34,6 +35,9 @@ export interface ServerPushPreferences {
   notifyConfirmedDividend: boolean;
   notifyExDate: boolean;
   notifyPaymentDay: boolean;
+  notifyImportantNews?: boolean;
+  notifyMacroNews?: boolean;
+  notifyMarketSession?: boolean;
   notifyPriceOpportunity: boolean;
   notifyMarketBargain: boolean;
   notifyMentorConsensus: boolean;
@@ -84,7 +88,7 @@ export interface CandidateAlertEvent {
   eventType: PushAlertEventType;
   eventReference: string;
   dataVersion: string;
-  source: VerifiedDividendSourceName;
+  source: VerifiedDividendSourceName | 'GOOGLE_NEWS' | 'BANCO_CENTRAL' | 'B3';
   sourceEventDate: string;
   amountPerShare: number;
   exDate: string;
@@ -93,6 +97,8 @@ export interface CandidateAlertEvent {
   paymentDateBr: string;
   eligibleShares: number;
   personalTotalAmount: number;
+  headline?: string;
+  eventUrl?: string;
   previousAmountPerShare?: number;
   previousExDate?: string;
   previousPaymentDate?: string;
@@ -261,6 +267,9 @@ export const DEFAULT_SERVER_PUSH_PREFS: Omit<ServerPushPreferences, 'userId'> = 
   notifyConfirmedDividend: true,
   notifyExDate: true,
   notifyPaymentDay: true,
+  notifyImportantNews: true,
+  notifyMacroNews: true,
+  notifyMarketSession: true,
   notifyPriceOpportunity: true,
   notifyMarketBargain: true,
   notifyMentorConsensus: true,
@@ -300,6 +309,9 @@ export function sanitizePushPreferencesInput(
       typeof input.notifyPaymentDay === 'boolean'
         ? input.notifyPaymentDay
         : fallback.notifyPaymentDay,
+    notifyImportantNews: typeof input.notifyImportantNews === 'boolean' ? input.notifyImportantNews : fallback.notifyImportantNews,
+    notifyMacroNews: typeof input.notifyMacroNews === 'boolean' ? input.notifyMacroNews : fallback.notifyMacroNews,
+    notifyMarketSession: typeof input.notifyMarketSession === 'boolean' ? input.notifyMarketSession : fallback.notifyMarketSession,
     notifyPriceOpportunity:
       typeof input.notifyPriceOpportunity === 'boolean'
         ? input.notifyPriceOpportunity
@@ -734,10 +746,13 @@ export function evaluateUserPortfolioEvents(params: {
 const formatPublicBRL = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-function formatSourceLabel(source: VerifiedDividendSourceName): string {
+function formatSourceLabel(source: CandidateAlertEvent['source']): string {
   if (source === 'STATUS_INVEST') return 'StatusInvest';
   if (source === 'FUNDAMENTUS') return 'Fundamentus';
-  return 'Brapi';
+  if (source === 'BRAPI') return 'Brapi';
+  if (source === 'GOOGLE_NEWS') return 'notícias';
+  if (source === 'BANCO_CENTRAL') return 'Banco Central';
+  return 'B3';
 }
 
 export function computeDigestKey(events: CandidateAlertEvent[]): string {
@@ -769,6 +784,39 @@ export function buildDailySummaryNotification(
   }
 
   const primary = events[0];
+  const nonDividend = events.find((event) => ['FII_NEWS', 'MACRO_NEWS', 'MARKET_OPEN', 'MARKET_CLOSE'].includes(event.eventType));
+  if (nonDividend) {
+    const title = nonDividend.eventType === 'MARKET_OPEN'
+      ? 'FII Tracker • A B3 abriu'
+      : nonDividend.eventType === 'MARKET_CLOSE'
+        ? 'FII Tracker • A B3 encerrou o pregão'
+        : nonDividend.eventType === 'MACRO_NEWS'
+          ? 'FII Tracker • Atualização macroeconômica'
+          : `FII Tracker • Notícia relevante${nonDividend.ticker !== 'B3' ? ` (${nonDividend.ticker})` : ''}`;
+    const fallbackHeadline = nonDividend.eventType === 'MARKET_OPEN'
+      ? 'O pregão da B3 começou. Acompanhe seus ativos.'
+      : nonDividend.eventType === 'MARKET_CLOSE'
+        ? 'O pregão da B3 terminou. Confira o fechamento dos seus ativos.'
+        : 'Há uma nova atualização que pode afetar seus investimentos.';
+    const headlineParts = events.filter((event) => event.headline).slice(0, 3).map((event) => event.headline!);
+    const dividendParts = events.filter((event) =>
+      event.eventType === 'DIVIDEND_ANNOUNCED' || event.eventType === 'DIVIDEND_UPDATED' ||
+      event.eventType === 'EX_DATE_REMINDER' || event.eventType === 'PAYMENT_REMINDER'
+    ).slice(0, 2).map((event) => {
+      if (event.eventType === 'PAYMENT_REMINDER') return `${event.ticker}: pagamento hoje`;
+      if (event.eventType === 'EX_DATE_REMINDER') return `${event.ticker}: Data-Com ${event.exDateBr}`;
+      return `${event.ticker}: provento de ${formatPublicBRL(event.amountPerShare)}/cota`;
+    });
+    const headlines = [...(headlineParts.length ? headlineParts : [nonDividend.headline || fallbackHeadline]), ...dividendParts];
+    const url = buildSafePushUrl({
+      tab: nonDividend.eventType === 'FII_NEWS' ? 'proventos' : 'radar',
+      ticker: nonDividend.ticker === 'MACRO' || nonDividend.ticker === 'B3' ? null : nonDividend.ticker,
+      date: nonDividend.sourceEventDate,
+      eventType: nonDividend.eventType,
+    });
+    const digestKey = computeDigestKey(events);
+    return { title, body: headlines.join(' • ').slice(0, 220), url, tag: `fii-digest-${localDate}-${digestKey.slice(0, 10)}`, digestKey };
+  }
   const targetDate =
     primary.eventType === 'EX_DATE_REMINDER' ? primary.exDate : primary.paymentDate;
   const url = buildSafePushUrl({
@@ -785,7 +833,7 @@ export function buildDailySummaryNotification(
   if (events.length === 1) {
     const ev = events[0];
     const srcLabel = formatSourceLabel(ev.source);
-    const perShareStr = `${formatPublicBRL(ev.amountPerShare)}/cota`;
+    const perShareStr = `${formatPublicBRL(ev.amountPerShare ?? 0)}/cota`;
     const personalSuffix = isDetailed
       ? ` • Sua posição elegível (${ev.eligibleShares} ${ev.eligibleShares === 1 ? 'cota' : 'cotas'}): ${formatPublicBRL(ev.personalTotalAmount)}.`
       : '';
@@ -909,6 +957,7 @@ export async function runServerPushCron(params: {
     | Record<string, VerifiedDividendAnnouncement | VerifiedDividendAnnouncement[]>
     | VerifiedAnnouncementsBatch
   >;
+  newsFetcher?: (tickers: string[], now: Date) => Promise<CandidateAlertEvent[]>;
   pushSender: (
     subscription: WebPushSubscriptionInput,
     payload: WebPushPayloadInput
@@ -1006,6 +1055,11 @@ export async function runServerPushCron(params: {
       // Uma falha agregada também fica pendente para nova tentativa, sem interromper o lote.
       unavailableTickers = new Set(uniqueTickers);
     }
+  }
+  let sharedNews: CandidateAlertEvent[] = [];
+  if (params.newsFetcher) {
+    try { sharedNews = await params.newsFetcher(uniqueTickers, now); }
+    catch (error) { console.warn('[push-cron] Fontes de notícias temporariamente indisponíveis.', error instanceof Error ? error.message : 'erro'); }
   }
   metrics.tickersUnavailable = unavailableTickers.size;
   if (metrics.tickersUnavailable > 0) {
@@ -1302,8 +1356,13 @@ export async function runServerPushCron(params: {
           ) return false;
           if (event.eventType === 'EX_DATE_REMINDER' && !currentPrefs.notifyExDate) return false;
           if (event.eventType === 'PAYMENT_REMINDER' && !currentPrefs.notifyPaymentDay) return false;
-          if (event.paymentDate < recoveryDate) return false;
-          if (event.eventType === 'EX_DATE_REMINDER' && event.exDate < recoveryDate) return false;
+          if (event.eventType === 'FII_NEWS' && currentPrefs.notifyImportantNews === false) return false;
+          if (event.eventType === 'MACRO_NEWS' && currentPrefs.notifyMacroNews === false) return false;
+          if ((event.eventType === 'MARKET_OPEN' || event.eventType === 'MARKET_CLOSE') && currentPrefs.notifyMarketSession === false) return false;
+          if ((event.eventType === 'MARKET_OPEN' || event.eventType === 'MARKET_CLOSE') && event.sourceEventDate !== recoveryDate) return false;
+          if ((event.eventType === 'FII_NEWS' || event.eventType === 'MACRO_NEWS') && event.sourceEventDate < addCalendarDays(recoveryDate, -2)) return false;
+          if (event.paymentDate && event.paymentDate < recoveryDate) return false;
+          if (event.eventType === 'EX_DATE_REMINDER' && event.exDate && event.exDate < recoveryDate) return false;
           return true;
         });
         if (recoverableEvents.length === 0) {
@@ -1343,6 +1402,11 @@ export async function runServerPushCron(params: {
         announcements: sharedAnnouncements,
         existingEvents,
       });
+      const newsEvents = filterPushNewsForUser(sharedNews, currentPrefs, userTickers);
+      candidateEvents.push(...newsEvents.filter((event) => !existingEvents.some((stored) =>
+        stored.ticker === event.ticker && stored.eventType === event.eventType &&
+        stored.eventReference === event.eventReference && stored.dataVersion === event.dataVersion
+      )));
 
       if (candidateEvents.length === 0) {
         if (userMarketDataIncomplete) {
@@ -1447,6 +1511,9 @@ function mapDbRowToServerPrefs(row: Record<string, unknown>): ServerPushPreferen
     notifyConfirmedDividend: row.notify_confirmed_dividend !== false,
     notifyExDate: row.notify_ex_date !== false,
     notifyPaymentDay: row.notify_payment_day !== false,
+    notifyImportantNews: row.notify_important_news !== false,
+    notifyMacroNews: row.notify_macro_news !== false,
+    notifyMarketSession: row.notify_market_session !== false,
     notifyPriceOpportunity: row.notify_price_opportunity !== false,
     notifyMarketBargain: row.notify_market_bargain !== false,
     notifyMentorConsensus: row.notify_mentor_consensus !== false,
@@ -1604,6 +1671,9 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
         notify_confirmed_dividend: merged.notifyConfirmedDividend,
         notify_ex_date: merged.notifyExDate,
         notify_payment_day: merged.notifyPaymentDay,
+        notify_important_news: merged.notifyImportantNews,
+        notify_macro_news: merged.notifyMacroNews,
+        notify_market_session: merged.notifyMarketSession,
         notify_price_opportunity: merged.notifyPriceOpportunity,
         notify_market_bargain: merged.notifyMarketBargain,
         notify_mentor_consensus: merged.notifyMentorConsensus,

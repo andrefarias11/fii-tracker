@@ -275,9 +275,9 @@ export function SettingsModal({
       | 'notifyConfirmedDividend'
       | 'notifyPaymentDay'
       | 'notifyExDate'
-      | 'notifyMarketBargain'
-      | 'notifyMentorConsensus'
-      | 'notifyPriceOpportunity'
+      | 'notifyImportantNews'
+      | 'notifyMacroNews'
+      | 'notifyMarketSession'
   ) => {
     void handleUpdatePushPref({ [key]: !pushPrefs[key] });
   };
@@ -651,16 +651,16 @@ export function SettingsModal({
                 label: '⚡ Lembretes de véspera e dia de Data-Com',
               },
               {
-                key: 'notifyMarketBargain' as const,
-                label: '🔥 Oportunidade na B3 (FII descontado no Radar local)',
+                key: 'notifyImportantNews' as const,
+                label: 'Notícias materiais sobre FIIs da carteira (inadimplência, vacância, emissões e fatos relevantes)',
               },
               {
-                key: 'notifyMentorConsensus' as const,
-                label: '🏆 Consenso dos Mentores (Barsi + Buffett + Graham)',
+                key: 'notifyMacroNews' as const,
+                label: 'Comunicados macro do Banco Central (Copom, Selic e Focus)',
               },
               {
-                key: 'notifyPriceOpportunity' as const,
-                label: '📉 FII da carteira abaixo do Preço Médio',
+                key: 'notifyMarketSession' as const,
+                label: 'Abertura e fechamento do pregão regular da B3',
               },
             ].map((opt) => (
               <label

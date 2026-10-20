@@ -4,13 +4,21 @@ export type PushAlertEventType =
   | 'DIVIDEND_ANNOUNCED'
   | 'DIVIDEND_UPDATED'
   | 'EX_DATE_REMINDER'
-  | 'PAYMENT_REMINDER';
+  | 'PAYMENT_REMINDER'
+  | 'FII_NEWS'
+  | 'MACRO_NEWS'
+  | 'MARKET_OPEN'
+  | 'MARKET_CLOSE';
 
 const ALLOWED_EVENT_TYPES = new Set<PushAlertEventType>([
   'DIVIDEND_ANNOUNCED',
   'DIVIDEND_UPDATED',
   'EX_DATE_REMINDER',
   'PAYMENT_REMINDER',
+  'FII_NEWS',
+  'MACRO_NEWS',
+  'MARKET_OPEN',
+  'MARKET_CLOSE',
 ]);
 
 export interface PushNavigationTarget {

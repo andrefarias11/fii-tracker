@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.6';
+export const APP_VERSION = '5.1.7';
 export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,12 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.7', date: '20/10/2026', highlights: [
+      'Adiciona alertas Push de notícias materiais recentes sobre FIIs da carteira, comunicados macro do Banco Central e abertura/fechamento da B3, com deduplicação por evento.',
+      'Expõe apenas categorias de notificação processadas no servidor e deixa explícito que a frequência e o atraso dependem do cron externo.',
+    ],
+  },
   {
     version: '5.1.6', date: '20/10/2026', highlights: [
       'Push automático passa a verificar eventos elegíveis em cada execução do cron e envia novas confirmações ao longo do dia, com deduplicação persistente para evitar repetições.',

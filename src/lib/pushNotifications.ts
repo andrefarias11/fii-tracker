@@ -14,6 +14,9 @@ export interface PushPreferences {
   notifyPaymentDay: boolean; // Dia em que o provento está anunciado para pagamento
   notifyExDate: boolean; // Véspera e dia de Data-Com
   notifyConfirmedDividend: boolean; // Novo anúncio confirmado ou alteração confirmada de provento
+  notifyImportantNews: boolean;
+  notifyMacroNews: boolean;
+  notifyMarketSession: boolean;
   notifyPriceOpportunity: boolean; // Quando um FII da carteira fica abaixo do Preço Médio
   notifyMarketBargain: boolean; // Oportunidade na B3
   notifyMentorConsensus: boolean; // Consenso de mentores
@@ -100,6 +103,9 @@ export const DEFAULT_PUSH_PREFERENCES: PushPreferences = {
   notifyPaymentDay: true,
   notifyExDate: true,
   notifyConfirmedDividend: true,
+  notifyImportantNews: true,
+  notifyMacroNews: true,
+  notifyMarketSession: true,
   notifyPriceOpportunity: true,
   notifyMarketBargain: true,
   notifyMentorConsensus: true,
@@ -148,6 +154,9 @@ function normalizePreferences(raw: Partial<PushPreferences> | null | undefined):
       typeof raw.notifyConfirmedDividend === 'boolean'
         ? raw.notifyConfirmedDividend
         : DEFAULT_PUSH_PREFERENCES.notifyConfirmedDividend,
+    notifyImportantNews: typeof raw.notifyImportantNews === 'boolean' ? raw.notifyImportantNews : DEFAULT_PUSH_PREFERENCES.notifyImportantNews,
+    notifyMacroNews: typeof raw.notifyMacroNews === 'boolean' ? raw.notifyMacroNews : DEFAULT_PUSH_PREFERENCES.notifyMacroNews,
+    notifyMarketSession: typeof raw.notifyMarketSession === 'boolean' ? raw.notifyMarketSession : DEFAULT_PUSH_PREFERENCES.notifyMarketSession,
     notifyPriceOpportunity:
       typeof raw.notifyPriceOpportunity === 'boolean'
         ? raw.notifyPriceOpportunity
