@@ -204,7 +204,7 @@ export function TransactionHistory({
                   return (
                     <div
                       key={tx.id}
-                      className="p-4 flex items-center justify-between gap-2"
+                      className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -255,10 +255,10 @@ export function TransactionHistory({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:w-auto sm:shrink-0">
                         {!isConfirming && (
                           <span
-                            className={`text-sm font-bold mr-1 tabular-nums ${
+                            className={`mr-auto text-sm font-bold tabular-nums sm:mr-1 ${
                               isDividend
                                 ? 'text-emerald-400'
                                 : isSell
@@ -272,22 +272,23 @@ export function TransactionHistory({
                         )}
 
                         {isConfirming ? (
-                          <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                          <div className="flex flex-wrap items-center justify-end gap-1 animate-in fade-in duration-150">
                             <button
                               type="button"
                               onClick={() => {
                                 onDeleteTransaction(tx.id);
                                 setConfirmingDeleteId(null);
                               }}
-                              className="px-3 py-1 rounded-full bg-rose-500 text-white text-[11px] font-bold hover:bg-rose-600 active:scale-95 transition-all"
+                              className="inline-flex min-h-11 items-center justify-center rounded-full bg-rose-500 px-4 text-xs font-bold text-white hover:bg-rose-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
+                              aria-label={`Confirmar exclusão da operação de ${tx.ticker} em ${formatDate(tx.date)}`}
                             >
-                              Excluir?
+                              Confirmar exclusão
                             </button>
                             <button
                               type="button"
                               onClick={() => setConfirmingDeleteId(null)}
-                              className="p-1.5 rounded-full bg-white/[0.06] text-zinc-400 hover:text-white"
-                              title="Cancelar"
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/[0.06] text-zinc-400 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                              aria-label={`Cancelar exclusão da operação de ${tx.ticker} em ${formatDate(tx.date)}`}
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -298,8 +299,8 @@ export function TransactionHistory({
                               <button
                                 type="button"
                                 onClick={() => onEditTransaction(tx)}
-                                className="p-1.5 rounded-full text-zinc-500 hover:text-[#f5b800] hover:bg-white/[0.04] active:scale-95 transition-all"
-                                title="Editar operação"
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-zinc-400 hover:text-[#f5b800] hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] active:scale-95 transition-all"
+                                aria-label={`Editar operação de ${tx.ticker} em ${formatDate(tx.date)}`}
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -307,8 +308,8 @@ export function TransactionHistory({
                             <button
                               type="button"
                               onClick={() => setConfirmingDeleteId(tx.id)}
-                              className="p-1.5 rounded-full text-zinc-500 hover:text-rose-400 hover:bg-white/[0.04] active:scale-95 transition-all"
-                              title="Excluir operação"
+                              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-zinc-400 hover:text-rose-400 hover:bg-white/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
+                              aria-label={`Excluir operação de ${tx.ticker} em ${formatDate(tx.date)}`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
