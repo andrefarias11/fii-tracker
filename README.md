@@ -24,7 +24,7 @@ Variáveis principais (sem valores secretos):
 - `VAPID_PRIVATE_KEY`: chave privada VAPID (escalar P-256 de 32 bytes em `base64url`) mantida exclusivamente no servidor para assinar tokens JWT ES256 (RFC 8292).
 - `VAPID_SUBJECT`: contato do emissor VAPID (ex.: `mailto:seu-email@example.com`).
 - `CRON_SECRET`: segredo exclusivo com pelo menos 16 caracteres (distinto de `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET` e `VAPID_PRIVATE_KEY`) para autenticar o endpoint `/api/push/cron`.
-- `BRAPI_TOKEN` (opcional): token da Brapi usado como fonte secundária verificável de proventos anunciados quando o StatusInvest estiver indisponível.
+- `BRAPI_TOKEN`: token privado da Brapi usado como fonte secundária de proventos quando o StatusInvest estiver indisponível. Configure-o no servidor (por exemplo, Vercel); a rota de dividendos de FIIs da Brapi usa a API v2 e requer o plano Pro.
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD` (mín. 12 caracteres) e `ADMIN_SECRET` (mín. 32 caracteres): credenciais do painel administrativo.
 
 ### Banco de Dados e Migrations

@@ -871,20 +871,43 @@ test('verified market source retains multiple payout cycles and rejects inferred
           return new Response('unavailable', { status: 503 });
         }
         return new Response(JSON.stringify({
-          results: [{
-            dividendsData: {
-              cashDividends: [{
-                rate: 1.1,
-                approvedOn: '2026-10-10T00:00:00.000Z',
-                lastDatePrior: null,
-                paymentDate: '2026-10-25T00:00:00.000Z',
-              }],
-            },
+          dividends: [{
+            rate: 1.1,
+            approvedOn: '2026-10-10T00:00:00.000Z',
+            lastDatePrior: null,
+            exDate: '2026-10-15 00:00:00+00',
+            paymentDate: '2026-10-25 00:00:00+00',
           }],
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       },
     });
     assert.deepEqual(fallback, []);
+
+    clearAnnouncementCache();
+    let brapiUrl = '';
+    let brapiAuthorization = '';
+    const verifiedFallback = await fetchVerifiedAnnouncementForTicker('HGLG11', {
+      referenceDateIso: '2026-10-19',
+      bypassCache: true,
+      fetchImpl: async (input, init) => {
+        if (String(input).includes('statusinvest.com.br')) {
+          return new Response('unavailable', { status: 503 });
+        }
+        brapiUrl = String(input);
+        brapiAuthorization = new Headers(init?.headers).get('Authorization') || '';
+        return new Response(JSON.stringify({
+          dividends: [{
+            rate: 1.1,
+            lastDatePrior: '2026-10-14 00:00:00+00',
+            paymentDate: '2026-10-25 00:00:00+00',
+          }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      },
+    });
+    assert.equal(brapiUrl, 'https://brapi.dev/api/v2/fii/dividends?symbols=HGLG11');
+    assert.equal(brapiAuthorization, 'Bearer test-token');
+    assert.equal(verifiedFallback[0]?.exDate, '2026-10-14');
+    assert.equal(verifiedFallback[0]?.paymentDate, '2026-10-25');
 
     clearAnnouncementCache();
     await assert.rejects(

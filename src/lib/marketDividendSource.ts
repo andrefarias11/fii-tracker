@@ -37,7 +37,7 @@ export function normalizeBrOrIsoDate(value?: string | null): { iso: string; br: 
   }
 
   // ISO datetime string (e.g. from Brapi: "2026-10-15T00:00:00.000Z")
-  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
+  if (/^\d{4}-\d{2}-\d{2}[T ]/.test(trimmed)) {
     const datePart = trimmed.slice(0, 10);
     if (!isValidIsoCalendarDate(datePart)) return null;
     const [y, m, d] = datePart.split('-');
@@ -137,15 +137,11 @@ interface BrapiCashDividend {
   rate?: number;
   approvedOn?: string;
   lastDatePrior?: string;
+  exDate?: string;
 }
 
 interface BrapiDividendResponse {
-  results?: Array<{
-    symbol?: string;
-    dividendsData?: {
-      cashDividends?: BrapiCashDividend[];
-    };
-  }>;
+  dividends?: BrapiCashDividend[];
 }
 
 const BROWSER_HEADERS = {
@@ -239,21 +235,25 @@ async function fetchFromBrapi(
   if (!token) return { announcements: [], available: false };
 
   try {
-    const url = `https://brapi.dev/api/quote/${encodeURIComponent(ticker)}?dividends=true&token=${encodeURIComponent(token)}`;
+    const catalogInfo = findFiiInfo(ticker);
+    const isStock = catalogInfo.assetClass === 'ACAO';
+    const isFiagro = catalogInfo.segment === 'Fiagro';
+    const endpoint = isStock ? 'stocks' : isFiagro ? 'funds' : 'fii';
+    const url = `https://brapi.dev/api/v2/${endpoint}/dividends?symbols=${encodeURIComponent(ticker)}`;
     const res = await fetchImpl(url, {
-      headers: BROWSER_HEADERS,
+      headers: { ...BROWSER_HEADERS, Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return { announcements: [], available: false };
 
     const json: BrapiDividendResponse = await res.json();
-    const cashDividends = json?.results?.[0]?.dividendsData?.cashDividends;
-    if (!Array.isArray(cashDividends)) return { announcements: [], available: false };
+    const dividends = json?.dividends;
+    if (!Array.isArray(dividends)) return { announcements: [], available: false };
 
     const candidates: Array<{ rate: number; exIso: string; payIso: string }> = [];
-    for (const d of cashDividends) {
+    for (const d of dividends) {
       if (typeof d.rate !== 'number' || d.rate <= 0) continue;
-      // approvedOn informa a aprovação do evento; não comprova a Data-Com.
+      // approvedOn e exDate não comprovam a última data com direito (Data-Com).
       const ex = normalizeBrOrIsoDate(d.lastDatePrior);
       const pay = normalizeBrOrIsoDate(d.paymentDate);
       if (!ex || !pay) continue;

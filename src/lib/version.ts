@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.3';
+export const APP_VERSION = '5.1.4';
 export const APP_UPDATED_AT = '19/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,11 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.4', date: '19/10/2026', highlights: [
+      'Atualiza o fallback de proventos Brapi para as rotas v2 autenticadas e interpreta datas ISO com separador de espaço sem inferir Data-Com.',
+    ],
+  },
   {
     version: '5.1.3', date: '19/10/2026', highlights: [
       'Registra e retorna diagnóstico sanitizado para falhas no processamento do cron Push, sem expor segredos ou dados de usuário.',
