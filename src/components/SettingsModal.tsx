@@ -506,7 +506,7 @@ export function SettingsModal({
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-md bg-[var(--surface-card)] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -514,7 +514,7 @@ export function SettingsModal({
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[#1c1c1f] transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[var(--surface-panel)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -538,7 +538,7 @@ export function SettingsModal({
         )}
 
         {/* 0. SEÇÃO WEB PUSH API (PROCESSAMENTO NO SERVIDOR) */}
-        <div className="mb-6 p-4 rounded-2xl bg-[#1c1c1f]">
+        <div className="mb-6 p-4 rounded-2xl bg-[var(--surface-panel)]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Bell className={`w-4 h-4 ${pushPrefs.enabled ? 'text-[#f5b800]' : 'text-zinc-400'}`} />
@@ -576,7 +576,7 @@ export function SettingsModal({
             className={`mb-3 p-2.5 rounded-xl border text-[11px] leading-relaxed ${
               !isCloudConnected || pendingChanges > 0
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                : 'bg-[#121215] border-white/[0.06] text-zinc-400'
+                : 'bg-[var(--surface-card)] border-white/[0.06] text-zinc-400'
             }`}
           >
             {!isCloudConnected ? (
@@ -619,7 +619,7 @@ export function SettingsModal({
           )}
 
           {/* Controle de ativação geral */}
-          <label className="flex items-center justify-between gap-2 p-2.5 mb-2.5 rounded-xl bg-[#121215] border border-white/[0.06] cursor-pointer text-xs font-semibold text-white">
+          <label className="flex items-center justify-between gap-2 p-2.5 mb-2.5 rounded-xl bg-[var(--surface-card)] border border-white/[0.06] cursor-pointer text-xs font-semibold text-white">
             <span>Receber alertas automáticos</span>
             <input
               type="checkbox"
@@ -630,7 +630,7 @@ export function SettingsModal({
           </label>
 
           {/* Fuso horário para avaliar Data-Com e pagamento na data local */}
-          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2.5">
+          <div className="mb-3 p-3 rounded-xl bg-[var(--surface-card)] border border-white/[0.06] space-y-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
               <Clock className="w-3.5 h-3.5 text-[#f5b800]" />
               <span>Fuso horário dos eventos</span>
@@ -644,10 +644,10 @@ export function SettingsModal({
                 id="push-timezone"
                 value={pushPrefs.timezone || 'America/Sao_Paulo'}
                 onChange={(e) => void handleUpdatePushPref({ timezone: e.target.value })}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-xl px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5b800]/60"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-xl px-2 py-1.5 text-xs text-white outline-none focus:border-[#f5b800]/60"
               >
                 {IANA_TIMEZONE_OPTIONS.map((tz) => (
-                  <option key={tz.value} value={tz.value} className="bg-[#121215] text-white">
+                  <option key={tz.value} value={tz.value} className="bg-[var(--surface-card)] text-white">
                     {tz.label}
                   </option>
                 ))}
@@ -660,7 +660,7 @@ export function SettingsModal({
           </div>
 
           {/* Privacidade na Tela Bloqueada */}
-          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2">
+          <div className="mb-3 p-3 rounded-xl bg-[var(--surface-card)] border border-white/[0.06] space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-300">
                 <Lock className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -694,7 +694,7 @@ export function SettingsModal({
                     className={`p-2 rounded-xl border text-left transition-all ${
                       selected
                         ? 'bg-[#2b2512] border-[#f5b800]/50 text-white'
-                        : 'bg-[#1c1c1f] border-white/[0.06] text-zinc-400'
+                        : 'bg-[var(--surface-panel)] border-white/[0.06] text-zinc-400'
                     }`}
                   >
                     <div className="text-[11px] font-bold">{item.title}</div>
@@ -735,7 +735,7 @@ export function SettingsModal({
             ].map((opt) => (
               <label
                 key={opt.key}
-                className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#121215] cursor-pointer text-[11px] text-zinc-300"
+                className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[var(--surface-card)] cursor-pointer text-[11px] text-zinc-300"
               >
                 <span className="leading-snug">{opt.label}</span>
                 <input
@@ -749,7 +749,7 @@ export function SettingsModal({
           </div>
 
           {/* Estado da Inscrição do Dispositivo e Último Processamento / Envio */}
-          <div className="mb-3 p-3 rounded-xl bg-[#121215] border border-white/[0.06] space-y-2 text-[11px]">
+          <div className="mb-3 p-3 rounded-xl bg-[var(--surface-card)] border border-white/[0.06] space-y-2 text-[11px]">
             <div className="flex items-center justify-between">
               <span className="font-bold text-zinc-300">Estado deste aparelho</span>
               <span
@@ -856,7 +856,7 @@ export function SettingsModal({
                   return (
                     <div
                       key={sub.id}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-[#1c1c1f] px-2.5 py-1.5 text-[10px]"
+                      className="flex items-center justify-between gap-2 rounded-lg bg-[var(--surface-panel)] px-2.5 py-1.5 text-[10px]"
                     >
                       <div className="min-w-0">
                         <span className="font-semibold text-zinc-200">
@@ -885,7 +885,7 @@ export function SettingsModal({
           </div>
 
           {pushStatusMsg && (
-            <div className="mb-3 p-2.5 rounded-xl bg-[#121215] text-[11px] text-[#f5b800]">
+            <div className="mb-3 p-2.5 rounded-xl bg-[var(--surface-card)] text-[11px] text-[#f5b800]">
               {pushStatusMsg}
             </div>
           )}
@@ -943,20 +943,20 @@ export function SettingsModal({
                 onClick={() => void refreshPushState()}
                 disabled={isLoadingPushState || isLoadingPushHistory}
                 aria-label="Atualizar histórico de alertas"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#121215] text-zinc-400 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-card)] text-zinc-400 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPushHistory ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
             {pushHistoryError ? (
-              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-rose-300">{pushHistoryError}</div>
+              <div className="p-3 rounded-xl bg-[var(--surface-card)] text-[11px] text-rose-300">{pushHistoryError}</div>
             ) : (isLoadingPushHistory || (!pushHistory && !pushHistoryError)) ? (
-              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-zinc-400">Carregando alertas...</div>
+              <div className="p-3 rounded-xl bg-[var(--surface-card)] text-[11px] text-zinc-400">Carregando alertas...</div>
             ) : pushHistory?.items.length ? (
               <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
                 {pushHistory.items.map((item) => (
-                  <article key={item.id} className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.04]">
+                  <article key={item.id} className="p-2.5 rounded-xl bg-[var(--surface-card)] border border-white/[0.04]">
                     <div className="flex items-start justify-between gap-2">
                       <span className="min-w-0 text-[11px] leading-snug text-zinc-400">{item.createdAt ? `Detectado ${new Date(item.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : `Data ${item.localDate.split('-').reverse().join('/')}`}{item.sentAt ? ` · Enviado ${new Date(item.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}` : ''}</span>
                       <span className={`shrink-0 text-[11px] font-semibold text-right ${item.deliveries.accepted > 0 ? 'text-emerald-400' : item.status === 'failed' ? 'text-rose-300' : 'text-amber-300'}`}>
@@ -984,13 +984,13 @@ export function SettingsModal({
                 ))}
                 <p className="px-1 text-[11px] leading-snug text-zinc-400">“Aceito” significa que o serviço Push recebeu o envio; não confirma exibição ou leitura no aparelho.</p>
                 {pushHistory.nextCursor !== null && (
-                  <button type="button" onClick={() => void loadMorePushHistory()} disabled={isLoadingMorePushHistory} className="min-h-11 w-full rounded-lg bg-[#121215] text-[11px] font-semibold text-zinc-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50">
+                  <button type="button" onClick={() => void loadMorePushHistory()} disabled={isLoadingMorePushHistory} className="min-h-11 w-full rounded-lg bg-[var(--surface-card)] text-[11px] font-semibold text-zinc-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] disabled:opacity-50">
                     {isLoadingMorePushHistory ? 'Carregando...' : 'Carregar mais'}
                   </button>
                 )}
               </div>
             ) : (
-              <div className="p-3 rounded-xl bg-[#121215] text-[11px] text-zinc-400">Ainda não há alertas no histórico. As verificações sem evento continuam disponíveis no estado deste aparelho acima.</div>
+              <div className="p-3 rounded-xl bg-[var(--surface-card)] text-[11px] text-zinc-400">Ainda não há alertas no histórico. As verificações sem evento continuam disponíveis no estado deste aparelho acima.</div>
             )}
           </section>
 
@@ -1009,7 +1009,7 @@ export function SettingsModal({
                   <div
                     key={alert.id}
                     onClick={() => handleTestLockScreenPush(alert)}
-                    className="p-2.5 rounded-xl bg-[#121215] hover:border-[#f5b800]/40 border border-transparent cursor-pointer transition-all"
+                    className="p-2.5 rounded-xl bg-[var(--surface-card)] hover:border-[#f5b800]/40 border border-transparent cursor-pointer transition-all"
                   >
                     <div className="text-[11px] font-bold text-white mb-0.5">
                       {alert.title}
@@ -1025,7 +1025,7 @@ export function SettingsModal({
         </div>
 
         {/* 0.5. SEÇÃO WIDGET PARA TELA INICIAL E BLOQUEIO DO IPHONE */}
-        <div className="mb-6 p-4 rounded-2xl bg-[#1c1c1f]">
+        <div className="mb-6 p-4 rounded-2xl bg-[var(--surface-panel)]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <LayoutGrid className="w-4 h-4 text-[#f5b800]" />
@@ -1043,7 +1043,7 @@ export function SettingsModal({
           </p>
 
           {/* Prévia Visual Idêntica ao Widget Médio do iPhone */}
-          <div className="mb-3 p-3.5 rounded-2xl bg-[#121215] border border-white/[0.06]">
+          <div className="mb-3 p-3.5 rounded-2xl bg-[var(--surface-card)] border border-white/[0.06]">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[9px] font-extrabold text-[#f5b800] tracking-wider">
                 FII TRACKER
@@ -1081,7 +1081,7 @@ export function SettingsModal({
               </div>
 
               <div className="space-y-1.5">
-                <div className="p-2.5 rounded-xl bg-[#1c1c1f]">
+                <div className="p-2.5 rounded-xl bg-[var(--surface-panel)]">
                   <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                     Próximo Provento
                   </div>
@@ -1090,7 +1090,7 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-[#1c1c1f]">
+                <div className="p-2.5 rounded-xl bg-[var(--surface-panel)]">
                   <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                     Oportunidade B3
                   </div>
@@ -1135,7 +1135,7 @@ export function SettingsModal({
           </div>
 
           {showWidgetSteps && (
-            <div className="mt-3 p-3.5 rounded-xl bg-[#121215] text-[11px] text-zinc-300 space-y-1.5 leading-relaxed">
+            <div className="mt-3 p-3.5 rounded-xl bg-[var(--surface-card)] text-[11px] text-zinc-300 space-y-1.5 leading-relaxed">
               <div className="font-bold text-white">Passo a passo no iPhone (leva 1 minuto):</div>
               <div>
                 1. Baixe o app gratuito <strong>Scriptable</strong> na App Store do iPhone.
@@ -1151,7 +1151,7 @@ export function SettingsModal({
         </div>
 
         {/* 1. SEÇÃO SUPABASE NA NUVEM */}
-        <div className="mb-6 p-4 rounded-2xl bg-[#1c1c1f]">
+        <div className="mb-6 p-4 rounded-2xl bg-[var(--surface-panel)]">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Cloud className={`w-4 h-4 ${isCloudConnected ? 'text-emerald-400' : 'text-zinc-500'}`} />
@@ -1184,7 +1184,7 @@ export function SettingsModal({
                 placeholder="https://xyz.supabase.co"
                 value={supabaseUrl}
                 onChange={(e) => setSupabaseUrl(e.target.value)}
-                className="w-full bg-[#121215] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
+                className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
               />
             </div>}
 
@@ -1195,7 +1195,7 @@ export function SettingsModal({
                 placeholder="eyJhbGciOiJIUzI1NiIsIn..."
                 value={supabaseKey}
                 onChange={(e) => setSupabaseKey(e.target.value)}
-                className="w-full bg-[#121215] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
+                className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-[#f5b800]/60 font-mono"
               />
             </div>}
 
@@ -1228,7 +1228,7 @@ export function SettingsModal({
                     type="button"
                     onClick={onSyncCloud}
                     disabled={isSyncingCloud}
-                    className="p-2.5 rounded-full bg-[#121215] text-zinc-300 transition-all"
+                    className="p-2.5 rounded-full bg-[var(--surface-card)] text-zinc-300 transition-all"
                     title="Sincronizar Agora"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin text-[#f5b800]' : ''}`} />
@@ -1245,7 +1245,7 @@ export function SettingsModal({
                     <button
                       type="button"
                       onClick={() => setConfirmAction('disconnect')}
-                      className="p-2.5 rounded-full bg-[#121215] text-zinc-400 hover:text-rose-400 transition-all"
+                      className="p-2.5 rounded-full bg-[var(--surface-card)] text-zinc-400 hover:text-rose-400 transition-all"
                       title="Desconectar"
                     >
                       <Unlink className="w-3.5 h-3.5" />
@@ -1274,7 +1274,7 @@ export function SettingsModal({
               min="0"
               value={monthlyTarget}
               onChange={(e) => setMonthlyTarget(e.target.value)}
-              className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+              className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
               required
             />
           </div>
@@ -1291,7 +1291,7 @@ export function SettingsModal({
                 min="0"
                 value={milestoneEquity}
                 onChange={(e) => setMilestoneEquity(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -1307,7 +1307,7 @@ export function SettingsModal({
                 min="0"
                 value={monthlyIncome}
                 onChange={(e) => setMonthlyIncome(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -1333,14 +1333,14 @@ export function SettingsModal({
             <button
               type="button"
               onClick={handleExport}
-              className="p-3.5 rounded-2xl bg-[#1c1c1f] hover:bg-white/[0.04] text-left transition-all"
+              className="p-3.5 rounded-2xl bg-[var(--surface-panel)] hover:bg-white/[0.04] text-left transition-all"
             >
               <Download className="w-4 h-4 text-[#f5b800] mb-1" />
               <div className="text-xs font-bold text-white">Baixar Backup</div>
               <div className="text-[11px] text-zinc-500">Salvar arquivo JSON</div>
             </button>
 
-            <label className="p-3.5 rounded-2xl bg-[#1c1c1f] hover:bg-white/[0.04] text-left transition-all cursor-pointer block">
+            <label className="p-3.5 rounded-2xl bg-[var(--surface-panel)] hover:bg-white/[0.04] text-left transition-all cursor-pointer block">
               <Upload className="w-4 h-4 text-emerald-400 mb-1" />
               <div className="text-xs font-bold text-white">Restaurar</div>
               <div className="text-[11px] text-zinc-500">Carregar arquivo</div>
@@ -1456,7 +1456,7 @@ export function SettingsModal({
             </button>
           </div>
 
-          <div className="rounded-2xl bg-[#1c1c1f] p-3.5 space-y-2">
+          <div className="rounded-2xl bg-[var(--surface-panel)] p-3.5 space-y-2">
             <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
               Novidades da v{APP_CHANGELOG[0]?.version}
             </div>

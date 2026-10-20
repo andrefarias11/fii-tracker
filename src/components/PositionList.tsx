@@ -131,7 +131,7 @@ export function PositionList({
           ))}
         </div>
       )}
-      <div className="overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#121215] divide-y divide-white/[0.06]">
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.06] bg-[var(--surface-card)] divide-y divide-white/[0.06]">
         {sortedPositions.map((position) => (
           <button
             key={position.ticker}

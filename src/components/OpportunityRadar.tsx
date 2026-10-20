@@ -91,7 +91,7 @@ export function OpportunityRadar({
         <p className="ui-value-lg mt-1">{formatBRL(remainingBudget, true)}</p>
         <label className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
           Estratégia ativa
-          <select value={strategyMode} onChange={(event) => setStrategyMode(event.target.value as RecommendationStrategy)} className="min-h-11 rounded-xl border border-white/[0.06] bg-[#1c1c1f] px-3 text-base text-white sm:text-sm">
+          <select value={strategyMode} onChange={(event) => setStrategyMode(event.target.value as RecommendationStrategy)} className="min-h-11 rounded-xl border border-white/[0.06] bg-[var(--surface-panel)] px-3 text-base text-white sm:text-sm">
             <option value="balanced">Equilibrar carteira</option>
             <option value="snowball">Bola de neve</option>
           </select>
@@ -131,7 +131,7 @@ export function OpportunityRadar({
           {chip.label} · <span className="tabular-nums">{evaluatedFiis.filter((fii) => matchesFilter(fii, chip.id)).length}</span>
         </Chip>)}
       </div>
-      <div className="overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#121215] divide-y divide-white/[0.06]">
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.06] bg-[var(--surface-card)] divide-y divide-white/[0.06]">
         {filteredFiis.map((fii) => <article key={fii.ticker} className="px-5 py-4">
           <div className="flex items-center justify-between gap-3"><h3><button type="button" className="ui-asset-trigger text-base" onClick={() => onOpenAsset(fii.ticker)} aria-label={`Abrir ficha de ${fii.ticker}`}>{fii.ticker}</button></h3><span className="text-base font-semibold text-white tabular-nums">{formatBRL(fii.currentPrice)}</span></div>
           <div className="mt-2 grid grid-cols-2 gap-3 text-xs"><div><span className="text-zinc-500">P/VP</span><strong className="ml-2 font-medium text-zinc-200 tabular-nums">{formatDecimal(fii.pvp)}</strong></div><div><span className="text-zinc-500">DY anual estimado</span><strong className="ml-2 font-medium text-zinc-200 tabular-nums">{formatPercent(fii.annualYieldPercent)}</strong></div></div>

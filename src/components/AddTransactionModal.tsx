@@ -197,7 +197,7 @@ export function AddTransactionModal({
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
+        className="w-full max-w-md bg-[var(--surface-card)] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl max-h-[88dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -217,7 +217,7 @@ export function AddTransactionModal({
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[#1c1c1f] transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[var(--surface-panel)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -231,7 +231,7 @@ export function AddTransactionModal({
         )}
 
         {/* Chave Compra vs Venda */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#1c1c1f] border border-white/[0.04] mb-4">
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.04] mb-4">
           <button
             type="button"
             onClick={() => setTxType('BUY')}
@@ -272,7 +272,7 @@ export function AddTransactionModal({
                 className={`text-xs px-3 py-1 rounded-full font-mono font-bold transition-all ${
                   ticker.toUpperCase() === sug
                     ? 'bg-[#f5b800] text-zinc-950'
-                    : 'bg-[#1c1c1f] text-zinc-300 hover:text-white'
+                    : 'bg-[var(--surface-panel)] text-zinc-300 hover:text-white'
                 }`}
               >
                 {sug}
@@ -294,7 +294,7 @@ export function AddTransactionModal({
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value.toUpperCase())}
                 onBlur={() => loadPriceForTicker(ticker)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-mono uppercase tracking-wider outline-none focus:border-[#f5b800]/60"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-mono uppercase tracking-wider outline-none focus:border-[#f5b800]/60"
                 required
               />
               <button
@@ -321,7 +321,7 @@ export function AddTransactionModal({
                 step="1"
                 value={shares}
                 onChange={(e) => setShares(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -337,7 +337,7 @@ export function AddTransactionModal({
                 placeholder="Ex: 9.42"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
                 required
               />
             </div>
@@ -351,7 +351,7 @@ export function AddTransactionModal({
                 <button
                   type="button"
                   onClick={() => handleQuickFillByBudget(100)}
-                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#1c1c1f] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[var(--surface-panel)] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
                 >
                   R$ 100 ({Math.floor(100 / validPrice)} cotas)
                 </button>
@@ -369,7 +369,7 @@ export function AddTransactionModal({
                 <button
                   type="button"
                   onClick={() => handleQuickFillByBudget(monthlyTarget)}
-                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#1c1c1f] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[var(--surface-panel)] hover:bg-white/[0.08] text-zinc-300 transition-colors tabular-nums"
                 >
                   Meta R$ {monthlyTarget} ({Math.floor(monthlyTarget / validPrice)} cotas)
                 </button>
@@ -378,7 +378,7 @@ export function AddTransactionModal({
           )}
 
           {/* Resumo da Operação */}
-          <div className="p-4 rounded-2xl bg-[#1c1c1f] flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between">
             <div>
               <span
                 className={`text-[11px] block font-bold uppercase tracking-wider ${
@@ -422,7 +422,7 @@ export function AddTransactionModal({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
                 required
               />
             </div>
@@ -433,7 +433,7 @@ export function AddTransactionModal({
               <select
                 value={broker}
                 onChange={(e) => setBroker(e.target.value)}
-                className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
+                className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-[#f5b800]/60"
               >
                 <option value="XP Investimentos">XP Investimentos</option>
                 <option value="BTG Pactual">BTG Pactual</option>
@@ -464,7 +464,7 @@ export function AddTransactionModal({
               }
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-[#1c1c1f] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-zinc-200 outline-none focus:border-[#f5b800]/60"
+              className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-zinc-200 outline-none focus:border-[#f5b800]/60"
             />
           </div>
 

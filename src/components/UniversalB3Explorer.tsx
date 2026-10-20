@@ -143,7 +143,7 @@ export function UniversalB3Explorer({
 
     if (isInspecting) {
       return (
-        <div className="rounded-[20px] bg-[#121215] border border-[#f5b800]/30 p-6 text-center space-y-2 animate-in fade-in">
+        <div className="rounded-[20px] bg-[var(--surface-card)] border border-[#f5b800]/30 p-6 text-center space-y-2 animate-in fade-in">
           <Loader2 className="w-6 h-6 text-[#f5b800] animate-spin mx-auto" />
           <p className="text-xs font-bold text-white">
             Consultando {selectedTicker} ao vivo na B3...
@@ -157,7 +157,7 @@ export function UniversalB3Explorer({
 
     if (inspectError || !inspectedQuote) {
       return (
-        <div className="rounded-[20px] bg-[#121215] border border-rose-500/30 p-5 flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="rounded-[20px] bg-[var(--surface-card)] border border-rose-500/30 p-5 flex items-center justify-between gap-3 animate-in fade-in">
           <div className="text-xs text-rose-400">{inspectError}</div>
           <button
             type="button"
@@ -211,7 +211,7 @@ export function UniversalB3Explorer({
     const monthlyIncomeWithBudget = Number((sharesWithBudget * monthlyDiv).toFixed(2));
 
     return (
-      <div className="rounded-[20px] bg-[#121215] border border-white/[0.08] p-5 shadow-2xl space-y-4 animate-in fade-in duration-150">
+      <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.08] p-5 shadow-2xl space-y-4 animate-in fade-in duration-150">
         {/* Topo do Raio-X Ao Vivo */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
@@ -242,7 +242,7 @@ export function UniversalB3Explorer({
             type="button"
             onClick={() => setSelectedTicker(null)}
             aria-label="Fechar análise"
-            className="p-1.5 rounded-full bg-[#1c1c1f] text-zinc-400 hover:text-white"
+            className="p-1.5 rounded-full bg-[var(--surface-panel)] text-zinc-400 hover:text-white"
           >
             <X className="w-4 h-4" />
           </button>
@@ -301,7 +301,7 @@ export function UniversalB3Explorer({
         {/* Bola de Neve & Simulador de Poder de Compra */}
         {monthlyDiv > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="p-3.5 rounded-2xl bg-[#1c1c1f] flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
                   <Snowflake className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -322,7 +322,7 @@ export function UniversalB3Explorer({
               </div>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-[#1c1c1f] flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold text-zinc-400 flex items-center gap-1.5">
                   <Coins className="w-3.5 h-3.5 text-[#f5b800]" />
@@ -364,7 +364,7 @@ export function UniversalB3Explorer({
               Aportar em {q.ticker}
             </button>
           ) : (
-            <div className="py-2.5 rounded-full bg-[#1c1c1f] text-zinc-400 text-[11px] font-semibold text-center flex items-center justify-center gap-1">
+            <div className="py-2.5 rounded-full bg-[var(--surface-panel)] text-zinc-400 text-[11px] font-semibold text-center flex items-center justify-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               B3 Ao Vivo
             </div>
@@ -390,7 +390,7 @@ export function UniversalB3Explorer({
               }
             }}
             placeholder="Buscar FII ou Ação na B3 (ex: HGLG11, ITUB4...)"
-            className="w-full pl-10 pr-20 py-3 rounded-full bg-[#121215] border border-white/[0.06] focus:border-[#f5b800]/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all"
+            className="w-full pl-10 pr-20 py-3 rounded-full bg-[var(--surface-card)] border border-white/[0.06] focus:border-[#f5b800]/60 text-base sm:text-sm text-white placeholder:text-zinc-500 outline-none transition-all"
           />
           {query && (
             <button
@@ -418,7 +418,7 @@ export function UniversalB3Explorer({
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                   assetFilter === pill.id
                     ? 'bg-[#f5b800] text-zinc-950'
-                    : 'bg-[#121215] text-zinc-300 hover:text-white'
+                    : 'bg-[var(--surface-card)] text-zinc-300 hover:text-white'
                 }`}
               >
                 {pill.label}
@@ -453,12 +453,12 @@ export function UniversalB3Explorer({
         </div>
 
         {isLoadingList ? (
-          <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-8 text-center">
+          <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-8 text-center">
             <Loader2 className="w-6 h-6 text-[#f5b800] animate-spin mx-auto mb-2" />
             <p className="text-xs text-zinc-400">Carregando catálogo completo da B3...</p>
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-6 text-center space-y-3">
+          <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-6 text-center space-y-3">
             <p className="text-xs text-zinc-300">
               Nenhum ativo listado no índice rápido para <strong>{query}</strong>.
             </p>
@@ -474,7 +474,7 @@ export function UniversalB3Explorer({
             )}
           </div>
         ) : (
-          <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
+          <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
             {items.map((item) => {
               const isStock = item.assetClass === 'ACAO';
               const isSelected = selectedTicker === item.ticker;

@@ -62,7 +62,7 @@ export function AssetDetailsSheet({
   const titleId = useId();
   const inputId = useId();
   const [section, setSection] = useState<
-    'summary' | 'dividends' | 'indicators'
+    'summary' | 'dividends' | 'performance' | 'indicators' | 'transactions'
   >(initialSection);
   const [editing, setEditing] = useState(false);
   const [dividendInput, setDividendInput] = useState('');
@@ -151,12 +151,15 @@ export function AssetDetailsSheet({
         <div className="ui-sheet__nav">
           <SegmentedControl
             label="Conteúdo da ficha"
+            scrollable
             value={section}
             onChange={setSection}
             options={[
-              { value: 'summary', label: 'Resumo' },
+              { value: 'summary', label: 'Posição' },
               { value: 'dividends', label: 'Proventos' },
+              { value: 'performance', label: 'Desempenho' },
               { value: 'indicators', label: 'Indicadores' },
+              { value: 'transactions', label: 'Movimentações' },
             ]}
           />
         </div>
@@ -400,6 +403,24 @@ export function AssetDetailsSheet({
               </section>
             </div>
           )}
+
+          {section === 'performance' && <section>
+            <h3 className="ui-title">Resultado da posição atual</h3>
+            <p className="ui-caption mt-2">Comparação entre o valor atual e o custo da posição em carteira. Proventos registrados aparecem separadamente.</p>
+            {position ? <dl className="mt-4 divide-y divide-white/10">
+              <Metric label="Valor aplicado" value={currency(position.totalInvested, true)} />
+              <Metric label="Valor atual" value={currency(position.currentTotal, true)} />
+              <Metric label="Variação da posição" value={currency(position.currentTotal - position.totalInvested, true)} />
+              <Metric label="Proventos registrados no histórico" value={currency(receipts.reduce((sum, tx) => sum + Math.abs(tx.total), 0), true)} />
+            </dl> : <EmptyState title="Ativo fora da sua carteira" description="Registre uma operação para acompanhar seu resultado." />}
+          </section>}
+          {section === 'transactions' && <section>
+            <h3 className="ui-title">Movimentações do ativo</h3>
+            <p className="ui-caption mt-2">Compras, vendas e proventos registrados, do mais recente ao mais antigo.</p>
+            {transactions.some(tx => normalizeB3Ticker(tx.ticker) === ticker) ? <ul className="mt-4 divide-y divide-white/10">
+              {transactions.filter(tx => normalizeB3Ticker(tx.ticker) === ticker).sort((a, b) => b.date.localeCompare(a.date)).map(tx => <li key={tx.id} className="flex flex-wrap justify-between gap-3 py-4 text-sm"><div><p>{tx.type === 'DIVIDEND' ? 'Provento recebido' : tx.type === 'SELL' ? 'Venda' : 'Compra'}</p><p className="ui-caption">{dateLabel(tx.date, true)}</p></div><p className="font-medium">{currency(Math.abs(tx.total), true)}</p></li>)}
+            </ul> : <EmptyState title="Sem movimentações" description="As operações deste ativo aparecerão aqui após serem registradas ou importadas." />}
+          </section>}
 
           {section === 'indicators' && (
             <div className="space-y-5">

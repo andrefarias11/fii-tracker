@@ -7,6 +7,7 @@ import { Button, SegmentedControl } from '../components/ui/Controls';
 import { FeedbackToast, PortfolioSkeleton, SectionSkeleton, type Notice } from '../components/ui/Feedback';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { Header } from '../components/Header';
+import { OverviewDashboard } from '../components/OverviewDashboard';
 import { PortfolioSummary } from '../components/PortfolioSummary';
 import { GoalsCard } from '../components/GoalsCard';
 import { MagicNumberCard } from '../components/MagicNumberCard';
@@ -43,6 +44,10 @@ import {
 } from '../lib/pushNavigation';
 import {
   Wallet,
+  LayoutDashboard,
+  Menu,
+  ArrowUpRight,
+  Settings,
   Target,
   Compass,
   Coins,
@@ -56,7 +61,7 @@ import {
   MapPin,
 } from 'lucide-react';
 
-type MainTabType = 'portfolio' | 'proventos' | 'radar' | 'goals';
+type MainTabType = 'overview' | 'portfolio' | 'proventos' | 'radar' | 'goals' | 'more';
 type PageFeedback = { id: number; kind: 'refresh' | 'sync' } | { id: number; kind: 'message'; message: string; tone: Notice['tone'] };
 
 export default function HomePage() {
@@ -104,7 +109,7 @@ export default function HomePage() {
   } = usePortfolio(activeAccount?.id);
 
   const [activeTab, setActiveTab] = useState<MainTabType>(() => {
-    if (typeof window === 'undefined') return 'portfolio';
+    if (typeof window === 'undefined') return 'overview';
     const raw = new URLSearchParams(window.location.search).get('tab');
     if (raw === 'proventos') return 'proventos';
     if (
@@ -116,7 +121,9 @@ export default function HomePage() {
     )
       return 'radar';
     if (raw === 'goals' || raw === 'achievements') return 'goals';
-    return 'portfolio';
+    if (raw === 'portfolio' || raw === 'history' || raw === 'fixed_income' || raw === 'caixinhas') return 'portfolio';
+    if (raw === 'more') return 'more';
+    return 'overview';
   });
   const [homeSubView, setHomeSubView] = useState<'assets' | 'fixed_income' | 'history'>(() => {
     if (typeof window === 'undefined') return 'assets';
@@ -137,9 +144,11 @@ export default function HomePage() {
     return 'radar';
   });
   const [exploreTickerFilter, setExploreTickerFilter] = useState<string | null>(null);
-  const [goalsSubView, setGoalsSubView] = useState<'achievements' | 'targets' | 'simulator'>(
-    'achievements'
-  );
+  const [goalsSubView, setGoalsSubView] = useState<'achievements' | 'targets' | 'simulator'>(() => {
+    if (typeof window === 'undefined') return 'achievements';
+    const view = new URLSearchParams(window.location.search).get('view');
+    return view === 'targets' || view === 'simulator' ? view : 'achievements';
+  });
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
@@ -228,8 +237,11 @@ export default function HomePage() {
     });
   };
 
-  const navigateFromTabParam = useCallback((rawTab: string | null) => {
-    if (!rawTab) return;
+  const navigateFromTabParam = useCallback((rawTab: string | null, rawView?: string | null) => {
+    if (!rawTab || rawTab === 'overview') { setActiveTab('overview'); return; }
+    if (rawTab === 'more') { setActiveTab('more'); return; }
+    if (rawTab === 'fixed_income' || rawTab === 'caixinhas') { setActiveTab('portfolio'); setHomeSubView('fixed_income'); return; }
+    if (rawTab === 'map' || rawTab === 'ai' || rawTab === 'universal') { setActiveTab('radar'); setExploreSubView(rawTab); return; }
     if (rawTab === 'portfolio') {
       setActiveTab('portfolio');
       setHomeSubView('assets');
@@ -246,9 +258,24 @@ export default function HomePage() {
       setExploreSubView('mentors');
     } else if (rawTab === 'goals' || rawTab === 'achievements') {
       setActiveTab('goals');
-      setGoalsSubView('achievements');
+      setGoalsSubView(rawView === 'targets' || rawView === 'simulator' ? rawView : 'achievements');
     }
   }, []);
+
+  useEffect(() => {
+    const onPop = () => { const params = new URLSearchParams(window.location.search); navigateFromTabParam(params.get('tab'), params.get('view')); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [navigateFromTabParam]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const tab = activeTab === 'portfolio' ? (homeSubView === 'assets' ? 'portfolio' : homeSubView)
+      : activeTab === 'radar' ? exploreSubView : activeTab;
+    url.searchParams.set('tab', tab);
+    if (activeTab === 'goals') url.searchParams.set('view', goalsSubView); else url.searchParams.delete('view');
+    if (window.location.href !== url.href) window.history.pushState(null, '', url);
+  }, [activeTab, homeSubView, exploreSubView, goalsSubView]);
 
   // Garante que a página inicie no topo ao carregar
   useEffect(() => {
@@ -295,22 +322,25 @@ export default function HomePage() {
 
   // 4 Abas Principais na Dock Flutuante (Estilo XP Investimentos)
   const navItems: { id: MainTabType; label: string; icon: typeof Wallet }[] = [
+    { id: 'overview', label: 'Início', icon: LayoutDashboard },
     { id: 'portfolio', label: 'Carteira', icon: Wallet },
     { id: 'proventos', label: 'Proventos', icon: Coins },
-    { id: 'radar', label: 'Explorar', icon: Compass },
-    { id: 'goals', label: 'Troféus', icon: Trophy },
+    { id: 'radar', label: 'Radar', icon: Compass },
+    { id: 'more', label: 'Mais', icon: Menu },
   ];
 
   const getTabTitle = (tab: MainTabType) => {
     switch (tab) {
+      case 'overview': return 'Visão geral';
+      case 'more': return 'Seu espaço';
       case 'portfolio':
         return 'Carteira';
       case 'proventos':
         return 'Proventos';
       case 'radar':
-        return 'Explorar';
+        return exploreSubView === 'radar' ? 'Radar' : exploreSubView === 'map' ? 'Imóveis' : exploreSubView === 'mentors' ? 'Mentores' : exploreSubView === 'ai' ? 'Análises' : 'Busca B3';
       case 'goals':
-        return 'Troféus';
+        return goalsSubView === 'targets' ? 'Metas e conquistas' : goalsSubView === 'simulator' ? 'Simulador' : 'Conquistas';
       default:
         return 'Carteira';
     }
@@ -344,8 +374,8 @@ export default function HomePage() {
     : { id: feedback.id, busy: isLoadingQuotes, tone: lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'success' : 'info', message: isLoadingQuotes ? 'Consultando cotações…' : lastSyncTime && lastSyncTime.getTime() >= feedback.id ? 'Cotações atualizadas.' : 'Sem novas cotações. As últimas referências foram mantidas.' };
 
   return (
-    <div className="min-h-[100dvh] bg-black text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
-      {/* Header Estilo XP */}
+    <div className="app-shell min-h-[100dvh] text-zinc-100 flex flex-col antialiased selection:bg-[#f5b800] selection:text-zinc-950">
+      <a href="#main-content" className="skip-link">Ir para o conteúdo</a>
       <Header
         title={getTabTitle(activeTab)}
         lastSyncTime={lastSyncTime}
@@ -375,8 +405,8 @@ export default function HomePage() {
         }
       />
 
-      {/* Conteúdo Principal com Respiro Estilo iOS */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 pt-4 space-y-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 7rem)' }}>
+      {/* Área principal */}
+      <main id="main-content" tabIndex={-1} className="app-content flex-1 w-full space-y-6">
         {corruptQueueCount > 0 ? (
           <div role="alert" className="rounded-2xl border border-amber-300/40 bg-[#1b1710] p-4 text-sm leading-relaxed text-amber-50">
             <p className="font-semibold">Sincronização pausada neste dispositivo</p>
@@ -397,6 +427,23 @@ export default function HomePage() {
           <button className="underline ml-2" onClick={() => syncWithCloud()}>Tentar sincronizar</button>
         </div>}
         <IosInstallBanner />
+
+        {activeTab === 'overview' && <OverviewDashboard positions={positions} transactions={transactions} summary={unifiedSummary} privateMode={isPrivacyMode}
+          onPortfolio={() => { setActiveTab('portfolio'); setHomeSubView('assets'); }}
+          onDividends={() => setActiveTab('proventos')} onImport={() => setIsB3ModalOpen(true)}
+          onAdd={() => { setEditingTx(null); setAddTxTicker(''); setIsAddTxModalOpen(true); }} onAsset={handleOpenAsset} />}
+        {activeTab === 'more' && <section aria-label="Ferramentas e preferências" className="space-y-6">
+          <div><p className="eyebrow">Tudo em um lugar</p><h2 className="text-2xl font-semibold mt-2">Ferramentas para sua jornada</h2><p className="ui-caption mt-2">Acompanhe seus registros, explore ativos e planeje seus próximos passos.</p></div>
+          <div className="tool-grid">{[
+            { label: 'Extrato', description: 'Compras, vendas e recebimentos', icon: ReceiptText, action: () => { setActiveTab('portfolio'); setHomeSubView('history'); } },
+            { label: 'Renda fixa', description: 'Aplicações, taxas e vencimentos', icon: PiggyBank, action: () => { setActiveTab('portfolio'); setHomeSubView('fixed_income'); } },
+            { label: 'Imóveis', description: 'Conheça os imóveis dos fundos', icon: MapPin, action: () => { setActiveTab('radar'); setExploreSubView('map'); } },
+            { label: 'Mentores', description: 'Compare critérios de investimento', icon: GraduationCap, action: () => { setActiveTab('radar'); setExploreSubView('mentors'); } },
+            { label: 'Metas e conquistas', description: 'Acompanhe seu progresso', icon: Target, action: () => { setActiveTab('goals'); setGoalsSubView('targets'); } },
+            { label: 'Simulador', description: 'Explore cenários futuros', icon: Sparkles, action: () => { setActiveTab('goals'); setGoalsSubView('simulator'); } },
+            { label: 'Configurações e alertas', description: 'Notificações, preferências e backups', icon: Settings, action: () => setIsSettingsModalOpen(true) },
+          ].map(item => <button key={item.label} onClick={item.action} className="tool-card"><item.icon className="h-5 w-5 text-amber-200" /><span className="flex-1"><span className="block font-semibold">{item.label}</span><span className="ui-caption block mt-1">{item.description}</span></span><ArrowUpRight className="h-4 w-4 text-zinc-500" /></button>)}</div>
+        </section>}
 
         {/* 1. ABA: INÍCIO (CARTEIRA + EXTRATO INTEGRADO) */}
         {activeTab === 'portfolio' && (
@@ -427,7 +474,7 @@ export default function HomePage() {
 
             <SegmentedControl label="Conteúdo da carteira" value={homeSubView} onChange={(value) => { triggerHaptic('selection'); setHomeSubView(value); }} options={[
               { value: 'assets', label: 'Bolsa', icon: <Layers /> },
-              { value: 'fixed_income', label: 'Caixinhas', icon: <PiggyBank /> },
+              { value: 'fixed_income', label: 'Renda fixa', icon: <PiggyBank /> },
               { value: 'history', label: 'Extrato', icon: <ReceiptText /> },
             ]} />
 
@@ -653,12 +700,13 @@ export default function HomePage() {
         </details>
       </main>
 
-      {/* DOCK FLUTUANTE ESTILO XP iOS (Apenas 4 Abas Limpas) */}
-      <nav className="fixed bottom-safe-dock inset-x-0 z-30 px-6 pointer-events-none" aria-label="Navegação principal">
-        <div className="dock-glass max-w-xs mx-auto pointer-events-auto rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.75)] p-1.5 grid grid-cols-4 gap-1">
+      {/* Navegação principal responsiva */}
+      <nav className="app-navigation" aria-label="Navegação principal">
+        <div className="sidebar-brand"><span className="brand-mark">F</span><span>FII Tracker<small>Seu patrimônio, com clareza</small></span></div>
+        <div className="app-navigation__items">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive = activeTab === item.id || (item.id === 'more' && activeTab === 'goals');
             return (
               <button
                 key={item.id}
@@ -666,8 +714,11 @@ export default function HomePage() {
                 onClick={() => {
                   triggerHaptic('selection');
                   setActiveTab(item.id);
+                  if (item.id === 'portfolio') setHomeSubView('assets');
+                  if (item.id === 'radar') setExploreSubView('radar');
                   window.scrollTo({ top: 0, behavior: isActive && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
                 }}
+                aria-label={item.label}
                 className={`dock-tab flex flex-col items-center justify-center py-1.5 rounded-full transition-all duration-200 active:scale-95 ${
                   isActive
                     ? 'bg-white/[0.1] text-white'

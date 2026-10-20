@@ -10,6 +10,8 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 
 ## Concluídos
 
+- 5.2.0: redesign com Visão geral, navegação responsiva, menu de ferramentas, ficha consistente do ativo e cores de superfície compartilhadas.
+
 - 5.1.21: área de Renda Fixa distingue alterações salvas no dispositivo e aguardando envio à conta, com nova tentativa e aviso global preservado para problemas de outros módulos.
 - 5.1.20: entradas ilegíveis pausam o envio e a conciliação, permanecem intactas no navegador e podem ser exportadas junto com toda a fila pendente para diagnóstico e recuperação manual.
 - 5.1.19: falha de gravação ou exclusão local da Renda Fixa aparece no formulário, preserva os dados para nova tentativa e não altera o estado ou inicia envio remoto.

@@ -78,7 +78,7 @@ export function PortfolioSummary({
 
   return (
     <section
-      className="space-y-5 px-1 pb-2 pt-3"
+      className="portfolio-summary space-y-5"
       aria-label="Resumo da carteira"
     >
       {hasFixedIncome && (
@@ -154,8 +154,8 @@ export function PortfolioSummary({
           }}
         >
           {hasFixedIncome
-            ? `Caixinhas · ${fixedIncomeCount}`
-            : 'Caixinhas e metas'}
+            ? `Renda fixa · ${fixedIncomeCount}`
+            : 'Renda fixa'}
         </Button>
       </div>
     </section>

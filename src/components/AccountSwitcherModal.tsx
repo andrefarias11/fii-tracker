@@ -221,7 +221,7 @@ export function AccountSwitcherModal({
 
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#121215] border-t sm:border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[88dvh] overflow-hidden pb-safe-modal">
+      <div className="w-full max-w-md bg-[var(--surface-card)] border-t sm:border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col max-h-[88dvh] overflow-hidden pb-safe-modal">
         {/* Top Handle visual para iOS */}
         <div className="w-full flex justify-center pt-2.5 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-white/20" />
@@ -390,7 +390,7 @@ export function AccountSwitcherModal({
                   <div className="w-full border-t border-white/[0.08]" />
                 </div>
                 <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
-                  <span className="bg-[#121215] px-3 text-zinc-400 font-medium">
+                  <span className="bg-[var(--surface-card)] px-3 text-zinc-400 font-medium">
                     ou use seu e-mail
                   </span>
                 </div>

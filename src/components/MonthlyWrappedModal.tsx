@@ -170,7 +170,7 @@ export function MonthlyWrappedModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
+        className="w-full max-w-lg bg-[var(--surface-card)] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-5 sm:p-6 pb-safe-modal shadow-[0_25px_60px_rgba(0,0,0,0.9)] max-h-[88dvh] overflow-y-auto text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho do Modal */}
@@ -185,7 +185,7 @@ export function MonthlyWrappedModal({
                   Retrospectiva B3
                 </span>
                 {wrapped.isCurrentMonth && (
-                  <span className="text-[10px] font-semibold text-zinc-400 bg-[#1c1c1f] px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-zinc-400 bg-[var(--surface-panel)] px-2 py-0.5 rounded-full">
                     Em andamento
                   </span>
                 )}
@@ -202,7 +202,7 @@ export function MonthlyWrappedModal({
               onClose();
             }}
             aria-label="Fechar"
-            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[#1c1c1f] transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white bg-[var(--surface-panel)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -220,7 +220,7 @@ export function MonthlyWrappedModal({
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                     isSelected
                       ? 'bg-[#f5b800] text-zinc-950'
-                      : 'bg-[#1c1c1f] text-zinc-400 hover:text-white'
+                      : 'bg-[var(--surface-panel)] text-zinc-400 hover:text-white'
                   }`}
                 >
                   {m.label}
@@ -231,7 +231,7 @@ export function MonthlyWrappedModal({
         )}
 
         {/* CARD PRINCIPAL EM DESTAQUE: FRASE RESUMO */}
-        <div className="rounded-2xl bg-[#1c1c1f] p-4 mb-4">
+        <div className="rounded-2xl bg-[var(--surface-panel)] p-4 mb-4">
           <div className="space-y-1.5">
             <span className="text-[11px] font-bold text-[#f5b800] uppercase tracking-wider">
               {wrapped.fullLabel}
@@ -258,7 +258,7 @@ export function MonthlyWrappedModal({
         {/* GRADE DE ESTATÍSTICAS */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Card 1: Proventos */}
-          <div className="rounded-2xl bg-[#1c1c1f] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-[var(--surface-panel)] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
                 <Coins className="w-4 h-4" />
@@ -289,7 +289,7 @@ export function MonthlyWrappedModal({
           </div>
 
           {/* Card 2: Aportes */}
-          <div className="rounded-2xl bg-[#1c1c1f] p-4 flex flex-col justify-between">
+          <div className="rounded-2xl bg-[var(--surface-panel)] p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
                 <Layers className="w-4 h-4" />
@@ -315,7 +315,7 @@ export function MonthlyWrappedModal({
 
         {/* CARD BOLA DE NEVE & NÚMERO MÁGICO */}
         {!isPrivacyMode && wrapped.magicNumberLeader && (
-          <div className="rounded-2xl bg-[#1c1c1f] p-4 mb-4 space-y-3">
+          <div className="rounded-2xl bg-[var(--surface-panel)] p-4 mb-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
@@ -357,15 +357,15 @@ export function MonthlyWrappedModal({
 
         {/* EQUIVALÊNCIAS DA VIDA REAL */}
         {!isPrivacyMode && wrapped.totalDividends > 0 && (
-          <div className="rounded-2xl bg-[#1c1c1f] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-[#121215]">
+          <div className="rounded-2xl bg-[var(--surface-panel)] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-[var(--surface-card)]">
               <Coffee className="w-4 h-4 text-[#f5b800] mx-auto mb-1" />
               <div className="text-xs font-bold text-white tabular-nums">
                 ~{wrapped.coffeeCupsPaid} cafés
               </div>
               <div className="text-[11px] text-zinc-500">pagos pelos FIIs</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#121215]">
+            <div className="p-2.5 rounded-xl bg-[var(--surface-card)]">
               <Zap className="w-4 h-4 text-[#f5b800] mx-auto mb-1" />
               <div className="text-xs font-bold text-white tabular-nums">
                 {wrapped.energyBillPaidPercent}% da conta
@@ -376,7 +376,7 @@ export function MonthlyWrappedModal({
         )}
 
         {/* FRASE DE IMPACTO */}
-        <div className="p-3.5 rounded-2xl bg-[#1c1c1f] mb-5 text-center">
+        <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] mb-5 text-center">
           <p className="text-xs italic text-zinc-300 mb-1">
             &ldquo;{wrapped.quote.text}&rdquo;
           </p>
@@ -390,7 +390,7 @@ export function MonthlyWrappedModal({
           onClick={handleExportCsv}
           disabled={isPrivacyMode}
           title={isPrivacyMode ? 'Desative o modo privacidade para exportar os valores da carteira.' : undefined}
-          className="w-full mb-3 py-3 rounded-full border border-white/[0.08] bg-[#1c1c1f] text-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+          className="w-full mb-3 py-3 rounded-full border border-white/[0.08] bg-[var(--surface-panel)] text-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
         >
           {exportedSuccess ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4 text-[#f5b800]" />}
           <span aria-live="polite">

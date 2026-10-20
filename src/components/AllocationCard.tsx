@@ -121,11 +121,11 @@ export function AllocationCard({
   const isConcentrated = topSlice && topSlice.percent >= 70;
 
   return (
-    <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5">
+    <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-5">
       {/* Título & Alternador de Modo */}
       <div className="flex items-center justify-between mb-3">
         {hasFixedIncome ? (
-          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[#1c1c1f] border border-white/[0.04]">
+          <div className="flex items-center gap-1 p-0.5 rounded-full bg-[var(--surface-panel)] border border-white/[0.04]">
             <button
               type="button"
               onClick={() => {

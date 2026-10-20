@@ -69,10 +69,10 @@ export function PortfolioSkeleton() {
     <div
       role="status"
       aria-busy="true"
-      className="min-h-dvh bg-black px-4 pt-safe-header"
+      className="app-shell min-h-dvh px-4 pt-safe-header"
     >
       <span className="sr-only">Carregando sua carteira</span>
-      <div aria-hidden="true" className="mx-auto max-w-md space-y-6 pt-3">
+      <div aria-hidden="true" className="mx-auto max-w-5xl space-y-6 pt-3">
         <div className="space-y-3 border-b border-white/[0.06] pb-3">
           <div className="flex items-center justify-between">
             <div className="ui-skeleton h-6 w-28" />

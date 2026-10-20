@@ -200,7 +200,7 @@ export function DividendFlow({
   };
 
   const renderDayGroup = (group: CalendarGroup) => (
-    <section key={group.key} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121215]">
+    <section key={group.key} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[var(--surface-card)]">
       <h3 className="border-b border-white/[0.06] px-3.5 py-2.5 text-xs font-semibold text-white">
         {group.date.toLocaleDateString('pt-BR', {
           weekday: 'short', day: '2-digit', month: 'long', timeZone: 'America/Sao_Paulo',
@@ -327,12 +327,12 @@ export function DividendFlow({
           )}
 
           {filteredEvents.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#121215] p-5 text-center text-sm text-zinc-400">Nenhum evento neste filtro.</div>
+            <div className="rounded-2xl border border-white/[0.06] bg-[var(--surface-card)] p-5 text-center text-sm text-zinc-400">Nenhum evento neste filtro.</div>
           ) : eventView === 'timeline' ? (
             <div className="space-y-3">{groups.map(renderDayGroup)}</div>
           ) : (
             <div className="space-y-3">
-              <div className="rounded-[20px] border border-white/[0.06] bg-[#121215] p-3.5">
+              <div className="rounded-[20px] border border-white/[0.06] bg-[var(--surface-card)] p-3.5">
                 <div className="mb-3 px-1 text-sm font-semibold text-white">{capitalizedMonth}</div>
                 <div className="grid grid-cols-7 gap-1 text-center">
                   {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((weekday, index) => <span key={`${weekday}-${index}`} className="pb-1 text-[10px] font-medium text-zinc-500">{weekday}</span>)}
@@ -363,7 +363,7 @@ export function DividendFlow({
                   })}
                 </div>
               </div>
-              <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121215]">
+              <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[var(--surface-card)]">
                 <h3 className="border-b border-white/[0.06] px-3.5 py-3 text-xs font-semibold text-white">
                   {selectedDate ? selectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : 'Eventos do dia'}
                 </h3>

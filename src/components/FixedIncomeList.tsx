@@ -129,7 +129,7 @@ export function FixedIncomeList({
             return (
               <div
                 key={asset.id}
-                className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5 transition-all"
+                className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-5 transition-all"
               >
                 {/* Topo do Card */}
                 <div className="flex items-center justify-between gap-3">
@@ -232,7 +232,7 @@ export function FixedIncomeList({
         </div>
       ) : (
         /* Empty State Estilo XP */
-        <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-6 text-center space-y-4">
+        <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-6 text-center space-y-4">
           <div className="w-11 h-11 rounded-lg border border-white/80 mx-auto flex items-center justify-center text-white">
             <PiggyBank className="w-5 h-5" />
           </div>

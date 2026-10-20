@@ -85,7 +85,7 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
         <span>Capital inicial</span>
         <select
           aria-label="Capital inicial da simulação"
-          className="min-h-11 rounded-xl border border-white/[0.06] bg-[#1c1c1f] px-3 text-sm text-white"
+          className="min-h-11 rounded-xl border border-white/[0.06] bg-[var(--surface-panel)] px-3 text-sm text-white"
           value={base}
           onChange={(event) => setBase(event.target.value)}
         >

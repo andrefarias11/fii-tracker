@@ -201,7 +201,7 @@ export function DividendReconciliationPanel({
   }, { received: 0, pending: 0, divergent: 0, review: 0 });
 
   return (
-    <details className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#121215]">
+    <details className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[var(--surface-card)]">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-3.5 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0">
           <span className="block text-xs font-semibold text-white">Conciliação de proventos</span>

@@ -463,3 +463,61 @@ summary {
 * {
   touch-action: manipulation;
 }
+
+/* Product layout: a quiet canvas, clear hierarchy and one navigation model. */
+:root {
+  --background: #090b0e;
+  --surface-card: #121519;
+  --surface-panel: #1b1f25;
+  --surface-card-border: rgba(225, 232, 240, 0.09);
+  --text-secondary: #aeb5bf;
+  --accent: #edc56d;
+}
+.app-shell { background: var(--background); }
+.app-content { max-width: 72rem; margin-inline: auto; padding: 1.5rem 1rem calc(env(safe-area-inset-bottom, 0px) + 7rem); }
+.app-header { background: var(--background); }
+.app-header__inner { max-width: 70rem; margin-inline: auto; }
+.eyebrow { font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); }
+.overview-grid { display: grid; gap: 1rem; }
+.overview-hero { padding: 1.5rem; border: 1px solid rgba(237,197,109,.22); border-radius: 24px; background: linear-gradient(130deg, #25241e, #15191d 70%); }
+.hero-value { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 600; letter-spacing: -.055em; line-height: 1.2; overflow-wrap: anywhere; }
+.overview-income { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--surface-card-border); }
+.income-metrics { display: grid; gap: 1rem; }
+.income-metrics > div { padding-bottom: .75rem; border-bottom: 1px solid var(--surface-card-border); }
+.income-metrics dt { font-size: .75rem; color: var(--text-secondary); }
+.income-metrics dd { font-size: 1.25rem; font-weight: 600; margin-top: .375rem; overflow-wrap: anywhere; }
+.income-metrics p { color: var(--text-secondary); font-size: .6875rem; margin-top: .25rem; }
+.status-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; margin-right: .5rem; }
+.allocation-bar { display: flex; height: .5rem; border-radius: 1rem; overflow: hidden; gap: 3px; }
+.tool-grid { display: grid; gap: .75rem; }
+.tool-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; text-align: left; background: var(--surface-card); border: 1px solid var(--surface-card-border); border-radius: 20px; transition: border-color .18s; }
+.tool-card:hover { border-color: rgba(237,197,109,.4); }
+.app-navigation { position: fixed; inset: auto 0 0; z-index: 30; padding: .5rem .5rem calc(env(safe-area-inset-bottom, 0px) + .5rem); border-top: 1px solid var(--surface-card-border); background: #121519; }
+.app-navigation__items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 36rem; margin-inline: auto; gap: .25rem; }
+.app-navigation .dock-tab { min-height: 56px; border-radius: 14px; }
+.app-navigation .dock-tab[aria-current='page'] { background: rgba(237,197,109,.1); color: var(--accent); }
+.app-navigation .dock-tab[aria-current='page'] svg, .app-navigation .dock-tab[aria-current='page'] span { color: var(--accent); }
+.sidebar-brand { display: none; }
+.skip-link { position: fixed; top: -5rem; left: 1rem; z-index: 100; padding: 1rem; border-radius: 12px; background: var(--accent); color: #090b0e; }
+.skip-link:focus { top: 1rem; }
+.portfolio-summary { padding: 1.5rem; border: 1px solid var(--surface-card-border); border-radius: 24px; background: var(--surface-card); }
+@media (min-width: 640px) {
+  .app-content { padding: 2rem 2rem 2.5rem; }
+  .overview-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1.25rem; }
+  .overview-hero { padding: 2rem; }
+  .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ui-sheet { max-width: 42rem; }
+}
+@media (min-width: 1024px) {
+  .app-shell { padding-left: 15rem; }
+  .app-header { padding-inline: 2rem; }
+  .app-navigation { inset: 0 auto 0 0; width: 15rem; border-top: 0; border-right: 1px solid var(--surface-card-border); padding: 2rem 1rem; }
+  .app-navigation__items { display: flex; flex-direction: column; gap: .5rem; }
+  .app-navigation .dock-tab { flex-direction: row; justify-content: flex-start; gap: .875rem; padding-inline: 1rem; min-height: 48px; }
+  .app-navigation .dock-tab svg { margin-bottom: 0; }
+  .app-navigation .dock-tab span { font-size: .875rem; }
+  .sidebar-brand { display: flex; gap: .75rem; align-items: center; margin: 0 0 3rem .5rem; font-weight: 600; }
+  .sidebar-brand small { display: block; font-weight: 400; font-size: .625rem; color: var(--text-secondary); margin-top: .25rem; }
+  .brand-mark { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid #edc56d55; border-radius: 12px; color: var(--accent); font-size: 1.25rem; }
+  .ui-toast { left: 16rem; bottom: 1.5rem; }
+}

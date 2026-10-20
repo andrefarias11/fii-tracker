@@ -159,7 +159,7 @@ export function InvestmentSimulator({
   return (
     <div className="space-y-4">
       {/* PAINEL BOLETIM FOCUS — API OLINDA DO BANCO CENTRAL */}
-      <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5 space-y-3.5">
+      <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-5 space-y-3.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
@@ -185,7 +185,7 @@ export function InvestmentSimulator({
           {focusProjections.map((proj) => (
             <div
               key={proj.year}
-              className="p-3 rounded-2xl bg-[#1c1c1f] border border-white/[0.05] space-y-1.5"
+              className="p-3 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.05] space-y-1.5"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold text-[#f5b800] tabular-nums">
@@ -219,7 +219,7 @@ export function InvestmentSimulator({
         </div>
 
         {/* Termômetro de Ciclo Tijolo vs Papel */}
-        <div className="p-3.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.05] flex items-start gap-2.5">
+        <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.05] flex items-start gap-2.5">
           <TrendingDown className="w-4 h-4 text-[#f5b800] shrink-0 mt-0.5" />
           <div className="text-xs text-zinc-300 leading-relaxed">
             <strong className="text-white">Termômetro do Ciclo Focus: </strong>
@@ -253,7 +253,7 @@ export function InvestmentSimulator({
       </div>
 
       {/* SIMULADOR DE FUTURO CONECTADO À CURVA FOCUS */}
-      <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5 space-y-4">
+      <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
@@ -281,7 +281,7 @@ export function InvestmentSimulator({
               className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
                 startFromCurrentEquity
                   ? 'bg-[#2b2512] text-[#f5b800]'
-                  : 'bg-[#1c1c1f] text-zinc-400'
+                  : 'bg-[var(--surface-panel)] text-zinc-400'
               }`}
               title="Alternar entre iniciar com seu patrimônio atual ou do zero"
             >
@@ -292,7 +292,7 @@ export function InvestmentSimulator({
         </div>
 
         {/* Seletor de Modo: Curva Focus BCB vs Taxa Fixa */}
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[#1c1c1f] border border-white/[0.04] gap-1">
+        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.04] gap-1">
           <button
             type="button"
             onClick={() => {
@@ -324,7 +324,7 @@ export function InvestmentSimulator({
         </div>
 
         {/* Controles simples */}
-        <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#1c1c1f]">
+        <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[var(--surface-panel)]">
           <div>
             <label className="text-xs font-semibold text-zinc-400 block mb-1.5">
               Aporte Mensal (R$)
@@ -337,7 +337,7 @@ export function InvestmentSimulator({
               onChange={(e) =>
                 setMonthlyContribution(Math.max(10, Number(e.target.value)))
               }
-              className="w-full bg-[#121215] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+              className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
             />
           </div>
           <div>
@@ -347,14 +347,14 @@ export function InvestmentSimulator({
                 : 'Yield Mensal Médio'}
             </label>
             {simulationMode === 'FOCUS_CURVE' ? (
-              <div className="w-full bg-[#121215] border border-[#f5b800]/30 rounded-xl px-3 py-2 text-xs text-[#f5b800] font-bold tabular-nums truncate">
+              <div className="w-full bg-[var(--surface-card)] border border-[#f5b800]/30 rounded-xl px-3 py-2 text-xs text-[#f5b800] font-bold tabular-nums truncate">
                 Focus Selic + IPCA
               </div>
             ) : (
               <select
                 value={monthlyYieldPercent}
                 onChange={(e) => setMonthlyYieldPercent(Number(e.target.value))}
-                className="w-full bg-[#121215] border border-white/[0.08] rounded-xl px-2.5 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
+                className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-2.5 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
               >
                 {averageYieldPercent >= 0.6 &&
                   averageYieldPercent <= 1.3 &&
@@ -372,7 +372,7 @@ export function InvestmentSimulator({
         </div>
 
         {/* Tempo estimado até os próximos Marcos */}
-        <div className="p-4 rounded-2xl bg-[#1c1c1f]">
+        <div className="p-4 rounded-2xl bg-[var(--surface-panel)]">
           <div className="text-xs font-bold text-zinc-300 flex items-center gap-1.5 mb-2.5">
             <Flag className="w-3.5 h-3.5 text-[#f5b800]" />
             <span>
@@ -387,7 +387,7 @@ export function InvestmentSimulator({
             {milestones.map((m) => (
               <div
                 key={m.target}
-                className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.06]"
+                className="p-2.5 rounded-xl bg-[var(--surface-card)] border border-white/[0.06]"
               >
                 <div className="text-[11px] text-zinc-400 font-medium tabular-nums">
                   R$ {(m.target / 1000).toFixed(0)} mil
@@ -405,7 +405,7 @@ export function InvestmentSimulator({
           {scenarios.map((sc) => (
             <div
               key={sc.years}
-              className="p-4 rounded-2xl bg-[#1c1c1f] flex items-center justify-between gap-2"
+              className="p-4 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between gap-2"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">

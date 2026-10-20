@@ -12,7 +12,6 @@ import {
   Sparkles,
   User,
 } from 'lucide-react';
-import { APP_VERSION } from '../lib/version';
 import { SavedAccountSession } from '../lib/authManager';
 import { Button } from './ui/Controls';
 
@@ -63,14 +62,14 @@ export function Header({
       : 'Conectar nuvem';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-black px-4 pb-2 pt-safe-header">
-      <div className="mx-auto max-w-md">
+    <header className="app-header sticky top-0 z-30 border-b border-white/[0.06] px-4 pb-2 pt-safe-header">
+      <div className="app-header__inner">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-medium tracking-[0.1em] text-zinc-400">
-              FII TRACKER <span className="font-normal">· v{APP_VERSION}</span>
+              FII TRACKER
             </p>
-            <h1 className="mt-0.5 text-lg font-semibold tracking-tight text-white">
+            <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-white">
               {title}
             </h1>
           </div>
@@ -116,7 +115,7 @@ export function Header({
                     className="h-8 w-8 rounded-full object-cover"
                   />
                 ) : activeAccount ? (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#1c1c1f] text-[11px] text-zinc-200">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[var(--surface-panel)] text-[11px] text-zinc-200">
                     {initials}
                   </span>
                 ) : (

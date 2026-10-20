@@ -220,7 +220,7 @@ export function AddFixedIncomeModal({
   return (
     <div ref={dialogRef} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md bg-[#121215] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl overflow-y-auto max-h-[88dvh] space-y-5"
+        className="relative w-full max-w-md bg-[var(--surface-card)] border border-white/[0.08] rounded-t-[28px] sm:rounded-[28px] p-6 pb-safe-modal shadow-2xl overflow-y-auto max-h-[88dvh] space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho */}
@@ -245,7 +245,7 @@ export function AddFixedIncomeModal({
               onClose();
             }}
             aria-label="Fechar formulário de Renda Fixa"
-            className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-[#1c1c1f] text-zinc-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] transition-colors"
+            className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-[var(--surface-panel)] text-zinc-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -269,7 +269,7 @@ export function AddFixedIncomeModal({
                     className={`min-h-11 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] ${
                       isSelected
                         ? 'bg-[#f5b800] text-zinc-950'
-                        : 'bg-[#1c1c1f] text-zinc-300 hover:text-white'
+                        : 'bg-[var(--surface-panel)] text-zinc-300 hover:text-white'
                     }`}
                   >
                     <span>{p.label}</span>
@@ -297,7 +297,7 @@ export function AddFixedIncomeModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Caixinha Reserva Nubank, CDB 110% XP"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
             />
           </div>
 
@@ -314,7 +314,7 @@ export function AddFixedIncomeModal({
                 value={institution}
                 onChange={(e) => setInstitution(e.target.value)}
                 placeholder="Ex: Nubank, Inter, XP"
-                className="w-full px-3 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+                className="w-full px-3 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
               />
             </div>
 
@@ -335,7 +335,7 @@ export function AddFixedIncomeModal({
                     setRateType('CDI');
                   }
                 }}
-                className="w-full px-3 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+                className="w-full px-3 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors"
               >
                 <option value="CAIXINHA">Caixinha / Cofrinho</option>
                 <option value="CDB">CDB (Liquidez / Prazo)</option>
@@ -366,7 +366,7 @@ export function AddFixedIncomeModal({
                   value={currentBalance}
                   onChange={(e) => setCurrentBalance(e.target.value)}
                   placeholder="500,00"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-sm font-bold focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white text-base sm:text-sm font-bold focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
                 />
               </div>
             </div>
@@ -386,14 +386,14 @@ export function AddFixedIncomeModal({
                   value={investedAmount}
                   onChange={(e) => setInvestedAmount(e.target.value)}
                   placeholder="Opcional"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white text-base sm:text-sm focus:outline-none focus:border-[#f5b800]/60 transition-colors tabular-nums"
                 />
               </div>
             </div>
           </div>
 
           {/* Taxa & Indexador */}
-          <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#1c1c1f]">
+          <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[var(--surface-panel)]">
             <div>
               <label htmlFor="fixed-income-rate-type" className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
                 Indexador
@@ -402,7 +402,7 @@ export function AddFixedIncomeModal({
                 id="fixed-income-rate-type"
                 value={rateType}
                 onChange={(e) => setRateType(e.target.value as 'CDI' | 'IPCA' | 'PREFIXADO')}
-                className="w-full px-2.5 py-2 rounded-xl bg-[#121215] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60"
+                className="w-full px-2.5 py-2 rounded-xl bg-[var(--surface-card)] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60"
               >
                 <option value="CDI">% do CDI</option>
                 <option value="IPCA">IPCA + taxa anual</option>
@@ -426,7 +426,7 @@ export function AddFixedIncomeModal({
                   value={ratePercent}
                   onChange={(e) => setRatePercent(e.target.value)}
                   placeholder={rateType === 'CDI' ? '100' : '6.5'}
-                  className="w-full px-3 py-2 rounded-xl bg-[#121215] border border-white/[0.08] text-white text-base sm:text-xs font-bold focus:outline-none focus:border-[#f5b800]/60 tabular-nums"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-card)] border border-white/[0.08] text-white text-base sm:text-xs font-bold focus:outline-none focus:border-[#f5b800]/60 tabular-nums"
                 />
                 <span className="absolute right-3 top-2 text-zinc-500 text-xs font-semibold">
                   %
@@ -466,7 +466,7 @@ export function AddFixedIncomeModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ex: Reserva de emergência de 6 meses"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[#1c1c1f] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
             />
           </div>
 

@@ -141,7 +141,7 @@ export function AchievementsTimeline({
     if (!unlocked) {
       return {
         badge: 'bg-transparent text-[#71717A] border-white/[0.06]',
-        iconBox: 'bg-[#1c1c1f] border-white/[0.08] text-[#71717A]',
+        iconBox: 'bg-[var(--surface-panel)] border-white/[0.08] text-[#71717A]',
         bar: 'bg-zinc-600',
       };
     }
@@ -149,25 +149,25 @@ export function AchievementsTimeline({
       case 'BRONZE':
         return {
           badge: 'bg-transparent text-[#CD9A72] border-[#CD9A72]/20',
-          iconBox: 'bg-[#1c1c1f] border-[#CD9A72]/20 text-[#CD9A72]',
+          iconBox: 'bg-[var(--surface-panel)] border-[#CD9A72]/20 text-[#CD9A72]',
           bar: 'bg-[#f5b800]',
         };
       case 'PRATA':
         return {
           badge: 'bg-transparent text-zinc-200 border-white/[0.15]',
-          iconBox: 'bg-[#1c1c1f] border-white/15 text-zinc-200',
+          iconBox: 'bg-[var(--surface-panel)] border-white/15 text-zinc-200',
           bar: 'bg-zinc-200',
         };
       case 'OURO':
         return {
           badge: 'bg-transparent text-[#f5b800] border-[#f5b800]/20',
-          iconBox: 'bg-[#1c1c1f] border-[#f5b800]/20 text-[#f5b800]',
+          iconBox: 'bg-[var(--surface-panel)] border-[#f5b800]/20 text-[#f5b800]',
           bar: 'bg-[#f5b800]',
         };
       case 'PLATINA':
         return {
           badge: 'bg-transparent text-[#B7D7E8] border-[#B7D7E8]/20',
-          iconBox: 'bg-[#1c1c1f] border-[#B7D7E8]/20 text-[#B7D7E8]',
+          iconBox: 'bg-[var(--surface-panel)] border-[#B7D7E8]/20 text-[#B7D7E8]',
           bar: 'bg-emerald-400',
         };
     }
@@ -183,7 +183,7 @@ export function AchievementsTimeline({
   return (
     <div className="space-y-4">
       {/* Hero Card: Troféu Platina & Progresso Geral Estilo XP */}
-      <div className="p-5 rounded-[20px] bg-[#121215] border border-white/[0.06]">
+      <div className="p-5 rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06]">
         <div className="flex items-start justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
@@ -237,7 +237,7 @@ export function AchievementsTimeline({
 
         {/* Próxima conquista na mira */}
         {overview.nextAchievement && (
-          <div className="p-3.5 rounded-2xl bg-[#1c1c1f] flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800] shrink-0">
                 <Target className="w-4 h-4" />
@@ -275,7 +275,7 @@ export function AchievementsTimeline({
       </div>
 
       {/* Linha do Tempo Vertical das Conquistas */}
-      <div className="p-5 rounded-[20px] bg-[#121215] border border-white/[0.06]">
+      <div className="p-5 rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06]">
         <div className="relative space-y-3">
           {filteredAchievements.map((item: AchievementItem, index: number) => {
             const styles = getTierStyles(item.tier, item.unlocked);

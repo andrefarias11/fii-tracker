@@ -48,7 +48,7 @@ export function GoalsCard({
   };
 
   return (
-    <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-5">
+    <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white">
@@ -73,7 +73,7 @@ export function GoalsCard({
       </div>
 
       {/* Meta Principal do Mês */}
-      <div className="p-4 rounded-2xl bg-[#1c1c1f] mb-3">
+      <div className="p-4 rounded-2xl bg-[var(--surface-panel)] mb-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
             Meta de aporte deste mês
@@ -125,7 +125,7 @@ export function GoalsCard({
       {/* Metas Secundárias: Patrimônio & Renda Passiva */}
       <div className="grid grid-cols-2 gap-3">
         {/* Marco de Patrimônio */}
-        <div className="p-3.5 rounded-2xl bg-[#1c1c1f]">
+        <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)]">
           <div className="text-[11px] text-zinc-400 mb-0.5">Marco de Patrimônio</div>
           <div className="text-xs font-bold text-white mb-2 tabular-nums">
             {formatBRL(currentEquity)}{' '}
@@ -145,7 +145,7 @@ export function GoalsCard({
         </div>
 
         {/* Meta de Renda Passiva */}
-        <div className="p-3.5 rounded-2xl bg-[#1c1c1f]">
+        <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)]">
           <div className="text-[11px] text-zinc-400 mb-0.5">Renda Passiva Mensal</div>
           <div className="text-xs font-bold text-white mb-2 tabular-nums">
             {formatBRL(totalMonthlyDividends)}{' '}

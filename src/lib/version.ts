@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.21';
+export const APP_VERSION = '5.2.0';
 export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,13 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.2.0', date: '20/10/2026', highlights: [
+      'Nova Visão geral com patrimônio unificado, proventos recebidos, confirmados e estimados, distribuição da carteira e próximo pagamento confirmado do mês.',
+      'Navegação com Início, Carteira, Proventos, Radar e Mais; barra lateral no desktop e acesso organizado às ferramentas especializadas.',
+      'Ficha do ativo organizada em Posição, Proventos, Desempenho, Indicadores e Movimentações; superfícies e hierarquia visual compartilhadas entre as telas.',
+    ],
+  },
   {
     version: '5.1.21', date: '20/10/2026', highlights: [
       'Mostra na Renda Fixa as alterações locais aguardando envio à conta e oferece uma nova tentativa de sincronização.',

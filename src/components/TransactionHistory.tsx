@@ -126,7 +126,7 @@ export function TransactionHistory({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] p-8 text-center">
+      <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] p-8 text-center">
         <p className="text-sm text-zinc-400">Nenhuma movimentação registrada ainda.</p>
       </div>
     );
@@ -197,7 +197,7 @@ export function TransactionHistory({
               </div>
 
               {/* Card Agrupado de Transações do Mês Estilo XP */}
-              <div className="rounded-[20px] bg-[#121215] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
+              <div className="rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06] divide-y divide-white/[0.06] overflow-hidden">
                 {group.items.map((tx) => {
                   const isConfirming = confirmingDeleteId === tx.id;
                   const isSell = tx.type === 'SELL';
