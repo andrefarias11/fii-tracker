@@ -5,9 +5,12 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 | Prioridade | Demanda | Objetivo e critérios de aceite |
 | --- | --- | --- |
 | P2 · média | Confirmação de sincronização de operações | Distinguir operação salva neste dispositivo de operação sincronizada na conta e oferecer recuperação visível quando a sincronização falhar. Definir comportamento offline antes de implementar; não depende de alteração de dados no Supabase. |
+| P2 · média | Recuperação de fila local corrompida | Preservar os dados brutos de alterações pendentes ilegíveis, impedir conciliação que possa sobrescrevê-las e oferecer diagnóstico e recuperação explícitos. Definir fluxo seguro antes de alterar `readQueue`. |
 
 ## Concluídos
 
+- 5.1.16: ações do aviso de instalação no iPhone têm alvos de 44 px, foco visível e nome acessível específico.
+- 5.1.15: cabeçalho sticky do iPhone ganhou texto mais nítido e contraste maior na marca.
 - 5.1.14: cabeçalhos mensais do Extrato empilham e quebram subtotais no celular sem sobreposição; privacidade preservada.
 - 5.1.13: ao desaparecer a última movimentação do ativo filtrado, o Extrato seleciona Todos e mostra as movimentações restantes, sem alterar subtotais.
 - 5.1.12: ações de editar, excluir, confirmar e cancelar no Extrato têm alvos de pelo menos 44 px, nomes acessíveis e layout adaptado ao celular.
@@ -15,5 +18,6 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 
 ## Notas da auditoria
 
+- Operações são salvas localmente e enfileiradas para envio; a sincronização tenta novamente ao voltar a conexão e periodicamente. A interface já exibe pendências, erro e ação de nova tentativa. A confirmação por operação ainda precisa de definição para o caso offline e conta ausente.
 - `src/app/page.tsx` encaminha a exclusão do Extrato a `deleteTransaction` em `src/hooks/usePortfolio.ts`; o hook atualiza a lista local e agenda exclusão remota. Alterar a apresentação da confirmação não exige mudar esse fluxo.
 - A seleção de ativo fica no estado de `TransactionHistory`. Quando o último lançamento do ativo selecionado é removido, a seleção pode permanecer sem resultados; tratar em uma entrega própria para não misturar a mudança de comportamento com a ampliação dos botões.

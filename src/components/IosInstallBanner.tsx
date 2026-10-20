@@ -28,14 +28,15 @@ export function IosInstallBanner() {
   return (
     <div className="relative rounded-[20px] bg-[#121215] border border-white/[0.06] p-5 mb-4">
       <button
+        type="button"
         onClick={handleDismiss}
-        aria-label="Dispensar banner"
-        className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 transition-colors"
+        aria-label="Dispensar instruções de instalação"
+        className="absolute top-2 right-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-zinc-400 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] transition-colors"
       >
         <X className="w-4 h-4" />
       </button>
 
-      <div className="flex items-start gap-3.5 pr-6">
+      <div className="flex items-start gap-3.5 pr-8">
         <div className="w-9 h-9 rounded-lg border border-white/80 flex items-center justify-center text-white shrink-0">
           <Share className="w-4 h-4 text-[#f5b800]" />
         </div>
@@ -54,8 +55,9 @@ export function IosInstallBanner() {
           </p>
 
           <button
+            type="button"
             onClick={handleDismiss}
-            className="text-xs font-bold text-[#f5b800] hover:opacity-80 transition-opacity"
+            className="inline-flex min-h-11 items-center rounded-lg text-xs font-bold text-[#f5b800] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5b800] transition-opacity"
           >
             Entendido, já sei como fazer
           </button>
