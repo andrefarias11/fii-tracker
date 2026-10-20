@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
+import { Chip } from './ui/Controls';
 import {
   Trash2,
   Edit2,
@@ -133,31 +134,21 @@ export function TransactionHistory({
     <div className="space-y-4">
       {/* Filtro rápido por Ativo em Pílulas Estilo XP */}
       {uniqueTickers.length > 1 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <button
-            type="button"
+        <div role="group" aria-label="Filtrar extrato por ativo" className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <Chip
             onClick={() => setSelectedTicker('TODOS')}
-            className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
-              selectedTicker === 'TODOS'
-                ? 'bg-[#f5b800] text-zinc-950'
-                : 'bg-[#121215] text-zinc-300 hover:text-white'
-            }`}
+            selected={selectedTicker === 'TODOS'}
           >
             Todos ({transactions.length})
-          </button>
+          </Chip>
           {uniqueTickers.map((t) => (
-            <button
+            <Chip
               key={t}
-              type="button"
               onClick={() => setSelectedTicker(t)}
-              className={`text-xs px-3.5 py-1.5 rounded-full whitespace-nowrap font-bold transition-all ${
-                selectedTicker === t
-                  ? 'bg-[#f5b800] text-zinc-950'
-                  : 'bg-[#121215] text-zinc-300 hover:text-white'
-              }`}
+              selected={selectedTicker === t}
             >
               {t}
-            </button>
+            </Chip>
           ))}
         </div>
       )}
