@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
+import { getTransactionHistoryFilter } from '../lib/transactionHistoryFilter';
 import { Chip } from './ui/Controls';
 import {
   Trash2,
@@ -52,10 +53,11 @@ export function TransactionHistory({
     return Array.from(new Set(transactions.map((t) => t.ticker))).sort();
   }, [transactions]);
 
-  const filteredTransactions = useMemo(() => {
-    if (selectedTicker === 'TODOS') return transactions;
-    return transactions.filter((t) => t.ticker === selectedTicker);
+  const { effectiveTicker, filteredTransactions } = useMemo(() => {
+    return getTransactionHistoryFilter(transactions, selectedTicker);
   }, [transactions, selectedTicker]);
+
+  if (selectedTicker !== effectiveTicker) setSelectedTicker(effectiveTicker);
 
   // Agrupamento por mês (YYYY-MM)
   const groupedByMonth = useMemo(() => {
@@ -137,7 +139,7 @@ export function TransactionHistory({
         <div role="group" aria-label="Filtrar extrato por ativo" className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <Chip
             onClick={() => setSelectedTicker('TODOS')}
-            selected={selectedTicker === 'TODOS'}
+            selected={effectiveTicker === 'TODOS'}
           >
             Todos ({transactions.length})
           </Chip>
@@ -145,7 +147,7 @@ export function TransactionHistory({
             <Chip
               key={t}
               onClick={() => setSelectedTicker(t)}
-              selected={selectedTicker === t}
+              selected={effectiveTicker === t}
             >
               {t}
             </Chip>
@@ -157,7 +159,7 @@ export function TransactionHistory({
       <div className="space-y-5">
         {groupedByMonth.map((group) => {
           const hitMonthlyGoal =
-            selectedTicker === 'TODOS' &&
+            effectiveTicker === 'TODOS' &&
             monthlyTarget > 0 &&
             group.totalBought >= monthlyTarget;
 
