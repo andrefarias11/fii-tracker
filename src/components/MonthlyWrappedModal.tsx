@@ -8,6 +8,7 @@ import {
   Layers,
   Snowflake,
   Share2,
+  Download,
   X,
   Coffee,
   Zap,
@@ -50,6 +51,7 @@ export function MonthlyWrappedModal({
   });
 
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+  const [exportedSuccess, setExportedSuccess] = useState<boolean>(false);
 
   const wrapped = useMemo(() => {
     return calculateMonthlyWrapped(
@@ -87,9 +89,9 @@ export function MonthlyWrappedModal({
 
     const shareText = `🏢 Meu Mês de ${wrapped.fullLabel} na B3 (FII Tracker):\n\n` +
       `💸 Proventos recebidos: ${formatBRL(wrapped.totalDividends)}\n` +
-      `🧱 Aporte no mês: ${formatBRL(wrapped.totalInvested)} (+${wrapped.totalSharesBought} cotas)\n` +
+      `🧱 Aporte no mês: ${formatBRL(wrapped.totalInvested)}${isPrivacyMode ? '' : ` (+${wrapped.totalSharesBought} cotas)`}\n` +
       `❄️ Bola de Neve: ${wrapped.snowballGrowthPercent}% de crescimento\n` +
-      (wrapped.magicNumberLeader
+      (!isPrivacyMode && wrapped.magicNumberLeader
         ? `🎯 Líder no Número Mágico: ${wrapped.magicNumberLeader.ticker} (${wrapped.magicNumberLeader.progressPercent}% do objetivo)\n`
         : '') +
       `\nConstruindo renda passiva com constância na B3! 🚀`;
@@ -101,8 +103,9 @@ export function MonthlyWrappedModal({
           text: shareText,
         });
         return;
-      } catch {
-        // Usuário cancelou ou navegador não completou share nativo
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        // Se o compartilhamento falhar, oferece cópia como alternativa.
       }
     }
 
@@ -113,6 +116,52 @@ export function MonthlyWrappedModal({
     } catch {
       // ignore
     }
+  };
+
+  const handleExportCsv = () => {
+    if (isPrivacyMode) return;
+
+    const formatNumber = (value: number) =>
+      new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value);
+    const formatCurrency = (value: number) =>
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    const rows: string[][] = [
+      ['Indicador', 'Valor'],
+      ['Mês de referência', wrapped.fullLabel],
+      ['Situação do mês', wrapped.isCurrentMonth ? 'Em andamento' : 'Fechado'],
+      ['Proventos recebidos', formatCurrency(wrapped.totalDividends)],
+      ['Variação dos proventos vs. mês anterior', `${formatNumber(wrapped.dividendGrowthPercent)}%`],
+      ['Aportes realizados', formatCurrency(wrapped.totalInvested)],
+      ['Cotas adquiridas', formatNumber(wrapped.totalSharesBought)],
+      ['Ativos comprados', wrapped.boughtAssetsList.join(', ') || 'Nenhum'],
+      ['Ativos distintos comprados', formatNumber(wrapped.distinctAssetsBoughtCount)],
+      ['Crescimento da bola de neve', `${formatNumber(wrapped.snowballGrowthPercent)}%`],
+      ['Cobertura da meta mensal por proventos', `${formatNumber(wrapped.monthlyGoalCoveragePercent)}%`],
+      ['Meta mensal de aporte', formatCurrency(monthlyTarget)],
+      ['Maior provento por ativo', wrapped.topDividendAsset?.ticker || 'Nenhum'],
+      ['Valor do maior provento', formatCurrency(wrapped.topDividendAsset?.amount || 0)],
+      ['Cafés equivalentes', formatNumber(wrapped.coffeeCupsPaid)],
+      ['Conta de luz coberta', `${formatNumber(wrapped.energyBillPaidPercent)}%`],
+      [],
+      ['Proventos por ativo', 'Valor recebido'],
+      ...wrapped.allDividendsBreakdown.map((item) => [item.ticker, formatCurrency(item.amount)]),
+    ];
+    const escapeCell = (value: string) => {
+      const spreadsheetSafeValue = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+      return `"${spreadsheetSafeValue.replace(/"/g, '""')}"`;
+    };
+    const csv = `\uFEFF${rows.map((row) => row.map(escapeCell).join(';')).join('\r\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fii-tracker-resumo-${wrapped.monthKey}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setExportedSuccess(true);
+    window.setTimeout(() => setExportedSuccess(false), 2500);
   };
 
   return (
@@ -192,10 +241,11 @@ export function MonthlyWrappedModal({
               <strong className="text-emerald-400 font-bold text-base tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </strong>{' '}
-              em proventos, aportou em{' '}
+              em proventos{isPrivacyMode ? '' : ', aportou em '}
+              {!isPrivacyMode && <>
               <strong className="text-white font-bold text-base tabular-nums">
                 {wrapped.totalSharesBought} cotas
-              </strong>{' '}
+              </strong>{' '}</>}
               e sua bola de neve avançou{' '}
               <strong className="text-[#f5b800] font-bold text-base tabular-nums">
                 +{wrapped.snowballGrowthPercent}%
@@ -226,7 +276,7 @@ export function MonthlyWrappedModal({
               <div className="text-lg font-bold text-white tracking-tight tabular-nums">
                 {formatBRL(wrapped.totalDividends)}
               </div>
-              {wrapped.topDividendAsset && (
+              {!isPrivacyMode && wrapped.topDividendAsset && (
                 <p className="text-[11px] text-zinc-400 mt-1 truncate">
                   Maior:{' '}
                   <span className="font-bold text-emerald-400">
@@ -245,8 +295,8 @@ export function MonthlyWrappedModal({
                 <Layers className="w-4 h-4" />
               </div>
               <span className="text-[11px] font-bold text-zinc-300 bg-white/[0.06] px-2 py-0.5 rounded-full">
-                {wrapped.distinctAssetsBoughtCount}{' '}
-                {wrapped.distinctAssetsBoughtCount === 1 ? 'ativo' : 'ativos'}
+                {isPrivacyMode ? '••' : <>{wrapped.distinctAssetsBoughtCount}{' '}
+                {wrapped.distinctAssetsBoughtCount === 1 ? 'ativo' : 'ativos'}</>}
               </span>
             </div>
             <div>
@@ -257,15 +307,14 @@ export function MonthlyWrappedModal({
                 {formatBRL(wrapped.totalInvested)}
               </div>
               <p className="text-[11px] text-zinc-400 mt-1">
-                +<strong className="text-white tabular-nums">{wrapped.totalSharesBought}</strong> cotas
-                adquiridas
+                {isPrivacyMode ? 'Quantidade oculta' : <>+<strong className="text-white tabular-nums">{wrapped.totalSharesBought}</strong> cotas adquiridas</>}
               </p>
             </div>
           </div>
         </div>
 
         {/* CARD BOLA DE NEVE & NÚMERO MÁGICO */}
-        {wrapped.magicNumberLeader && (
+        {!isPrivacyMode && wrapped.magicNumberLeader && (
           <div className="rounded-2xl bg-[#1c1c1f] p-4 mb-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -307,7 +356,7 @@ export function MonthlyWrappedModal({
         )}
 
         {/* EQUIVALÊNCIAS DA VIDA REAL */}
-        {wrapped.totalDividends > 0 && (
+        {!isPrivacyMode && wrapped.totalDividends > 0 && (
           <div className="rounded-2xl bg-[#1c1c1f] p-3.5 mb-4 grid grid-cols-2 gap-2 text-center">
             <div className="p-2.5 rounded-xl bg-[#121215]">
               <Coffee className="w-4 h-4 text-[#f5b800] mx-auto mb-1" />
@@ -335,6 +384,23 @@ export function MonthlyWrappedModal({
             — {wrapped.quote.author}
           </span>
         </div>
+
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={isPrivacyMode}
+          title={isPrivacyMode ? 'Desative o modo privacidade para exportar os valores da carteira.' : undefined}
+          className="w-full mb-3 py-3 rounded-full border border-white/[0.08] bg-[#1c1c1f] text-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
+        >
+          {exportedSuccess ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4 text-[#f5b800]" />}
+          <span aria-live="polite">
+            {isPrivacyMode
+              ? 'Desative a privacidade para exportar valores'
+              : exportedSuccess
+                ? 'CSV exportado'
+                : 'Exportar resumo do mês (.csv)'}
+          </span>
+        </button>
 
         {/* BOTÕES DE AÇÃO EM PÍLULA ESTILO XP */}
         <div className="grid grid-cols-2 gap-3">

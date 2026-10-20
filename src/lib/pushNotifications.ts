@@ -54,6 +54,32 @@ export interface ServerPushStatusSummary {
   } | null;
 }
 
+export interface PushHistoryEvent {
+  eventType: string;
+  ticker: string;
+  headline: string;
+  source: string;
+  date: string;
+  sourceUrl: string | null;
+}
+
+export interface PushHistoryItem {
+  id: string;
+  status: string;
+  localDate: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  sentAt: string | null;
+  events: PushHistoryEvent[];
+  // "accepted" significa aceito pelo serviço Push; não confirma exibição no aparelho.
+  deliveries: { accepted: number; failed: number; pending: number; total: number };
+}
+
+export interface PushHistoryPage {
+  items: PushHistoryItem[];
+  nextCursor: string | null;
+}
+
 export interface ServerPushPreferencesResponse extends PushPreferences {
   userId: string;
   lastProcessedAt?: string | null;
@@ -408,6 +434,24 @@ export async function fetchServerPushState(userId?: string | null): Promise<Serv
   } catch {
     return fallbackState;
   }
+}
+
+export async function fetchServerPushHistory(cursor?: string | null): Promise<PushHistoryPage> {
+  const safeCursor = typeof cursor === 'string' && cursor.length <= 256 ? cursor : '';
+  if (typeof window === 'undefined') return { items: [], nextCursor: null };
+
+  const query = safeCursor ? `?cursor=${encodeURIComponent(safeCursor)}` : '';
+  const response = await authenticatedFetch(`/api/push/history${query}`, { method: 'GET' });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(typeof payload.error === 'string' ? payload.error : 'Não foi possível carregar o histórico de alertas.');
+  }
+
+  const payload = await response.json();
+  return {
+    items: Array.isArray(payload.items) ? payload.items as PushHistoryItem[] : [],
+    nextCursor: typeof payload.nextCursor === 'string' && payload.nextCursor.length <= 256 ? payload.nextCursor : null,
+  };
 }
 
 export async function syncPushPreferencesToServer(

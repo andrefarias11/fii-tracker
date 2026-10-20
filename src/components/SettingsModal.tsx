@@ -23,6 +23,7 @@ import {
   LayoutGrid,
   ShieldCheck,
   Lock,
+  ExternalLink,
 } from 'lucide-react';
 import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
 import {
@@ -38,12 +39,14 @@ import {
   registerAndSubscribePush,
   unsubscribeDevicePush,
   fetchServerPushState,
+  fetchServerPushHistory,
   syncPushPreferencesToServer,
   sendPushNotificationNow,
   buildPortfolioDailyAlert,
   scanSmartAlerts,
   PushPreferences,
   ServerPushState,
+  PushHistoryPage,
   SmartAlertItem,
   NotificationPrivacyMode,
 } from '../lib/pushNotifications';
@@ -125,6 +128,30 @@ function formatDeliveryStatusLabel(status?: string | null): string {
   }
 }
 
+function formatAlertHistoryStatus(item: PushHistoryPage['items'][number]): string {
+  if (item.deliveries.accepted > 0) {
+    if (item.deliveries.failed > 0) {
+      return `Aceito ${item.deliveries.accepted}/${item.deliveries.total} · falha ${item.deliveries.failed}`;
+    }
+    return `Aceito pelo serviço Push · ${item.deliveries.accepted}/${item.deliveries.total} aparelho(s)`;
+  }
+  if (item.status === 'retry_pending') return 'Retentativa agendada';
+  if (item.status === 'processing') return 'Processando envio';
+  if (item.status === 'skipped_no_devices') return 'Sem aparelho ativo';
+  if (item.status === 'failed' || item.deliveries.failed > 0) return 'Falha no envio';
+  return 'Evento registrado';
+}
+
+function formatAlertSource(source: string): string {
+  if (source === 'GOOGLE_NEWS') return 'Notícias';
+  if (source === 'BANCO_CENTRAL') return 'Banco Central';
+  if (source === 'B3') return 'B3';
+  if (source === 'STATUS_INVEST') return 'StatusInvest';
+  if (source === 'FUNDAMENTUS') return 'Fundamentus';
+  if (source === 'BRAPI') return 'Brapi';
+  return source;
+}
+
 export function SettingsModal({
   isOpen,
   goals,
@@ -164,6 +191,10 @@ export function SettingsModal({
   const [isRemovingPush, setIsRemovingPush] = useState<boolean>(false);
   const [isSendingTestPush, setIsSendingTestPush] = useState<boolean>(false);
   const [pushStatusMsg, setPushStatusMsg] = useState<string | null>(null);
+  const [pushHistory, setPushHistory] = useState<PushHistoryPage | null>(null);
+  const [isLoadingPushHistory, setIsLoadingPushHistory] = useState(false);
+  const [isLoadingMorePushHistory, setIsLoadingMorePushHistory] = useState(false);
+  const [pushHistoryError, setPushHistoryError] = useState<string | null>(null);
 
   // Estados do Widget iOS (Scriptable)
   const [widgetCopied, setWidgetCopied] = useState<boolean>(false);
@@ -173,33 +204,72 @@ export function SettingsModal({
 
   const refreshPushState = useCallback(async () => {
     setIsLoadingPushState(true);
+    setIsLoadingPushHistory(true);
     try {
       setPushSupport(isWebPushSupported());
       const state = await fetchServerPushState();
       setServerPushState(state);
+      try {
+        setPushHistory(state.authenticated ? await fetchServerPushHistory() : { items: [], nextCursor: null });
+        setPushHistoryError(null);
+      } catch {
+        setPushHistoryError('Histórico indisponível. Confira a conexão e tente novamente.');
+      }
       if (state.preferences) {
         setPushPrefs(getPushPreferences());
       }
     } finally {
       setIsLoadingPushState(false);
+      setIsLoadingPushHistory(false);
     }
   }, []);
 
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    void fetchServerPushState().then((state) => {
+    void fetchServerPushState().then(async (state) => {
       if (cancelled) return;
       setPushSupport(isWebPushSupported());
       setServerPushState(state);
       if (state.preferences) {
         setPushPrefs(getPushPreferences());
       }
+      try {
+        const history = state.authenticated
+          ? await fetchServerPushHistory()
+          : { items: [], nextCursor: null };
+        if (cancelled) return;
+        setPushHistory(history);
+        setPushHistoryError(null);
+      } catch {
+        if (!cancelled) setPushHistoryError('Histórico indisponível. Confira a conexão e tente novamente.');
+      }
+    }).catch(() => {
+      if (!cancelled) setPushHistoryError('Não foi possível consultar o estado das notificações. Confira a conexão e tente novamente.');
+    }).finally(() => {
+      if (!cancelled) setIsLoadingPushHistory(false);
     });
     return () => {
       cancelled = true;
     };
   }, [isOpen]);
+
+  const loadMorePushHistory = async () => {
+    if (!pushHistory?.nextCursor || isLoadingMorePushHistory) return;
+    setIsLoadingMorePushHistory(true);
+    try {
+      const nextPage = await fetchServerPushHistory(pushHistory.nextCursor);
+      setPushHistory((current) => current ? {
+        items: [...current.items, ...nextPage.items],
+        nextCursor: nextPage.nextCursor,
+      } : nextPage);
+      setPushHistoryError(null);
+    } catch {
+      setPushHistoryError('Não foi possível carregar mais alertas.');
+    } finally {
+      setIsLoadingMorePushHistory(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -861,6 +931,68 @@ export function SettingsModal({
               </button>
             </div>
           )}
+
+          <section className="mt-3 pt-3 border-t border-white/[0.06]" aria-labelledby="push-history-heading">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <h3 id="push-history-heading" className="text-[11px] font-bold text-white">Central de Alertas</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Histórico recente, origem e estado do envio</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshPushState()}
+                disabled={isLoadingPushState || isLoadingPushHistory}
+                aria-label="Atualizar histórico de alertas"
+                className="p-1.5 rounded-lg bg-[#121215] text-zinc-400 hover:text-white disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPushHistory ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {pushHistoryError ? (
+              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-rose-300">{pushHistoryError}</div>
+            ) : (isLoadingPushHistory || (!pushHistory && !pushHistoryError)) ? (
+              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-zinc-500">Carregando alertas...</div>
+            ) : pushHistory?.items.length ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-0.5">
+                {pushHistory.items.map((item) => (
+                  <article key={item.id} className="p-2.5 rounded-xl bg-[#121215] border border-white/[0.04]">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[10px] text-zinc-500">{item.createdAt ? `Detectado ${new Date(item.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : `Data ${item.localDate.split('-').reverse().join('/')}`}{item.sentAt ? ` · Enviado ${new Date(item.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}` : ''}</span>
+                      <span className={`text-[9px] font-semibold text-right ${item.deliveries.accepted > 0 ? 'text-emerald-400' : item.status === 'failed' ? 'text-rose-300' : 'text-amber-300'}`}>
+                        {formatAlertHistoryStatus(item)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 space-y-1.5">
+                      {item.events.map((event, index) => (
+                        <div key={`${event.eventType}-${event.ticker}-${index}`} className="text-[11px] leading-snug text-zinc-300">
+                          <span className="font-bold text-white">{event.ticker}</span>
+                          <span className="text-zinc-400"> · {event.headline}</span>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[9px] text-zinc-500">
+                            <span>{formatAlertSource(event.source)}</span>
+                            {event.date && <span>{new Date(`${event.date}T12:00:00-03:00`).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>}
+                            {event.sourceUrl && (
+                              <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[#f5b800] hover:underline">
+                                Fonte <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+                <p className="px-1 text-[9px] leading-snug text-zinc-600">“Aceito” significa que o serviço Push recebeu o envio; não confirma exibição ou leitura no aparelho.</p>
+                {pushHistory.nextCursor !== null && (
+                  <button type="button" onClick={() => void loadMorePushHistory()} disabled={isLoadingMorePushHistory} className="w-full py-2 rounded-lg bg-[#121215] text-[10px] font-semibold text-zinc-300 hover:text-white disabled:opacity-50">
+                    {isLoadingMorePushHistory ? 'Carregando...' : 'Carregar mais'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-[#121215] text-[10px] text-zinc-500">Ainda não há alertas no histórico. As verificações sem evento continuam disponíveis no estado deste aparelho acima.</div>
+            )}
+          </section>
 
           {/* Prévia Ao Vivo dos Alertas Detectados Hoje na B3 */}
           {detectedAlerts.length > 0 && (

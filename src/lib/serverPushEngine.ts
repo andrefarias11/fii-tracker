@@ -124,6 +124,31 @@ export interface StoredDailyDigest {
   lastError?: string | null;
 }
 
+export interface PushHistoryEvent {
+  eventType: PushAlertEventType;
+  ticker: string;
+  headline: string;
+  source: string;
+  date: string;
+  sourceUrl: string | null;
+}
+
+export interface PushHistoryItem {
+  id: string;
+  status: StoredDailyDigest['status'];
+  localDate: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  sentAt: string | null;
+  events: PushHistoryEvent[];
+  deliveries: { accepted: number; failed: number; pending: number; total: number };
+}
+
+export interface PushHistoryCursor {
+  createdAt: string;
+  id: string;
+}
+
 export interface StoredDeviceDelivery {
   id: string;
   digestId: string;
@@ -259,6 +284,10 @@ export interface PushStorageAdapter {
       lastError: string | null;
       attemptCount: number;
     } | null;
+  }>;
+  getUserAlertHistory?(userId: string, cursor: PushHistoryCursor | null, limit: number): Promise<{
+    items: PushHistoryItem[];
+    nextCursor: string | null;
   }>;
 }
 
@@ -1504,6 +1533,50 @@ function toIsoDateOrNull(val: unknown): string | null {
   return String(val).slice(0, 10);
 }
 
+const PUSH_HISTORY_EVENT_TYPES = new Set<PushAlertEventType>([
+  'DIVIDEND_ANNOUNCED', 'DIVIDEND_UPDATED', 'EX_DATE_REMINDER', 'PAYMENT_REMINDER',
+  'FII_NEWS', 'MACRO_NEWS', 'MARKET_OPEN', 'MARKET_CLOSE',
+]);
+
+function safePushHistoryEvent(value: unknown): PushHistoryEvent | null {
+  if (!value || typeof value !== 'object') return null;
+  const event = value as Record<string, unknown>;
+  const eventType = typeof event.eventType === 'string' && PUSH_HISTORY_EVENT_TYPES.has(event.eventType as PushAlertEventType)
+    ? event.eventType as PushAlertEventType : null;
+  if (!eventType) return null;
+
+  const rawTicker = typeof event.ticker === 'string' ? event.ticker.trim().toUpperCase() : '';
+  const ticker = /^(?:[A-Z]{4}\d{1,2}B?|MACRO|B3)$/.test(rawTicker) ? rawTicker : 'B3';
+  const fallbackHeadlines: Record<PushAlertEventType, string> = {
+    DIVIDEND_ANNOUNCED: 'Novo provento confirmado',
+    DIVIDEND_UPDATED: 'Anúncio de provento atualizado',
+    EX_DATE_REMINDER: 'Lembrete de Data-Com',
+    PAYMENT_REMINDER: 'Pagamento anunciado',
+    FII_NEWS: 'Notícia relevante sobre o FII',
+    MACRO_NEWS: 'Atualização macroeconômica',
+    MARKET_OPEN: 'Abertura do pregão da B3',
+    MARKET_CLOSE: 'Fechamento do pregão da B3',
+  };
+  const headline = typeof event.headline === 'string'
+    ? event.headline.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180) || fallbackHeadlines[eventType]
+    : fallbackHeadlines[eventType];
+  const source = typeof event.source === 'string' && /^[A-Z_]{2,32}$/.test(event.source)
+    ? event.source.slice(0, 32) : 'FONTE_NAO_INFORMADA';
+  const rawDate = typeof event.sourceEventDate === 'string' ? event.sourceEventDate : '';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : '';
+  let sourceUrl: string | null = null;
+  if (typeof event.eventUrl === 'string' && event.eventUrl.length <= 2048) {
+    try {
+      const parsed = new URL(event.eventUrl);
+      if (parsed.protocol === 'https:' && parsed.hostname && !parsed.username && !parsed.password) {
+        sourceUrl = parsed.toString();
+      }
+    } catch { /* links externos inválidos são omitidos do histórico */ }
+  }
+
+  return { eventType, ticker, headline, source, date, sourceUrl };
+}
+
 function mapDbRowToServerPrefs(row: Record<string, unknown>): ServerPushPreferences {
   return {
     userId: String(row.user_id),
@@ -2127,6 +2200,72 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
             }
           : null,
       };
+    },
+
+    async getUserAlertHistory(userId: string, cursor: PushHistoryCursor | null, requestedLimit: number) {
+      const limit = Math.max(1, Math.min(20, Math.floor(requestedLimit) || 20));
+      let query = db
+        .from('push_daily_digests')
+        .select('id,status,local_date,created_at,updated_at,sent_at,events_json')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      if (cursor) {
+        query = query.or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
+      }
+      const { data: digestRows, error: digestError } = await query.limit(limit + 1);
+      if (digestError) throw new Error('Falha ao consultar histórico de alertas.');
+
+      const rows = (digestRows || []) as Array<Record<string, unknown>>;
+      const hasMore = rows.length > limit;
+      const pageRows = rows.slice(0, limit);
+      const digestIds = pageRows.map((row) => String(row.id)).filter(Boolean);
+      const deliveryCounts = new Map<string, PushHistoryItem['deliveries']>();
+
+      if (digestIds.length > 0) {
+        const { data: deliveryRows, error: deliveryError } = await db
+          .from('push_device_deliveries')
+          .select('digest_id,status')
+          .eq('user_id', userId)
+          .in('digest_id', digestIds);
+        if (deliveryError) throw new Error('Falha ao consultar estados de entrega dos alertas.');
+        for (const raw of deliveryRows || []) {
+          const row = raw as Record<string, unknown>;
+          const digestId = String(row.digest_id || '');
+          if (!digestId) continue;
+          const counts = deliveryCounts.get(digestId) || { accepted: 0, failed: 0, pending: 0, total: 0 };
+          counts.total++;
+          const status = String(row.status || '');
+          if (status === 'accepted') counts.accepted++;
+          else if (status === 'failed_permanent' || status === 'expired_subscription') counts.failed++;
+          else counts.pending++;
+          deliveryCounts.set(digestId, counts);
+        }
+      }
+
+      const items: PushHistoryItem[] = pageRows.map((row) => {
+        const id = String(row.id);
+        const rawEvents = Array.isArray(row.events_json) ? row.events_json : [];
+        const events = rawEvents.map(safePushHistoryEvent).filter((event): event is PushHistoryEvent => Boolean(event));
+        return {
+          id,
+          status: row.status as StoredDailyDigest['status'],
+          localDate: toIsoDateOrNull(row.local_date) || String(row.local_date || ''),
+          createdAt: toIsoTimestampOrNull(row.created_at),
+          updatedAt: toIsoTimestampOrNull(row.updated_at),
+          sentAt: toIsoTimestampOrNull(row.sent_at),
+          events,
+          deliveries: deliveryCounts.get(id) || { accepted: 0, failed: 0, pending: 0, total: 0 },
+        };
+      });
+
+      const lastRow = pageRows[pageRows.length - 1];
+      const createdAt = lastRow ? String(lastRow.created_at || '') : '';
+      const lastId = lastRow ? String(lastRow.id || '') : '';
+      const nextCursor = hasMore && createdAt && lastId
+        ? Buffer.from(`${createdAt}|${lastId}`).toString('base64url')
+        : null;
+      return { items, nextCursor };
     },
   };
 }

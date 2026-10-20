@@ -103,3 +103,50 @@ export function calculateMonthDividends(
     confirmedCount: events.filter(e => e.status === 'CONFIRMED').length,
     estimatedCount: events.filter(e => e.status === 'ESTIMATED').length } };
 }
+
+/**
+ * Returns confirmed announcements independently of the calendar's receipt
+ * presentation. This lets reconciliation keep the announced cycle visible
+ * after an imported dividend receipt replaces that ticker in the summary.
+ */
+export function calculateConfirmedDividendAnnouncements(
+  positions: FiiPosition[], currentDate = new Date(), transactions: Transaction[] = []
+): DividendEvent[] {
+  const month = currentDate.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+  const events: DividendEvent[] = [];
+
+  for (const pos of positions) {
+    const payment = isoDate(pos.dividendPaymentDate);
+    const cutoff = isoDate(pos.dividendExDate);
+    const announced = Boolean(
+      pos.isCurrentMonthAnnounced && payment.startsWith(month) && cutoff && transactions.length &&
+      (pos.assetClass !== 'ACAO' || pos.announcedDividendPerShare !== undefined)
+    );
+    if (!announced || pos.dividendSource === 'MANUAL') continue;
+
+    let shares = 0;
+    for (const tx of [...transactions].sort((a, b) => a.date.localeCompare(b.date))) {
+      if (tx.type === 'DIVIDEND' || normalizeB3Ticker(tx.ticker) !== normalizeB3Ticker(pos.ticker) || tx.date > cutoff) continue;
+      const normalized = normalizeTransactionForSplit(tx, cutoff);
+      shares = Math.max(0, shares + (tx.type === 'SELL' ? -normalized.shares : normalized.shares));
+    }
+    if (shares <= 0) continue;
+
+    const amountPerShare = pos.announcedDividendPerShare ?? pos.monthlyDividendPerShare;
+    events.push({
+      id: `announcement-${normalizeB3Ticker(pos.ticker)}-${month}`,
+      ticker: pos.ticker,
+      shares,
+      dividendPerShare: amountPerShare,
+      totalValue: Number((shares * amountPerShare).toFixed(2)),
+      status: 'CONFIRMED',
+      paymentDay: Number(payment.slice(8)),
+      paymentDateFormatted: payment.split('-').reverse().join('/'),
+      announcementDate: pos.dividendExDate,
+      isOfficial: pos.dividendSource === 'B3_OFICIAL',
+      dividendSource: pos.dividendSource,
+    });
+  }
+
+  return events;
+}

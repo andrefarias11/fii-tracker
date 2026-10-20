@@ -14,6 +14,7 @@ import {
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
 import {
   calculateMonthDividends,
+  calculateConfirmedDividendAnnouncements,
   formatDividendCalendarDate,
   getDividendEventDates,
 } from '../data/fiiDividendCalendar';
@@ -24,6 +25,7 @@ import { Button, SegmentedControl } from './ui/Controls';
 import { EmptyState } from './ui/Feedback';
 import { formatCurrency } from '../lib/formatFinancial';
 import type { PushAlertEventType } from '../lib/pushNavigation';
+import { DividendReconciliationPanel } from './DividendReconciliationPanel';
 
 interface DividendFlowProps {
   positions: FiiPosition[];
@@ -92,6 +94,7 @@ export function DividendFlow({
   const currentMonthName = currentDate.toLocaleDateString('pt-BR', {
     month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo',
   });
+  const currentMonthKey = currentDate.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
   const { events, summary } = calculateMonthDividends(positions, currentDate, {}, transactions);
 
@@ -306,6 +309,14 @@ export function DividendFlow({
               </button>
             </div>
           </div>
+
+          <DividendReconciliationPanel
+            positions={positions}
+            transactions={transactions}
+            confirmedEvents={calculateConfirmedDividendAnnouncements(positions, currentDate, transactions)}
+            month={currentMonthKey}
+            isPrivacyMode={isPrivacyMode}
+          />
 
           <SegmentedControl label="Visualização dos proventos" value={eventView} onChange={setEventView} options={[{ value: 'timeline', label: 'Lista', icon: <List /> }, { value: 'month', label: 'Mês', icon: <Calendar /> }]} />
 

@@ -1,7 +1,7 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.1.7';
+export const APP_VERSION = '5.1.9';
 export const APP_UPDATED_AT = '20/10/2026';
 
 export interface VersionRelease {
@@ -11,6 +11,19 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.1.9', date: '20/10/2026', highlights: [
+      'Corrige a conciliação para manter anúncios confirmados visíveis após importar recibos e melhora o isolamento do modo Privacidade no resumo mensal e no compartilhamento/exportação.',
+      'Mantém o estado das notificações disponível mesmo quando o histórico falha, exibe horários de detecção/envio e pagina alertas por cursor estável.',
+    ],
+  },
+  {
+    version: '5.1.8', date: '20/10/2026', highlights: [
+      'Adiciona Central de Alertas com histórico paginado, origem, manchete e estados de processamento/envio, sem expor valores pessoais ou dados de inscrição.',
+      'Concilia anúncios confirmados com recibos por ticker, data de pagamento e valor; itens sem ciclo identificável ficam para conferência manual.',
+      'Permite exportar o resumo mensal em CSV compatível com Excel e respeita o modo Privacidade.',
+    ],
+  },
   {
     version: '5.1.7', date: '20/10/2026', highlights: [
       'Adiciona alertas Push de notícias materiais recentes sobre FIIs da carteira, comunicados macro do Banco Central e abertura/fechamento da B3, com deduplicação por evento.',
