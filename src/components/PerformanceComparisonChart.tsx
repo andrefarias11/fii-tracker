@@ -27,7 +27,7 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
   const initial = base === 'portfolio' ? equity : Number(base);
   const monthly = equity > 0 ? income / equity : 0;
   const scenarios = [
-    { name: 'Carteira', detail: 'Renda da carteira reinvestida', rate: monthly, color: '#F5B800', primary: true },
+    { name: 'Carteira', detail: 'Renda da carteira reinvestida', rate: monthly, color: 'var(--accent)', primary: true },
     ...(bcbIndicators ? [
       { name: 'CDI', detail: 'CDI líquido estimado', rate: bcbIndicators.cdiNetMonthly / 100, color: '#38BDF8', primary: false },
       { name: 'IPCA', detail: 'Inflação (cenário constante)', rate: bcbIndicators.ipcaMonthly / 100, color: '#A78BFA', primary: false },
@@ -128,7 +128,7 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
           viewBox="0 0 360 190"
           role="group"
           aria-label="Gráfico interativo da projeção patrimonial. Toque, passe o cursor ou use as setas para selecionar um mês."
-          className="h-auto w-full min-w-[360px] touch-pan-x"
+          className="h-auto w-full touch-pan-x"
         >
           {[0, 1, 2, 3].map((line) => {
             const y = PLOT_TOP + (line / 3) * (PLOT_BOTTOM - PLOT_TOP);

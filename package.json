@@ -1,6 +1,6 @@
 {
   "name": "fii-tracker",
-  "version": "5.2.0",
+  "version": "5.2.1",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",

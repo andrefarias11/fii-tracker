@@ -480,18 +480,37 @@ summary {
 .eyebrow { font-size: .6875rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); }
 .overview-grid { display: grid; gap: 1rem; }
 .overview-hero { padding: 1.5rem; border: 1px solid rgba(237,197,109,.22); border-radius: 24px; background: linear-gradient(130deg, #25241e, #15191d 70%); }
-.hero-value { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 600; letter-spacing: -.055em; line-height: 1.2; overflow-wrap: anywhere; }
+.hero-value { font-size: clamp(2.15rem, 7vw, 3.25rem); font-weight: 650; letter-spacing: -.055em; line-height: 1.12; overflow-wrap: anywhere; }
+.financial-result { font-weight: 600; }
+.financial-result.is-positive { color: #7ee0ad; }
+.financial-result.is-negative { color: #f49a9a; }
+.financial-result.is-private { color: var(--text-secondary); }
 .overview-income { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--surface-card-border); }
-.income-metrics { display: grid; gap: 1rem; }
-.income-metrics > div { padding-bottom: .75rem; border-bottom: 1px solid var(--surface-card-border); }
-.income-metrics dt { font-size: .75rem; color: var(--text-secondary); }
-.income-metrics dd { font-size: 1.25rem; font-weight: 600; margin-top: .375rem; overflow-wrap: anywhere; }
+.income-metrics { display: grid; gap: .625rem; }
+.income-metrics > div { padding: .75rem; border: 1px solid var(--surface-card-border); border-radius: 16px; background: rgba(255,255,255,.018); }
+.income-metrics dt { display: flex; align-items: center; font-size: .75rem; color: var(--text-secondary); }
+.income-metrics dd { font-size: 1.25rem; font-weight: 650; margin-top: .375rem; overflow-wrap: anywhere; }
 .income-metrics p { color: var(--text-secondary); font-size: .6875rem; margin-top: .25rem; }
+.income-metric--received .status-dot { background: #70d9a0; }
+.income-metric--received dd { color: #a5efc2; }
+.income-metric--confirmed .status-dot { background: #78b9f5; }
+.income-metric--confirmed dd { color: #acd5ff; }
+.income-metric--estimated .status-dot { background: #b9a5f5; }
+.income-metric--estimated dd { color: #d1c5ff; }
+.portfolio-empty-state { border-top: 1px solid var(--surface-card-border); }
 .status-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; margin-right: .5rem; }
 .allocation-bar { display: flex; height: .5rem; border-radius: 1rem; overflow: hidden; gap: 3px; }
 .tool-grid { display: grid; gap: .75rem; }
 .tool-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; text-align: left; background: var(--surface-card); border: 1px solid var(--surface-card-border); border-radius: 20px; transition: border-color .18s; }
 .tool-card:hover { border-color: rgba(237,197,109,.4); }
+.privacy-control { display: flex; align-items: center; gap: .25rem; }
+.privacy-control--active { padding-left: .5rem; border-radius: 999px; background: rgba(237,197,109,.09); border: 1px solid rgba(237,197,109,.24); }
+.privacy-control__label { color: #f3d58f; font-size: .625rem; font-weight: 600; white-space: nowrap; }
+.ui-section, .overview-hero, .portfolio-summary, .tool-card { min-width: 0; }
+.ui-section :focus-visible, .overview-hero :focus-visible, .tool-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.dividend-staircase-grid { column-gap: clamp(2px, 1vw, 8px); }
+.dividend-staircase-grid > button { min-width: 0; }
+.dividend-staircase-grid > button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 .app-navigation { position: fixed; inset: auto 0 0; z-index: 30; padding: .5rem .5rem calc(env(safe-area-inset-bottom, 0px) + .5rem); border-top: 1px solid var(--surface-card-border); background: #121519; }
 .app-navigation__items { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 36rem; margin-inline: auto; gap: .25rem; }
 .app-navigation .dock-tab { min-height: 56px; border-radius: 14px; }
@@ -507,6 +526,13 @@ summary {
   .overview-hero { padding: 2rem; }
   .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ui-sheet { max-width: 42rem; }
+}
+@media (max-width: 380px) {
+  .app-content { padding-inline: .75rem; }
+  .overview-hero, .ui-section { padding: 1rem; }
+  .income-metrics { gap: .375rem; }
+  .income-metrics > div { padding: .625rem .5rem; }
+  .income-metrics dd { font-size: 1.05rem; }
 }
 @media (min-width: 1024px) {
   .app-shell { padding-left: 15rem; }

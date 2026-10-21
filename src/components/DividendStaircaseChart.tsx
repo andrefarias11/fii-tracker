@@ -146,7 +146,7 @@ export function DividendStaircaseChart({
           </span>
         </div>
 
-        <div className="grid grid-cols-12 gap-2 items-end h-40 pt-6 pb-2">
+        <div className="dividend-staircase-grid grid grid-cols-12 items-end h-40 pt-6 pb-2">
           {yearMonthData.map((m) => {
             const isSelected = m.index === selectedMonthIdx;
             const heightPct = m.hasData
@@ -170,7 +170,7 @@ export function DividendStaircaseChart({
                     <div
                       className={`w-2.5 mx-auto rounded-full transition-all duration-300 ${
                         isSelected
-                          ? 'bg-gradient-to-t from-amber-500 to-yellow-300 shadow-[0_0_12px_rgba(245,184,0,0.5)]'
+                          ? 'bg-gradient-to-t from-amber-500 to-yellow-200 shadow-[0_0_12px_rgba(237,197,109,0.35)]'
                           : 'bg-gradient-to-t from-zinc-500 to-zinc-100 group-hover:from-zinc-400 group-hover:to-white'
                       }`}
                       style={{ height: `${heightPct}%` }}

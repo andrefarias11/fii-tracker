@@ -75,20 +75,23 @@ export function Header({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {onTogglePrivacy && (
-              <Button
-                variant="icon"
-                aria-label={
-                  isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'
-                }
-                aria-pressed={isPrivacyMode}
-                onClick={onTogglePrivacy}
-              >
-                {isPrivacyMode ? (
-                  <EyeOff className="h-[18px] w-[18px]" />
-                ) : (
-                  <Eye className="h-[18px] w-[18px]" />
-                )}
-              </Button>
+              <div className={`privacy-control ${isPrivacyMode ? 'privacy-control--active' : ''}`}>
+                {isPrivacyMode && <span className="privacy-control__label" aria-hidden="true">Privacidade</span>}
+                <Button
+                  variant="icon"
+                  aria-label={
+                    isPrivacyMode ? 'Mostrar valores' : 'Ocultar valores'
+                  }
+                  aria-pressed={isPrivacyMode}
+                  onClick={onTogglePrivacy}
+                >
+                  {isPrivacyMode ? (
+                    <EyeOff className="h-[18px] w-[18px]" />
+                  ) : (
+                    <Eye className="h-[18px] w-[18px]" />
+                  )}
+                </Button>
+              </div>
             )}
             {onOpenAccountSwitcher && (
               <Button
