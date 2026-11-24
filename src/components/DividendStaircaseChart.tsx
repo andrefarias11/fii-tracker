@@ -50,6 +50,9 @@ export function DividendStaircaseChart({
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     return availableYears[0] || 2026;
   });
+  const effectiveYear = availableYears.includes(selectedYear)
+    ? selectedYear
+    : availableYears[0] || 2026;
 
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ ••••';
@@ -80,22 +83,22 @@ export function DividendStaircaseChart({
   const yearMonthData = useMemo(() => {
     return MONTH_INITIALS.map((initial, idx) => {
       const monthNum = idx + 1;
-      const ym = `${selectedYear}-${String(monthNum).padStart(2, '0')}`;
+      const ym = `${effectiveYear}-${String(monthNum).padStart(2, '0')}`;
       const data = staircase.months.find((m) => m.yearMonth === ym);
       return {
         index: idx,
         monthNum,
         yearMonth: ym,
         initial,
-        name: `${MONTH_NAMES[idx]}/${selectedYear}`,
-        shortLabel: `${MONTH_NAMES[idx].slice(0, 3)}/${String(selectedYear).slice(2)}`,
+        name: `${MONTH_NAMES[idx]}/${effectiveYear}`,
+        shortLabel: `${MONTH_NAMES[idx].slice(0, 3)}/${String(effectiveYear).slice(2)}`,
         totalDividends: data ? data.totalDividends : 0,
         breakdown: data ? data.breakdown : [],
         isOfficialB3: Boolean(data?.isOfficialB3),
         hasData: Boolean(data && data.totalDividends > 0),
       };
     });
-  }, [selectedYear, staircase.months]);
+  }, [effectiveYear, staircase.months]);
 
   const maxInYear = useMemo(() => {
     const vals = yearMonthData.map((m) => m.totalDividends);
@@ -116,9 +119,17 @@ export function DividendStaircaseChart({
   const handleCycleYear = () => {
     triggerHaptic('light');
     if (availableYears.length <= 1) return;
-    const currIdx = availableYears.indexOf(selectedYear);
+    const currIdx = availableYears.indexOf(effectiveYear);
     const nextIdx = (currIdx + 1) % availableYears.length;
-    setSelectedYear(availableYears[nextIdx]);
+    const nextYear = availableYears[nextIdx];
+    setSelectedYear(nextYear);
+    const monthsInNextYear = staircase.months.filter(
+      (m) => Number(m.yearMonth.slice(0, 4)) === nextYear && m.totalDividends > 0
+    );
+    if (monthsInNextYear.length > 0) {
+      const lastActive = monthsInNextYear[monthsInNextYear.length - 1];
+      setSelectedMonthIdx(Math.max(0, Math.min(11, Number(lastActive.yearMonth.slice(5, 7)) - 1)));
+    }
   };
 
   return (
@@ -132,7 +143,7 @@ export function DividendStaircaseChart({
           onClick={handleCycleYear}
           className="bg-[var(--surface-card)] text-zinc-200 text-xs px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 hover:text-white transition-all border border-white/[0.06] active:scale-95"
         >
-          <span>No ano ({selectedYear})</span>
+          <span>No ano ({effectiveYear})</span>
           <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
         </button>
       </div>
@@ -150,7 +161,9 @@ export function DividendStaircaseChart({
           {yearMonthData.map((m) => {
             const isSelected = m.index === selectedMonthIdx;
             const heightPct = m.hasData
-              ? Math.max(18, Math.min(100, Math.round((m.totalDividends / maxInYear) * 100)))
+              ? isPrivacyMode
+                ? 50
+                : Math.max(18, Math.min(100, Math.round((m.totalDividends / maxInYear) * 100)))
               : 0;
 
             return (
@@ -225,7 +238,7 @@ export function DividendStaircaseChart({
           <div className="flex items-center justify-between py-3">
             <span className="text-zinc-400">Payback da carteira</span>
             <span className="text-emerald-400 font-medium tabular-nums">
-              ↑ {staircase.portfolioPaybackPercent}%
+              {isPrivacyMode ? '••%' : `↑ ${staircase.portfolioPaybackPercent}%`}
             </span>
           </div>
 

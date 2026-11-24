@@ -22,6 +22,7 @@ const AiInsightsTab = dynamic(() => import('../components/AiInsightsTab').then(m
 import { DividendFlow } from '../components/DividendFlow';
 import { AchievementsTimeline } from '../components/AchievementsTimeline';
 const MonthlyWrappedModal = dynamic(() => import('../components/MonthlyWrappedModal').then(m => m.MonthlyWrappedModal));
+const IrpfReportModal = dynamic(() => import('../components/IrpfReportModal').then(m => m.IrpfReportModal));
 const SettingsModal = dynamic(() => import('../components/SettingsModal').then(m => m.SettingsModal));
 const B3ImportModal = dynamic(() => import('../components/B3ImportModal').then(m => m.B3ImportModal));
 import { IosInstallBanner } from '../components/IosInstallBanner';
@@ -59,6 +60,7 @@ import {
   Globe,
   PiggyBank,
   MapPin,
+  FileText,
 } from 'lucide-react';
 
 type MainTabType = 'overview' | 'portfolio' | 'proventos' | 'radar' | 'goals' | 'more';
@@ -86,9 +88,12 @@ export default function HomePage() {
     isSyncing,
     pendingChanges,
     pendingFixedIncomeChanges,
+    pendingTransactionIds,
+    pendingFixedIncomeIds,
     corruptQueueCount,
     syncError,
     exportCorruptQueue,
+    restoreCorruptQueue,
     undoLastImport,
     syncWithCloud,
     addTransaction,
@@ -151,6 +156,7 @@ export default function HomePage() {
   });
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isIrpfModalOpen, setIsIrpfModalOpen] = useState<boolean>(false);
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
   const [isB3ModalOpen, setIsB3ModalOpen] = useState<boolean>(false);
   const [isWrappedModalOpen, setIsWrappedModalOpen] = useState<boolean>(false);
@@ -290,9 +296,11 @@ export default function HomePage() {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'NAVIGATE_FROM_PUSH' && typeof event.data.url === 'string') {
         try {
+          const url = new URL(event.data.url, window.location.origin);
           const parsed = parsePushNavigationUrl(event.data.url, window.location.origin);
           if (parsed) {
-            navigateFromTabParam(parsed.tab);
+            const rawTab = url.searchParams.get('tab');
+            navigateFromTabParam(rawTab || parsed.tab, url.searchParams.get('view'));
             if (parsed.ticker || parsed.date || parsed.eventType) {
               setFocusedProventoFilter({
                 ticker: parsed.ticker,
@@ -304,8 +312,7 @@ export default function HomePage() {
               window.history.replaceState(null, '', event.data.url);
             }
           } else {
-            const url = new URL(event.data.url, window.location.origin);
-            navigateFromTabParam(url.searchParams.get('tab'));
+            navigateFromTabParam(url.searchParams.get('tab'), url.searchParams.get('view'));
           }
         } catch {
           // ignore
@@ -413,13 +420,45 @@ export default function HomePage() {
             <p className="mt-1 text-amber-100/80">
               {corruptQueueCount} {corruptQueueCount === 1 ? 'alteração pendente está ilegível' : 'alterações pendentes estão ilegíveis'}. Os registros locais foram preservados. Não limpe os dados deste navegador enquanto recupera a fila.
             </p>
-            <button
-              type="button"
-              className="mt-3 min-h-11 rounded-lg border border-amber-200/40 px-3 py-2 font-medium text-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
-              onClick={exportCorruptQueue}
-            >
-              Baixar diagnóstico
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="min-h-11 rounded-lg border border-amber-200/40 px-3 py-2 font-medium text-amber-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+                onClick={exportCorruptQueue}
+              >
+                Baixar diagnóstico
+              </button>
+              <label className="min-h-11 inline-flex items-center rounded-lg border border-amber-200/40 bg-amber-200/10 px-3 py-2 font-medium text-amber-50 cursor-pointer hover:bg-amber-200/20">
+                Restaurar fila reparada
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    try {
+                      const text = await file.text();
+                      const res = await restoreCorruptQueue(text);
+                      setFeedback({
+                        id: Date.now(),
+                        kind: 'message',
+                        tone: 'success',
+                        message: `Fila recuperada: ${res.restoredCount} operação(ões) revalidada(s).`,
+                      });
+                    } catch (err) {
+                      setFeedback({
+                        id: Date.now(),
+                        kind: 'message',
+                        tone: 'error',
+                        message: err instanceof Error ? err.message : 'Falha ao validar fila local.',
+                      });
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <p className="mt-2 text-xs text-amber-100/70">O arquivo pode conter dados da sua conta. Guarde-o em local privado para análise e recuperação.</p>
           </div>
         ) : (pendingChanges > 0 || syncError) && !(activeTab === 'portfolio' && homeSubView === 'fixed_income' && pendingChanges === pendingFixedIncomeChanges && !syncError) && <div role="status" className="rounded-2xl border border-amber-200/15 bg-[#121215] p-4 text-xs leading-relaxed text-zinc-300">
@@ -437,6 +476,7 @@ export default function HomePage() {
           <div className="tool-grid">{[
             { label: 'Extrato', description: 'Compras, vendas e recebimentos', icon: ReceiptText, action: () => { setActiveTab('portfolio'); setHomeSubView('history'); } },
             { label: 'Renda fixa', description: 'Aplicações, taxas e vencimentos', icon: PiggyBank, action: () => { setActiveTab('portfolio'); setHomeSubView('fixed_income'); } },
+            { label: 'Auxiliar de IRPF', description: 'Bens e Direitos, isentos e JCP por ano', icon: FileText, action: () => setIsIrpfModalOpen(true) },
             { label: 'Imóveis', description: 'Conheça os imóveis dos fundos', icon: MapPin, action: () => { setActiveTab('radar'); setExploreSubView('map'); } },
             { label: 'Mentores', description: 'Compare critérios de investimento', icon: GraduationCap, action: () => { setActiveTab('radar'); setExploreSubView('mentors'); } },
             { label: 'Metas e conquistas', description: 'Acompanhe seu progresso', icon: Target, action: () => { setActiveTab('goals'); setGoalsSubView('targets'); } },
@@ -515,6 +555,7 @@ export default function HomePage() {
                   }}
                   onResetDemo={resetFixedIncomeDemo}
                   pendingSyncCount={corruptQueueCount > 0 ? 0 : pendingFixedIncomeChanges}
+                  pendingSyncIds={pendingFixedIncomeIds}
                   isSyncing={isSyncing}
                   onRetrySync={() => { void syncWithCloud(); }}
                 />
@@ -525,6 +566,7 @@ export default function HomePage() {
                   transactions={transactions}
                   monthlyTarget={goals.monthlyTarget}
                   isPrivacyMode={isPrivacyMode}
+                  pendingSyncIds={pendingTransactionIds}
                   onEditTransaction={(tx) => {
                     setEditingTx(tx);
                     setAddTxTicker(tx.ticker);
@@ -595,6 +637,7 @@ export default function HomePage() {
                 <UniversalB3Explorer
                   positions={positions}
                   monthlyTarget={goals.monthlyTarget}
+                  isPrivacyMode={isPrivacyMode}
                   onOpenBuyModal={handleOpenBuyForTicker}
                 />
               </div>
@@ -613,6 +656,7 @@ export default function HomePage() {
                   positions={positions}
                   fixedIncomeAssets={fixedIncomeAssets}
                   bcbIndicators={bcbIndicators}
+                  isPrivacyMode={isPrivacyMode}
                   initialTickerFilter={exploreTickerFilter}
                   onClearTickerFilter={() => setExploreTickerFilter(null)}
                   onOpenBuyModal={handleOpenBuyForTicker}
@@ -665,11 +709,18 @@ export default function HomePage() {
                   currentMonthInvested={summary.currentMonthInvested}
                   monthlyGoalProgressPercent={summary.monthlyGoalProgressPercent}
                   milestoneEquityTarget={goals.milestoneEquityTarget}
-                  currentEquity={summary.currentEquity}
-                  equityGoalProgressPercent={summary.equityGoalProgressPercent}
+                  currentEquity={unifiedSummary.totalGlobalEquity}
+                  equityGoalProgressPercent={Math.min(
+                    100,
+                    Math.round((unifiedSummary.totalGlobalEquity / (goals.milestoneEquityTarget || 1000)) * 100)
+                  )}
                   monthlyIncomeTarget={goals.monthlyIncomeTarget}
-                  totalMonthlyDividends={summary.totalMonthlyDividends}
-                  incomeGoalProgressPercent={summary.incomeGoalProgressPercent}
+                  totalMonthlyDividends={unifiedSummary.totalGlobalMonthlyIncome}
+                  incomeGoalProgressPercent={Math.min(
+                    100,
+                    Math.round((unifiedSummary.totalGlobalMonthlyIncome / (goals.monthlyIncomeTarget || 10)) * 100)
+                  )}
+                  isPrivacyMode={isPrivacyMode}
                   onOpenSettings={() => setIsSettingsModalOpen(true)}
                 />
 
@@ -684,7 +735,7 @@ export default function HomePage() {
             {goalsSubView === 'simulator' && (
               <div className="animate-in fade-in duration-150">
                 <InvestmentSimulator
-                  currentEquity={summary.currentEquity}
+                  currentEquity={unifiedSummary.totalGlobalEquity}
                   monthlyTarget={goals.monthlyTarget}
                   averageYieldPercent={summary.averageYieldOnCostPercent}
                   bcbIndicators={bcbIndicators}
@@ -777,16 +828,27 @@ export default function HomePage() {
       />
 
       <B3ImportModal
+        key={isB3ModalOpen ? 'b3-open' : 'b3-closed'}
         isOpen={isB3ModalOpen}
         existingTransactions={transactions}
         onClose={() => setIsB3ModalOpen(false)}
-        onImportTransactions={async (newTransactions, replaceAll) => {
-          await importTransactionsFromB3(newTransactions, replaceAll);
+        onImportTransactions={async (newTransactions, replaceAll, detectedSplits) => {
+          await importTransactionsFromB3(newTransactions, replaceAll, detectedSplits);
           setFeedback({ id: Date.now(), kind: 'message', tone: 'success', message: 'Extrato importado. Carteira atualizada neste dispositivo.' });
         }}
       />
 
+      <IrpfReportModal
+        key={isIrpfModalOpen ? 'irpf-open' : 'irpf-closed'}
+        isOpen={isIrpfModalOpen}
+        onClose={() => setIsIrpfModalOpen(false)}
+        transactions={transactions}
+        fixedIncomeAssets={fixedIncomeAssets}
+        isPrivacyMode={isPrivacyMode}
+      />
+
       <MonthlyWrappedModal
+        key={isWrappedModalOpen ? 'wrapped-open' : 'wrapped-closed'}
         isOpen={isWrappedModalOpen}
         onClose={() => setIsWrappedModalOpen(false)}
         positions={positions}
@@ -813,14 +875,21 @@ export default function HomePage() {
         isOpen={isSettingsModalOpen}
         goals={goals}
         positions={positions}
+        transactions={transactions}
+        fixedIncomeAssets={fixedIncomeAssets}
+        bcbIndicators={bcbIndicators}
         quotes={quotes}
+        isPrivacyMode={isPrivacyMode}
         isCloudConnected={isCloudConnected}
         isSyncingCloud={isSyncing}
         pendingChanges={pendingChanges}
+        corruptQueueCount={corruptQueueCount}
         onClose={() => setIsSettingsModalOpen(false)}
         onUpdateGoals={updateGoals}
         onExportBackup={exportBackup}
         onImportBackup={importBackup}
+        onRestoreCorruptQueue={restoreCorruptQueue}
+        onOpenIrpf={() => setIsIrpfModalOpen(true)}
         onResetDemo={resetDemo}
         onClearAll={clearAllTransactions}
         onSyncCloud={syncWithCloud}

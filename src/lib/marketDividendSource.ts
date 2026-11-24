@@ -1,5 +1,5 @@
 import { findFiiInfo } from '../data/fiiDatabase';
-import { normalizeB3Ticker } from './ticker';
+import { isValidB3Ticker, normalizeB3Ticker } from './ticker';
 import { isValidIsoCalendarDate } from './pushNavigation';
 
 export type VerifiedDividendSourceName = 'STATUS_INVEST' | 'BRAPI' | 'FUNDAMENTUS';
@@ -380,7 +380,7 @@ export async function fetchVerifiedAnnouncementsBatch(
   } = {}
 ): Promise<VerifiedAnnouncementsBatch> {
   const uniqueTickers = Array.from(
-    new Set(tickers.map((t) => normalizeB3Ticker(t)).filter((t) => /^[A-Z]{4}\d{1,2}B?$/.test(t)))
+    new Set(tickers.map((t) => normalizeB3Ticker(t)).filter((t) => isValidB3Ticker(t)))
   );
 
   const map: Record<string, VerifiedDividendAnnouncement[]> = {};

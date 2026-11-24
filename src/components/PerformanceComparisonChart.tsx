@@ -102,7 +102,7 @@ export function PerformanceComparisonChart({ positions, bcbIndicators, isPrivacy
         </div>
         <div>
           <span className="block text-zinc-500">Renda atual estimada</span>
-          <strong className="mt-1 block font-semibold text-white tabular-nums">{formatPercent(monthly * 100)} a.m.</strong>
+          <strong className="mt-1 block font-semibold text-white tabular-nums">{formatPercent(monthly * 100, isPrivacyMode)} a.m.</strong>
         </div>
       </div>
 

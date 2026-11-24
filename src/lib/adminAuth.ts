@@ -31,10 +31,15 @@ export function verifyAdminToken(token: string | null | undefined): boolean {
 
   try {
     const decoded = Buffer.from(token, 'base64url').toString('utf8');
-    const parts = decoded.split(':');
-    if (parts.length !== 3) return false;
+    const lastColon = decoded.lastIndexOf(':');
+    if (lastColon <= 0) return false;
+    const signature = decoded.slice(lastColon + 1);
+    const payload = decoded.slice(0, lastColon);
+    const secondLastColon = payload.lastIndexOf(':');
+    if (secondLastColon <= 0) return false;
 
-    const [username, timestampStr, signature] = parts;
+    const username = payload.slice(0, secondLastColon);
+    const timestampStr = payload.slice(secondLastColon + 1);
     if (!username || !timestampStr || !signature) return false;
 
     // Verifica assinatura HMAC

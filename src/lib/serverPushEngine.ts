@@ -584,6 +584,7 @@ export function evaluateUserPortfolioEvents(params: {
   existingEvents: StoredAlertEvent[];
 }): CandidateAlertEvent[] {
   const { localDate, preferences, transactions, announcements, existingEvents } = params;
+  const activeExistingEvents = existingEvents.filter((ev) => ev.status !== 'failed');
   const activeTickers = extractActivePortfolioTickers(transactions, localDate);
   if (activeTickers.length === 0) return [];
 
@@ -627,12 +628,12 @@ export function evaluateUserPortfolioEvents(params: {
     // 1. Novo anúncio confirmado OU alteração confirmada de anúncio previamente conhecido
     if (preferences.notifyConfirmedDividend && verified.paymentDate >= localDate) {
       const cycleRef = `cycle:${verified.exDate}:${verified.paymentDate}`;
-      const priorAnnouncements = existingEvents.filter(
+      const priorAnnouncements = activeExistingEvents.filter(
         (ev) =>
           ev.ticker === ticker &&
           (ev.eventType === 'DIVIDEND_ANNOUNCED' || ev.eventType === 'DIVIDEND_UPDATED') &&
-          ev.eventReference === cycleRef ||
-          (ev.payload?.exDate === verified.exDate && ev.payload?.paymentDate === verified.paymentDate)
+          (ev.eventReference === cycleRef ||
+            (ev.payload?.exDate === verified.exDate && ev.payload?.paymentDate === verified.paymentDate))
       );
 
       if (priorAnnouncements.length === 0) {
@@ -698,7 +699,7 @@ export function evaluateUserPortfolioEvents(params: {
       const isExTomorrow = addCalendarDays(localDate, 1) === verified.exDate;
       if (isExToday || isExTomorrow) {
         const exRef = `ex:${verified.exDate}:on:${localDate}`;
-        const alreadySentEx = existingEvents.some(
+        const alreadySentEx = activeExistingEvents.some(
           (ev) =>
             ev.ticker === ticker &&
             ev.eventType === 'EX_DATE_REMINDER' &&
@@ -735,7 +736,7 @@ export function evaluateUserPortfolioEvents(params: {
       );
       if (sharesOnExDate > 0 && !alreadyReceivedInStatement) {
         const payRef = `pay:${verified.exDate}:${verified.paymentDate}`;
-        const alreadySentPay = existingEvents.some(
+        const alreadySentPay = activeExistingEvents.some(
           (ev) =>
             ev.ticker === ticker &&
             ev.eventType === 'PAYMENT_REMINDER' &&
@@ -812,8 +813,10 @@ export function buildDailySummaryNotification(
     throw new Error('Não é possível gerar alerta sem eventos.');
   }
 
-  const primary = events[0];
-  const nonDividend = events.find((event) => ['FII_NEWS', 'MACRO_NEWS', 'MARKET_OPEN', 'MARKET_CLOSE'].includes(event.eventType));
+  const sortedEvents = [...events].sort((a, b) => b.priority - a.priority);
+  const primary = sortedEvents[0];
+  const isPrimaryNonDividend = ['FII_NEWS', 'MACRO_NEWS', 'MARKET_OPEN', 'MARKET_CLOSE'].includes(primary.eventType);
+  const nonDividend = isPrimaryNonDividend ? primary : null;
   if (nonDividend) {
     const title = nonDividend.eventType === 'MARKET_OPEN'
       ? 'FII Tracker • A B3 abriu'
@@ -1433,9 +1436,11 @@ export async function runServerPushCron(params: {
       });
       const newsEvents = filterPushNewsForUser(sharedNews, currentPrefs, userTickers);
       candidateEvents.push(...newsEvents.filter((event) => !existingEvents.some((stored) =>
+        stored.status !== 'failed' &&
         stored.ticker === event.ticker && stored.eventType === event.eventType &&
         stored.eventReference === event.eventReference && stored.dataVersion === event.dataVersion
       )));
+      candidateEvents.sort((a, b) => b.priority - a.priority);
 
       if (candidateEvents.length === 0) {
         if (userMarketDataIncomplete) {
@@ -1476,7 +1481,7 @@ export async function runServerPushCron(params: {
       const summaryNotif = buildDailySummaryNotification(
         candidateEvents,
         localDate,
-        prefs.privacyMode
+        currentPrefs.privacyMode
       );
 
       const reserved = await params.storage.reserveDigestAndEvents({
@@ -1508,7 +1513,7 @@ export async function runServerPushCron(params: {
       }
 
       metrics.digestsCreated++;
-      await deliverDigestToDevices(reserved.digest, prefs, localDate, userMarketDataIncomplete);
+      await deliverDigestToDevices(reserved.digest, currentPrefs, localDate, userMarketDataIncomplete);
     } finally {
       await params.storage.releaseUserLock(prefs.userId, workerId);
     }
@@ -1546,7 +1551,7 @@ function safePushHistoryEvent(value: unknown): PushHistoryEvent | null {
   if (!eventType) return null;
 
   const rawTicker = typeof event.ticker === 'string' ? event.ticker.trim().toUpperCase() : '';
-  const ticker = /^(?:[A-Z]{4}\d{1,2}B?|MACRO|B3)$/.test(rawTicker) ? rawTicker : 'B3';
+  const ticker = /^(?:[A-Z][A-Z0-9]{3}\d{1,2}B?|MACRO|B3)$/.test(rawTicker) ? rawTicker : 'B3';
   const fallbackHeadlines: Record<PushAlertEventType, string> = {
     DIVIDEND_ANNOUNCED: 'Novo provento confirmado',
     DIVIDEND_UPDATED: 'Anúncio de provento atualizado',
@@ -1807,6 +1812,14 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
         .select('*')
         .single();
       if (error || !data) throw new Error('Falha ao registrar dispositivo Push.');
+
+      // Se o envio anterior falhou por ausência/expiração de aparelhos, libera reprocessamento imediato hoje
+      await db
+        .from('push_notification_preferences')
+        .update({ last_processed_local_date: null, updated_at: nowIso })
+        .eq('user_id', userId)
+        .in('last_process_status', ['failed', 'skipped_no_devices']);
+
       return mapDbRowToSubscription(data as Record<string, unknown>);
     },
 
@@ -1885,15 +1898,22 @@ export function createSupabasePushStorage(db: SupabaseClient): PushStorageAdapte
     },
 
     async getExistingAlertEvents(userId: string) {
-      const { data, error } = await db
-        .from('push_alert_events')
-        .select('*')
-        .eq('user_id', userId)
-        .in('status', ['reserved', 'sent', 'failed'])
-        .order('created_at', { ascending: true });
-      if (error) throw new Error('Falha ao ler histórico de eventos Push.');
-      return (data || []).map((row) => {
-        const r = row as Record<string, unknown>;
+      const allRows: Record<string, unknown>[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await db
+          .from('push_alert_events')
+          .select('*')
+          .eq('user_id', userId)
+          .in('status', ['reserved', 'sent', 'failed'])
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw new Error('Falha ao ler histórico de eventos Push.');
+        const page = (data || []) as Record<string, unknown>[];
+        allRows.push(...page);
+        if (page.length < 1000) break;
+      }
+      return allRows.map((r) => {
         return {
           id: String(r.id),
           userId: String(r.user_id),

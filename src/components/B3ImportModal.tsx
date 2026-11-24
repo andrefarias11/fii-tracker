@@ -12,10 +12,13 @@ import {
   HelpCircle,
   ExternalLink,
   ShieldCheck,
+  Info,
 } from 'lucide-react';
 import {
   parseB3FileBuffer,
   B3ParseResult,
+  DetectedB3SplitEvent,
+  applyDetectedB3Splits,
   deduplicateB3Transactions,
   classifyB3Ticker,
 } from '../lib/b3Parser';
@@ -26,7 +29,11 @@ interface B3ImportModalProps {
   isOpen: boolean;
   existingTransactions?: Transaction[];
   onClose: () => void;
-  onImportTransactions: (newTransactions: Transaction[], replaceAll: boolean) => Promise<void>;
+  onImportTransactions: (
+    newTransactions: Transaction[],
+    replaceAll: boolean,
+    detectedSplits?: DetectedB3SplitEvent[]
+  ) => Promise<void>;
 }
 
 export function B3ImportModal({
@@ -44,11 +51,30 @@ export function B3ImportModal({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const dialogRef = useModalAccessibility(isOpen, onClose);
+  const resetModalState = () => {
+    setFile(null);
+    setIsProcessing(false);
+    setParseResult(null);
+    setFilterOnlyFIIs(false);
+    setReplaceAll(false);
+    setShowTutorial(false);
+    setIsSaving(false);
+    setErrorMessage(null);
+  };
+
+  const handleClose = () => {
+    resetModalState();
+    onClose();
+  };
+
+  const dialogRef = useModalAccessibility(isOpen, handleClose);
   if (!isOpen) return null;
 
   const handleFileChange = async (selectedFile: File, onlyFiis = filterOnlyFIIs) => {
-    if (selectedFile.size > 10_000_000) { setErrorMessage('Arquivo maior que 10 MB. Divida o extrato em períodos menores.'); return; }
+    if (selectedFile.size > 10_000_000) {
+      setErrorMessage('Arquivo maior que 10 MB. Divida o extrato em períodos menores.');
+      return;
+    }
     setFile(selectedFile);
     setIsProcessing(true);
     setParseResult(null);
@@ -87,22 +113,35 @@ export function B3ImportModal({
         };
 
   const transactionsToImport = dedupInfo.uniqueTransactions;
+  const splitPreview =
+    parseResult?.success && parseResult.detectedSplits && parseResult.detectedSplits.length > 0
+      ? applyDetectedB3Splits(
+          transactionsToImport,
+          replaceAll ? [] : existingTransactions,
+          parseResult.detectedSplits
+        )
+      : { adjustedNewTransactions: transactionsToImport, updatedExistingTransactions: [], appliedSplitsCount: 0 };
+  const hasApplicableSplits = splitPreview.appliedSplitsCount > 0;
   const existingRealTickers = new Set(
     existingTransactions.filter((t) => !t.id.startsWith('demo-')).map((t) => t.ticker)
   );
 
   const handleConfirmImport = async () => {
-    if (!parseResult || transactionsToImport.length === 0) return;
+    if (!parseResult || (transactionsToImport.length === 0 && !hasApplicableSplits)) return;
 
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      await onImportTransactions(transactionsToImport, replaceAll);
+      await onImportTransactions(parseResult.transactions, replaceAll, parseResult.detectedSplits);
       triggerHaptic('success');
-      onClose();
+      handleClose();
     } catch (err) {
       console.error('Erro ao salvar importação:', err);
-      setErrorMessage('Erro ao salvar no banco de dados. Tente novamente.');
+      setErrorMessage(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Erro ao salvar no banco de dados. Tente novamente.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -132,7 +171,8 @@ export function B3ImportModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
             aria-label="Fechar"
             className="p-2 rounded-full text-zinc-400 hover:text-white bg-[var(--surface-panel)] transition-colors"
           >
@@ -171,13 +211,13 @@ export function B3ImportModal({
               </p>
               <p>2. Faça login com seu CPF ou conta <strong>gov.br</strong>.</p>
               <p>
-                3. No menu <strong>Extratos</strong>, exporte tanto a planilha de <strong>Negociação</strong> (compras e vendas) quanto a de <strong>Movimentação</strong> (Rendimentos, Dividendos e JCP pagos).
+                3. No menu <strong>Extratos</strong>, exporte a planilha de <strong>Negociação</strong> (compras e vendas) e/ou a de <strong>Movimentação</strong> (Rendimentos, Dividendos, JCP e liquidações) — ou ainda a planilha de <strong>Posição</strong>.
               </p>
               <p>
                 4. Escolha o período desejado e clique em <strong>Exportar para Excel (.xlsx)</strong>.
               </p>
               <p className="text-[11px] text-zinc-400 pt-1">
-                💡 O sistema ignora sozinho os lançamentos e proventos que você já importou antes.
+                💡 O sistema cruza automaticamente Negociação (D+0), Liquidação (D+2), Proventos e Posição para nunca duplicar seus ativos ao subir novas planilhas depois.
               </p>
             </div>
           )}
@@ -193,15 +233,16 @@ export function B3ImportModal({
               <span className="text-sm font-bold text-white mb-1">
                 {file ? file.name : 'Selecione a planilha da B3'}
               </span>
-              <span className="text-xs text-zinc-400">
-                Negociação ou Movimentação (.xlsx, .xls ou .csv)
+              <span className="text-xs text-zinc-400 text-center">
+                Negociação, Movimentação ou Posição (.xlsx, .xls ou .csv)
               </span>
               <input
                 type="file"
                 accept=".xlsx, .xls, .csv"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleFileChange(f);
+                  e.target.value = '';
+                  if (f) void handleFileChange(f);
                 }}
                 className="hidden"
               />
@@ -214,10 +255,10 @@ export function B3ImportModal({
               </p>
             )}
 
-            {parseResult?.error && (
+            {(errorMessage || parseResult?.error) && (
               <div className="mt-3 p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-400 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{parseResult.error}</span>
+                <span>{errorMessage || parseResult?.error}</span>
               </div>
             )}
           </div>
@@ -262,6 +303,16 @@ export function B3ImportModal({
                       ({transactionsToImport.filter((t) => t.type === 'DIVIDEND').length} pagamentos)
                     </div>
                   )}
+                  {parseResult.detectedSplits && parseResult.detectedSplits.length > 0 && (
+                    <div className="text-xs text-[#f5b800] font-medium pt-0.5">
+                      • Desdobramento B3 detectado:{' '}
+                      <strong>
+                        {parseResult.detectedSplits
+                          .map((s) => `${s.ticker} (+${s.creditedShares} cotas em ${s.date.split('-').reverse().join('/')})`)
+                          .join(', ')}
+                      </strong>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -269,6 +320,8 @@ export function B3ImportModal({
                   onClick={() => {
                     setParseResult(null);
                     setFile(null);
+                    setReplaceAll(false);
+                    setErrorMessage(null);
                   }}
                   className="text-xs font-bold text-[#f5b800] hover:opacity-80"
                 >
@@ -276,10 +329,19 @@ export function B3ImportModal({
                 </button>
               </div>
 
+              {parseResult.isPositionSnapshot && !replaceAll && (
+                <div className="pt-2 border-t border-white/[0.06] flex items-start gap-2 text-[11px] text-amber-200/90 leading-relaxed">
+                  <Info className="w-3.5 h-3.5 text-[#f5b800] shrink-0 mt-0.5" />
+                  <span>
+                    Planilha de <strong>Posição (Custódia Atual)</strong> detectada: calculamos apenas a diferença de cotas em relação à sua carteira atual para não duplicar ativos anteriores.
+                  </span>
+                </div>
+              )}
+
               {parseResult.summary.uniqueTickersFound && parseResult.summary.uniqueTickersFound.length > 0 && (
                 <div className="pt-2.5 border-t border-white/[0.06]">
                   <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 block mb-1.5">
-                    Ativos Consolidados ({parseResult.summary.uniqueTickersFound.length}):
+                    Ativos Identificados ({parseResult.summary.uniqueTickersFound.length}):
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {parseResult.summary.uniqueTickersFound.map((ticker) => (
@@ -303,15 +365,15 @@ export function B3ImportModal({
                       <>
                         <strong>{dedupInfo.duplicatesCount}</strong>{' '}
                         {dedupInfo.duplicatesCount === 1
-                          ? 'registro já existente ignorado'
-                          : 'registros já existentes ignorados'}
+                          ? 'registro já contabilizado ignorado'
+                          : 'registros já contabilizados ignorados'}
                         .{' '}
                       </>
                     )}
                     {(parseResult.summary.intraFileDuplicatesRemoved || 0) > 0 && (
                       <>
                         <strong>{parseResult.summary.intraFileDuplicatesRemoved}</strong>{' '}
-                        linhas repetidas na planilha mescladas.
+                        posições em múltiplas corretoras consolidadas.
                       </>
                     )}
                   </span>
@@ -335,7 +397,7 @@ export function B3ImportModal({
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setFilterOnlyFIIs(checked);
-                    if (file) handleFileChange(file, checked);
+                    if (file) void handleFileChange(file, checked);
                   }}
                   className="accent-[#f5b800] rounded"
                 />
@@ -367,7 +429,7 @@ export function B3ImportModal({
                       const isDividend = t.type === 'DIVIDEND';
                       return (
                         <div
-                          key={`${t.ticker}-${idx}`}
+                          key={`${t.ticker}-${t.date}-${idx}`}
                           className="p-3 rounded-xl bg-[var(--surface-panel)] flex items-center justify-between text-xs"
                         >
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -389,7 +451,9 @@ export function B3ImportModal({
                             </span>
                             {!isDividend && (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-300">
-                                {alreadyInPortfolio
+                                {t.type === 'SELL'
+                                  ? '- Reduzir posição'
+                                  : alreadyInPortfolio && !replaceAll
                                   ? isStock
                                     ? '+ Somar ações'
                                     : '+ Somar cotas'
@@ -428,7 +492,7 @@ export function B3ImportModal({
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[var(--surface-panel)] text-center text-xs text-zinc-400">
-                Todos os {parseResult.transactions.length} lançamentos desta planilha já estão cadastrados na sua carteira!
+                Todos os {parseResult.transactions.length} lançamentos desta planilha já estão contabilizados na sua carteira!
               </div>
             )}
 
@@ -436,12 +500,14 @@ export function B3ImportModal({
             <button
               type="button"
               onClick={handleConfirmImport}
-              disabled={isSaving || transactionsToImport.length === 0}
+              disabled={isSaving || (transactionsToImport.length === 0 && !hasApplicableSplits)}
               className="w-full py-3.5 px-4 rounded-full bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950 font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-40"
             >
               <Check className="w-4 h-4 stroke-[2.5]" />
               {isSaving
                 ? 'Salvando...'
+                : transactionsToImport.length === 0 && hasApplicableSplits
+                ? `Aplicar ${splitPreview.appliedSplitsCount} Desdobramento(s) B3`
                 : transactionsToImport.length === 0
                 ? 'Nenhum Novo Lançamento para Importar'
                 : `Importar ${transactionsToImport.length} ${

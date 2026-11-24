@@ -2,11 +2,11 @@ import { calculateMonthDividends } from '../../../data/fiiDividendCalendar';
 import { evaluateAllFiis } from '../../../lib/recommendationEngine';
 import { createHash, randomBytes } from 'node:crypto';
 import { protectedApi, serverDatabase, authenticateRequest, consumeRateLimit } from '../../../lib/serverSecurity';
-import { Transaction } from '../../../types/portfolio';
+import { Transaction, FixedIncomeAsset } from '../../../types/portfolio';
 import { NextResponse } from 'next/server';
-import { findFiiInfo } from '../../../data/fiiDatabase';
-import { QuoteData } from '../../../types/portfolio';
-import { calculatePortfolioPositions } from '../../../domain/portfolioEngine';
+import { QuoteData, BcbIndicators } from '../../../types/portfolio';
+import { calculatePortfolioPositions, calculateUnifiedPortfolioSummary } from '../../../domain/portfolioEngine';
+import { unscopeIdFromUser } from '../../../lib/supabase';
 
 
 export interface WidgetSummaryResponse {
@@ -78,8 +78,8 @@ export async function GET(request: Request) {
   const { origin } = new URL(request.url);
   const token = request.headers.get('authorization')?.replace(/^Bearer /, '') || '';
   if (!/^[a-f0-9]{64}$/.test(token)) return NextResponse.json({ error: 'Widget não autorizado.' }, { status: 401 });
-  let holdings: ParsedHolding[] = [];
   const transactions: Transaction[] = [];
+  const fixedIncomeAssets: FixedIncomeAsset[] = [];
   let remoteDivs: Record<string, number> = {};
   let incomeGoal = 10;
   try {
@@ -90,21 +90,58 @@ export async function GET(request: Request) {
     for (let offset = 0; ; offset += 1000) {
       const page = await db.from('transactions').select('*').eq('user_id', credential.user_id).order('id').range(offset, offset + 999);
       if (page.error) throw new Error('Consulta indisponível');
-      transactions.push(...(page.data || []).map(row => ({ ...row, splitAdjustment: row.split_adjustment } as Transaction)));
+      for (const row of page.data || []) {
+        const rawShares = Number(row.shares || 0);
+        const notesStr = String(row.notes || '');
+        const idStr = String(row.id || '');
+        const dbType = row.type as 'BUY' | 'SELL' | 'DIVIDEND' | undefined;
+        const isDiv = dbType === 'DIVIDEND' || idStr.includes('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
+        const isSell = dbType === 'SELL' || (!isDiv && rawShares < 0);
+        transactions.push({
+          id: unscopeIdFromUser(idStr, credential.user_id),
+          ticker: String(row.ticker || '').toUpperCase().trim(),
+          type: dbType === 'BUY' || dbType === 'SELL' || dbType === 'DIVIDEND' ? dbType : isDiv ? 'DIVIDEND' : isSell ? 'SELL' : 'BUY',
+          date: String(row.date || ''),
+          shares: Math.abs(rawShares),
+          price: Math.abs(Number(row.price || 0)),
+          total: Math.abs(Number(row.total || 0)),
+          broker: String(row.broker || 'XP Investimentos'),
+          notes: row.notes || undefined,
+          splitAdjustment: row.split_adjustment || undefined,
+        });
+      }
       if ((page.data?.length || 0) < 1000) break;
     }
-    const [goals, divs] = await Promise.all([
+    const [goals, divs, fiRes] = await Promise.all([
       db.from('portfolio_goals').select('monthly_income_target').eq('user_id', credential.user_id).maybeSingle(),
       db.from('custom_dividends').select('ticker,dividend').eq('user_id', credential.user_id),
+      db.from('fixed_income_assets').select('*').eq('user_id', credential.user_id),
     ]);
     if (goals.error || divs.error) throw new Error('Consulta indisponível');
     remoteDivs = Object.fromEntries((divs.data || []).map(d => [d.ticker, Number(d.dividend)]));
-    const positions = calculatePortfolioPositions(transactions, {}, remoteDivs);
-    holdings = positions.map(p => ({ ticker: p.ticker, shares: p.totalShares, avgPrice: p.averagePrice }));
+    for (const f of fiRes.data || []) {
+      fixedIncomeAssets.push({
+        id: unscopeIdFromUser(String(f.id || ''), credential.user_id),
+        name: String(f.name || 'Renda Fixa'),
+        type: f.type || 'CAIXINHA',
+        institution: String(f.institution || 'Banco'),
+        investedAmount: Number(f.invested_amount || 0),
+        currentBalance: Number(f.current_balance || 0),
+        rateType: f.rate_type || 'CDI',
+        ratePercent: Number(f.rate_percent ?? 100),
+        isExempt: Boolean(f.is_exempt),
+        maturityDate: f.maturity_date || undefined,
+        notes: f.notes || undefined,
+        updatedAt: String(f.updated_at || ''),
+      });
+    }
     incomeGoal = Number(goals.data?.monthly_income_target) || 10;
   } catch {
     return NextResponse.json({ error: 'Widget indisponível. Verifique a configuração segura.' }, { status: 503 });
   }
+
+  const basePositions = calculatePortfolioPositions(transactions, {}, remoteDivs);
+  const holdings: ParsedHolding[] = basePositions.map(p => ({ ticker: p.ticker, shares: p.totalShares, avgPrice: p.averagePrice }));
 
   const radarTickers = [
     'MXRF11',
@@ -120,46 +157,40 @@ export async function GET(request: Request) {
     new Set([...holdings.map((h) => h.ticker), ...radarTickers])
   );
 
-  let quotesMap: Record<string, QuoteData> = {};
+  const quotesMap: Record<string, QuoteData> = {};
+  let bcbIndicators: BcbIndicators | null = null;
   try {
-    const quoteRes = await fetch(
-      `${origin}/api/quote?tickers=${encodeURIComponent(allTickers.join(','))}`,
-      { cache: 'no-store' }
-    );
-    if (quoteRes.ok) {
-      const data = await quoteRes.json();
-      quotesMap = data.quotes || {};
+    const chunks: string[][] = [];
+    for (let i = 0; i < allTickers.length; i += 25) {
+      chunks.push(allTickers.slice(i, i + 25));
+    }
+    const [quoteResults, bcbRes] = await Promise.all([
+      Promise.allSettled(
+        chunks.map((chunk) =>
+          fetch(`${origin}/api/quote?tickers=${encodeURIComponent(chunk.join(','))}`, { cache: 'no-store' })
+        )
+      ),
+      fixedIncomeAssets.length > 0 ? fetch(`${origin}/api/bcb`, { cache: 'no-store' }).catch(() => null) : Promise.resolve(null),
+    ]);
+    for (const res of quoteResults) {
+      if (res.status === 'fulfilled' && res.value.ok) {
+        const data = await res.value.json();
+        if (data.quotes) Object.assign(quotesMap, data.quotes);
+      }
+    }
+    if (bcbRes && bcbRes.ok) {
+      bcbIndicators = await bcbRes.json();
     }
   } catch {
     // Fallback silencioso para catálogo caso offline
   }
 
-  let equity = 0;
-  let invested = 0;
-  let monthlyIncome = 0;
-  for (const h of holdings) {
-    const info = findFiiInfo(h.ticker);
-    const live = quotesMap[h.ticker];
-    const customDiv = remoteDivs?.[h.ticker];
-    const currentPrice = live?.price || h.avgPrice || info.vp;
-    const divPerShare =
-      customDiv !== undefined
-        ? customDiv
-        : live?.lastDividend && live.lastDividend > 0
-        ? live.lastDividend
-        : info.estimatedMonthlyDividend;
-
-    const posInvested = h.shares * h.avgPrice;
-    const posEquity = h.shares * currentPrice;
-    const posDiv = h.shares * divPerShare;
-
-    invested += posInvested;
-    equity += posEquity;
-    monthlyIncome += posDiv;
-
-  }
-
   const positions = calculatePortfolioPositions(transactions, quotesMap, remoteDivs);
+  const unified = calculateUnifiedPortfolioSummary(positions, fixedIncomeAssets, bcbIndicators);
+  const equity = unified.totalGlobalEquity;
+  const invested = unified.totalGlobalInvested;
+  const monthlyIncome = unified.totalGlobalMonthlyIncome;
+
   const calendar = calculateMonthDividends(positions, new Date(), {}, transactions);
   const event = calendar.events.find(item => item.status !== 'PAID');
   const nextEvent = event

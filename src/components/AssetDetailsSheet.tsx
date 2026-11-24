@@ -207,7 +207,7 @@ export function AssetDetailsSheet({
                     />
                     <Metric
                       label="Resultado total"
-                      value={`${position.profitLoss >= 0 ? '+' : '−'}${currency(Math.abs(position.profitLoss), true)} · ${formatPercent(position.profitLossPercent, isPrivacyMode)}`}
+                      value={`${isPrivacyMode ? '' : position.profitLoss >= 0 ? '+' : '−'}${currency(Math.abs(position.profitLoss), true)} · ${formatPercent(position.profitLossPercent, isPrivacyMode)}`}
                     />
                   </dl>
                   <div className="ui-divider">
@@ -472,7 +472,7 @@ export function AssetDetailsSheet({
                 <>
                   <p className="ui-caption">
                     {evaluated.qualityBadgeLabel}
-                    {evaluated.isBelowAveragePrice
+                    {!isPrivacyMode && evaluated.isBelowAveragePrice
                       ? ' · Cotação abaixo do seu preço médio.'
                       : ''}
                   </p>

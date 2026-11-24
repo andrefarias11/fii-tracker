@@ -4,6 +4,7 @@ import {
   PiggyBank,
   Plus,
   ShieldCheck,
+  Clock,
 } from 'lucide-react';
 import { FixedIncomeAsset, BcbIndicators } from '../types/portfolio';
 import { calculateFixedIncomeMonthlyYield } from '../domain/portfolioEngine';
@@ -17,6 +18,7 @@ interface FixedIncomeListProps {
   onEdit: (asset: FixedIncomeAsset) => void;
   onResetDemo: () => void;
   pendingSyncCount?: number;
+  pendingSyncIds?: string[];
   isSyncing?: boolean;
   onRetrySync?: () => void;
 }
@@ -29,9 +31,11 @@ export function FixedIncomeList({
   onEdit,
   onResetDemo,
   pendingSyncCount = 0,
+  pendingSyncIds = [],
   isSyncing = false,
   onRetrySync,
 }: FixedIncomeListProps) {
+  const pendingSet = new Set(pendingSyncIds);
   const formatBRL = (val: number) => {
     if (isPrivacyMode) return 'R$ •••••';
     return new Intl.NumberFormat('pt-BR', {
@@ -147,6 +151,11 @@ export function FixedIncomeList({
                             <ShieldCheck className="w-3 h-3" /> Isento IR
                           </span>
                         )}
+                        {pendingSet.has(asset.id) && (
+                          <span className="text-[10px] font-semibold text-amber-200 bg-[#1b1710] px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300/25">
+                            <Clock className="w-2.5 h-2.5" /> Pendente neste aparelho
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] text-zinc-400 uppercase tracking-wide truncate mt-0.5">
                         {asset.institution.toUpperCase()} • {getTypeLabel(asset.type).toUpperCase()}
@@ -189,14 +198,31 @@ export function FixedIncomeList({
                     </span>
                   </div>
 
+                  {asset.maturityDate && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-400">Vencimento</span>
+                      <span className="text-zinc-200 font-medium tabular-nums">
+                        {asset.maturityDate.split('-').reverse().join('/')}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Resultado total</span>
                     <span
                       className={`font-medium tabular-nums ${
-                        profit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        isPrivacyMode
+                          ? 'text-zinc-400'
+                          : profit >= 0
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
                       }`}
                     >
-                      {profit >= 0 ? '▲' : '▼'} {formatBRL(Math.abs(profit))} ({profitPct.toFixed(2).replace('.', ',')}%)
+                      {isPrivacyMode
+                        ? `${formatBRL(Math.abs(profit))} (••%)`
+                        : `${profit >= 0 ? '▲' : '▼'} ${formatBRL(Math.abs(profit))} (${profitPct
+                            .toFixed(2)
+                            .replace('.', ',')}%)`}
                     </span>
                   </div>
                 </div>

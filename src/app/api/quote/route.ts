@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { findFiiInfo } from '../../../data/fiiDatabase';
+import { isValidB3Ticker, normalizeB3Ticker } from '../../../lib/ticker';
+import { normalizeBrOrIsoDate } from '../../../lib/marketDividendSource';
+import { checkPublicIpRateLimit } from '../../../lib/serverSecurity';
 
 interface YahooDividendEvent {
   amount: number;
@@ -111,7 +114,6 @@ async function fetchStatusInvestJson(
   url: string,
   timeoutMs = 3500
 ): Promise<StatusInvestProventsResponse | null> {
-  // 1. Tentar com fetch nativo primeiro
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -126,52 +128,12 @@ async function fetchStatusInvestJson(
 
     if (res.ok) {
       const data: StatusInvestProventsResponse = await res.json();
-      if (Array.isArray(data?.assetEarningsModels) && data.assetEarningsModels.length > 0) {
+      if (Array.isArray(data?.assetEarningsModels)) {
         return data;
       }
     }
   } catch {
-    // Continua para o fallback de curl caso fetch sofra timeout ou bloqueio de TLS/Cloudflare
-  }
-
-  try {
-    const { execFile } = await import('child_process');
-    const { existsSync } = await import('fs');
-    const curlBin =
-      process.platform === 'win32'
-        ? 'curl.exe'
-        : existsSync('/usr/bin/curl')
-        ? '/usr/bin/curl'
-        : 'curl';
-
-    const stdout = await new Promise<string | null>((resolve) => {
-      execFile(
-        curlBin,
-        [
-          '-s',
-          url,
-          '-H',
-          `User-Agent: ${BROWSER_HEADERS['User-Agent']}`,
-          '-H',
-          'Accept: application/json',
-          '--max-time',
-          String(Math.ceil(timeoutMs / 1000)),
-        ],
-        (error, out) => {
-          if (error || !out) resolve(null);
-          else resolve(out);
-        }
-      );
-    });
-
-    if (stdout) {
-      const data: StatusInvestProventsResponse = JSON.parse(stdout);
-      if (Array.isArray(data?.assetEarningsModels) && data.assetEarningsModels.length > 0) {
-        return data;
-      }
-    }
-  } catch {
-    // Silencioso se curl não estiver disponível no runtime
+    // Falha transitória ou timeout na consulta StatusInvest; fallback Brapi/Yahoo assumirá
   }
 
   return null;
@@ -215,12 +177,11 @@ async function fetchStatusInvestDividend(
 
       const { month: curMonth, year: curYear } = getSaoPauloDate();
 
-      // Procurar se há algum provento na lista cujo pd (Data de Pagamento) ou ed (Data-Com) pertença ao mês/ano vigente no fuso America/Sao_Paulo
-      const currentMonthProvent = valid.find(
-        (item) =>
-          isDateInMonthYear(item.pd, curMonth, curYear) ||
-          isDateInMonthYear(item.ed, curMonth, curYear)
-      );
+      // Prioriza provento cuja Data de Pagamento (pd) ocorre no mês/ano vigente (evitando que anúncio do fim do mês
+      // para o mês seguinte esconda o pagamento confirmado do mês corrente); se não houver, verifica Data-Com (ed).
+      const currentMonthProvent =
+        valid.find((item) => isDateInMonthYear(item.pd, curMonth, curYear)) ||
+        valid.find((item) => isDateInMonthYear(item.ed, curMonth, curYear));
 
       const isCurrentMonthAnnounced = Boolean(currentMonthProvent);
       // Se existir comunicado para o mês vigente, usa ele; senão usa o último pago como referência de estimativa
@@ -324,44 +285,24 @@ async function fetchBrapiDividend(
     if (valid.length === 0) return null;
 
     valid.sort((a, b) => {
-      const tsA = new Date(a.paymentDate || a.lastDatePrior || 0).getTime();
-      const tsB = new Date(b.paymentDate || b.lastDatePrior || 0).getTime();
-      return tsB - tsA;
+      const payA = normalizeBrOrIsoDate(a.paymentDate)?.iso || normalizeBrOrIsoDate(a.lastDatePrior)?.iso || '';
+      const payB = normalizeBrOrIsoDate(b.paymentDate)?.iso || normalizeBrOrIsoDate(b.lastDatePrior)?.iso || '';
+      return payB.localeCompare(payA);
     });
 
     const { month: curMonth, year: curYear } = getSaoPauloDate();
+    const curYm = `${curYear}-${String(curMonth).padStart(2, '0')}`;
 
-    const currentMonthItem = valid.find((item) => {
-      if (item.paymentDate) {
-        const d = new Date(item.paymentDate);
-        if (!isNaN(d.getTime())) {
-          const { month, year } = getSaoPauloDate(d);
-          if (month === curMonth && year === curYear) return true;
-        }
-      }
-      if (item.lastDatePrior) {
-        const d = new Date(item.lastDatePrior);
-        if (!isNaN(d.getTime())) {
-          const { month, year } = getSaoPauloDate(d);
-          if (month === curMonth && year === curYear) return true;
-        }
-      }
-      return false;
-    });
+    // Sem conversão UTC->BRT que deslocaria "YYYY-MM-01T00:00:00.000Z" para o dia 30/31 do mês anterior!
+    const currentMonthItem =
+      valid.find((item) => normalizeBrOrIsoDate(item.paymentDate)?.iso.startsWith(curYm)) ||
+      valid.find((item) => normalizeBrOrIsoDate(item.lastDatePrior)?.iso.startsWith(curYm));
 
     const isCurrentMonthAnnounced = Boolean(currentMonthItem);
     const targetItem = currentMonthItem || valid[0];
 
-    const formatIsoToBr = (iso?: string) => {
-      if (!iso) return undefined;
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return undefined;
-      const { day, month, year } = getSaoPauloDate(d);
-      return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-    };
-
-    const exDate = formatIsoToBr(targetItem.lastDatePrior || targetItem.approvedOn);
-    const payDate = formatIsoToBr(targetItem.paymentDate);
+    const exDate = normalizeBrOrIsoDate(targetItem.lastDatePrior)?.br;
+    const payDate = normalizeBrOrIsoDate(targetItem.paymentDate)?.br;
     let paymentDay: number | undefined = undefined;
     if (payDate) {
       const p = parseInt(payDate.slice(0, 2), 10);
@@ -372,10 +313,13 @@ async function fetchBrapiDividend(
     let annualDividend12m = Number((amount * 12).toFixed(4));
 
     if (isStock) {
-      const oneYearAgoMs = Date.now() - 370 * 24 * 60 * 60 * 1000;
+      const oneYearAgoIso = new Date(Date.now() - 370 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const sum12m = valid.reduce((acc, item) => {
-        const ts = new Date(item.paymentDate || item.lastDatePrior || 0).getTime();
-        if (ts && ts >= oneYearAgoMs) {
+        const refIso =
+          normalizeBrOrIsoDate(item.paymentDate)?.iso ||
+          normalizeBrOrIsoDate(item.lastDatePrior)?.iso ||
+          '';
+        if (refIso && refIso >= oneYearAgoIso) {
           return acc + (item.rate || 0);
         }
         return acc;
@@ -548,27 +492,29 @@ async function fetchTickerQuote(ticker: string) {
 type ResolvedQuote = NonNullable<Awaited<ReturnType<typeof fetchTickerQuote>>>;
 
 const QUOTE_CACHE_TTL_MS = 30_000; // 30 segundos de cache em memória para evitar rate-limit e acelerar respostas
-const quoteMemoryCache = new Map<string, { data: ResolvedQuote; expiresAt: number }>();
+const NEGATIVE_CACHE_TTL_MS = 15_000; // 15 segundos para tickers inexistentes ou falhas temporárias
+const quoteMemoryCache = new Map<string, { data: ResolvedQuote | null; expiresAt: number }>();
 
 async function fetchTickerQuoteWithCache(ticker: string): Promise<ResolvedQuote | null> {
-  const clean = ticker.trim().toUpperCase();
+  const clean = normalizeB3Ticker(ticker) || ticker.trim().toUpperCase();
   const cached = quoteMemoryCache.get(clean);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
   }
 
   const fresh = await fetchTickerQuote(clean);
-  if (fresh) {
-    if (quoteMemoryCache.size >= 1000) quoteMemoryCache.delete(quoteMemoryCache.keys().next().value!);
-    quoteMemoryCache.set(clean, {
-      data: fresh,
-      expiresAt: Date.now() + QUOTE_CACHE_TTL_MS,
-    });
-  }
+  if (quoteMemoryCache.size >= 1000) quoteMemoryCache.delete(quoteMemoryCache.keys().next().value!);
+  quoteMemoryCache.set(clean, {
+    data: fresh,
+    expiresAt: Date.now() + (fresh ? QUOTE_CACHE_TTL_MS : NEGATIVE_CACHE_TTL_MS),
+  });
   return fresh;
 }
 
 export async function GET(request: Request) {
+  const rateLimited = checkPublicIpRateLimit(request, 'quote', 120, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { searchParams } = new URL(request.url);
   const tickersParam = searchParams.get('tickers');
 
@@ -583,8 +529,8 @@ export async function GET(request: Request) {
     new Set(
       tickersParam
         .split(',')
-        .map((t) => t.trim().toUpperCase())
-        .filter((t) => /^[A-Z]{4}\d{1,2}B?$/.test(t))
+        .map((t) => normalizeB3Ticker(t))
+        .filter((t) => isValidB3Ticker(t))
     )
   ).slice(0, 35);
 

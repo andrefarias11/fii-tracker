@@ -4,12 +4,12 @@ Priorização: impacto para o usuário, frequência, risco e esforço. Revisar a
 
 | Prioridade | Demanda | Objetivo e critérios de aceite |
 | --- | --- | --- |
-| P2 · média | Confirmação de sincronização de operações | Distinguir operação salva neste dispositivo de operação sincronizada na conta e oferecer recuperação visível quando a sincronização falhar. Definir comportamento offline antes de implementar; não depende de alteração de dados no Supabase. |
-| P2 · média | Restaurar fila local após diagnóstico | Oferecer fluxo seguro para validar e restaurar entradas a partir do arquivo exportado, com confirmação do usuário e sem substituir alterações pendentes existentes. |
-| P3 · baixa | Confirmar envio por aplicação de Renda Fixa | Identificar quais aplicações ainda aguardam envio e confirmar individualmente após sincronização, inclusive exclusões, sem expor valores no modo Privacidade. |
+| — | Sem pendências críticas abertas | Todas as demandas anteriores de sincronização, restauração de fila local, importação B3 e confirmação por item foram concluídas na v5.4.0. |
 
 ## Concluídos
 
+- 5.4.0: confirmação individual de sincronização por transação e por aplicação de Renda Fixa, restauração validada da fila local exportada sem sobrescrever mutações mais recentes, detecção automática de Desdobro B3, navegação mensal em Proventos, lançamento manual de proventos, exportação CSV e Relatório Auxiliar de IRPF Anual.
+- 5.3.0: motor de reimportação B3 multi-abas (conciliação D+0/D+2, Posição por saldo líquido e UUIDs frescos sem colisão com tombstones), suporte a tickers alfanuméricos/Units e blindagem das rotas de servidor.
 - 5.2.0: redesign com Visão geral, navegação responsiva, menu de ferramentas, ficha consistente do ativo e cores de superfície compartilhadas.
 
 - 5.1.21: área de Renda Fixa distingue alterações salvas no dispositivo e aguardando envio à conta, com nova tentativa e aviso global preservado para problemas de outros módulos.

@@ -2,7 +2,7 @@
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, Sparkles, ArrowDownLeft, ArrowUpRight, AlertCircle } from 'lucide-react';
+import { X, Search, Check, Sparkles, ArrowDownLeft, ArrowUpRight, AlertCircle, Coins } from 'lucide-react';
 import { findFiiInfo } from '../data/fiiDatabase';
 import { Transaction } from '../types/portfolio';
 
@@ -15,7 +15,7 @@ interface AddTransactionModalProps {
   onClose: () => void;
   onAddTransaction: (data: {
     ticker: string;
-    type?: 'BUY' | 'SELL';
+    type?: 'BUY' | 'SELL' | 'DIVIDEND';
     date: string;
     shares: number;
     price: number;
@@ -27,13 +27,13 @@ interface AddTransactionModalProps {
     id: string,
     data: {
       ticker: string;
-      type?: 'BUY' | 'SELL';
+      type?: 'BUY' | 'SELL' | 'DIVIDEND';
       date: string;
       shares: number;
       price: number;
       broker?: string;
       notes?: string;
-    splitAdjustment?: Transaction['splitAdjustment'];
+      splitAdjustment?: Transaction['splitAdjustment'];
     }
   ) => void;
 }
@@ -50,9 +50,19 @@ export function AddTransactionModal({
   onAddTransaction,
   onUpdateTransaction,
 }: AddTransactionModalProps) {
-  const [txType, setTxType] = useState<'BUY' | 'SELL'>(
-    editingTransaction?.type === 'SELL' ? 'SELL' : 'BUY'
+  const [txType, setTxType] = useState<'BUY' | 'SELL' | 'DIVIDEND'>(
+    editingTransaction?.type === 'DIVIDEND'
+      ? 'DIVIDEND'
+      : editingTransaction?.type === 'SELL'
+      ? 'SELL'
+      : 'BUY'
   );
+  const [dividendSubtype, setDividendSubtype] = useState<'RENDIMENTO' | 'DIVIDENDO' | 'JCP'>(() => {
+    const rawNotes = (editingTransaction?.notes || '').toUpperCase();
+    if (rawNotes.includes('JCP') || rawNotes.includes('JUROS')) return 'JCP';
+    if (rawNotes.includes('DIVIDENDO')) return 'DIVIDENDO';
+    return 'RENDIMENTO';
+  });
   const [ticker, setTicker] = useState(
     editingTransaction ? editingTransaction.ticker : initialTicker
   );
@@ -75,7 +85,7 @@ export function AddTransactionModal({
   const [isFetchingPrice, setIsFetchingPrice] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const loadPriceForTicker = async (targetTicker: string) => {
+  const loadPriceForTicker = async (targetTicker: string, targetType = txType) => {
     const clean = targetTicker.toUpperCase().trim();
     if (!clean) return;
 
@@ -85,7 +95,13 @@ export function AddTransactionModal({
       if (res.ok) {
         const data = await res.json();
         const quote = data.quotes?.[clean];
-        if (quote?.price) {
+        if (targetType === 'DIVIDEND') {
+          const unitDiv = quote?.announcedDividendPerShare ?? quote?.lastDividend;
+          if (unitDiv && unitDiv > 0) {
+            setPrice(Number(unitDiv.toFixed(4)));
+            return;
+          }
+        } else if (quote?.price) {
           setPrice(quote.price);
           return;
         }
@@ -97,7 +113,11 @@ export function AddTransactionModal({
     }
 
     const info = findFiiInfo(clean);
-    setPrice(info.base === 10 ? 9.5 : 100.0);
+    if (targetType === 'DIVIDEND') {
+      setPrice(info.estimatedMonthlyDividend || 0.1);
+    } else {
+      setPrice(info.base === 10 ? 9.5 : 100.0);
+    }
   };
 
   useEffect(() => {
@@ -159,18 +179,36 @@ export function AddTransactionModal({
       return;
     }
 
-    if (splitFactor && (!Number.isFinite(Number(splitFactor)) || Number(splitFactor) <= 0 || splitDate <= date || !splitSource.trim())) {
+    if (txType !== 'DIVIDEND' && splitFactor && (!Number.isFinite(Number(splitFactor)) || Number(splitFactor) <= 0 || splitDate <= date || !splitSource.trim())) {
       setErrorMsg('Informe fator positivo, data do evento posterior à operação e fonte do desdobramento.'); return;
     }
+    const defaultDivNote =
+      dividendSubtype === 'JCP'
+        ? '[PROVENTO B3] JCP Manual'
+        : dividendSubtype === 'DIVIDENDO'
+        ? '[PROVENTO B3] Dividendo Manual'
+        : '[PROVENTO B3] Rendimento Manual';
+    const resolvedNotes =
+      txType === 'DIVIDEND'
+        ? notes.trim()
+          ? notes.trim().startsWith('[PROVENTO')
+            ? notes.trim()
+            : `[PROVENTO B3] ${dividendSubtype === 'JCP' ? 'JCP' : dividendSubtype === 'DIVIDENDO' ? 'Dividendo' : 'Rendimento'} - ${notes.trim()}`
+          : defaultDivNote
+        : notes.trim() || undefined;
+
     const payload = {
       ticker: cleanTicker,
       type: txType,
       shares: numShares,
-      price: numPrice,
+      price: Number(numPrice.toFixed(4)),
       date: date || new Date().toISOString().slice(0, 10),
       broker: broker || 'XP Investimentos',
-      notes: notes.trim() || undefined,
-      splitAdjustment: splitFactor ? { factor: Number(splitFactor), effectiveDate: splitDate, source: splitSource.trim() } : undefined,
+      notes: resolvedNotes,
+      splitAdjustment:
+        txType !== 'DIVIDEND' && splitFactor
+          ? { factor: Number(splitFactor), effectiveDate: splitDate, source: splitSource.trim() }
+          : undefined,
     };
 
     if (editingTransaction && onUpdateTransaction) {
@@ -210,7 +248,7 @@ export function AddTransactionModal({
                 {editingTransaction ? 'Editar Lançamento' : 'Registrar Operação'}
               </h2>
               <p className="text-xs text-zinc-400">
-                {editingTransaction ? 'Ajuste os dados deste registro' : 'Compra ou venda na corretora'}
+                {editingTransaction ? 'Ajuste os dados deste registro' : 'Compra, venda ou provento recebido'}
               </p>
             </div>
           </div>
@@ -230,33 +268,84 @@ export function AddTransactionModal({
           </div>
         )}
 
-        {/* Chave Compra vs Venda */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.04] mb-4">
+        {/* Chave Compra vs Venda vs Provento */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.04] mb-4">
           <button
             type="button"
-            onClick={() => setTxType('BUY')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            onClick={() => {
+              setTxType('BUY');
+              if (ticker) void loadPriceForTicker(ticker, 'BUY');
+            }}
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all ${
               txType === 'BUY'
                 ? 'bg-[#2b2512] text-[#f5b800]'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <ArrowDownLeft className="w-3.5 h-3.5" />
-            Compra (Aporte)
+            <ArrowDownLeft className="w-3.5 h-3.5 shrink-0" />
+            Compra
           </button>
           <button
             type="button"
-            onClick={() => setTxType('SELL')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            onClick={() => {
+              setTxType('SELL');
+              if (ticker) void loadPriceForTicker(ticker, 'SELL');
+            }}
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all ${
               txType === 'SELL'
                 ? 'bg-rose-500 text-white shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            Venda (Saída)
+            <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+            Venda
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTxType('DIVIDEND');
+              if (ticker) void loadPriceForTicker(ticker, 'DIVIDEND');
+            }}
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all ${
+              txType === 'DIVIDEND'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Coins className="w-3.5 h-3.5 shrink-0" />
+            Provento
           </button>
         </div>
+
+        {txType === 'DIVIDEND' && (
+          <div className="mb-3.5">
+            <span className="text-[11px] text-zinc-400 block mb-1.5 font-medium">
+              Natureza do Provento (IRPF):
+            </span>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(
+                [
+                  { id: 'RENDIMENTO', label: 'Rendimento FII' },
+                  { id: 'DIVIDENDO', label: 'Dividendo' },
+                  { id: 'JCP', label: 'JCP' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setDividendSubtype(opt.id)}
+                  className={`py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all ${
+                    dividendSubtype === opt.id
+                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-[var(--surface-panel)] text-zinc-400 hover:text-white border border-white/[0.04]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Sugestões Rápidas */}
         <div className="mb-3.5">
@@ -329,12 +418,12 @@ export function AddTransactionModal({
             {/* Preço Unitário */}
             <div>
               <label className="text-xs font-semibold text-zinc-300 block mb-1">
-                Preço Unitário (R$)
+                {txType === 'DIVIDEND' ? 'Valor por Cota (R$)' : 'Preço Unitário (R$)'}
               </label>
               <input
                 type="text"
                 inputMode="decimal"
-                placeholder="Ex: 9.42"
+                placeholder={txType === 'DIVIDEND' ? 'Ex: 0,085' : 'Ex: 9.42'}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className="w-full bg-[var(--surface-panel)] border border-white/[0.08] rounded-2xl px-3.5 py-2.5 text-base sm:text-sm text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
@@ -382,14 +471,26 @@ export function AddTransactionModal({
             <div>
               <span
                 className={`text-[11px] block font-bold uppercase tracking-wider ${
-                  txType === 'SELL' ? 'text-rose-400' : 'text-[#f5b800]'
+                  txType === 'DIVIDEND'
+                    ? 'text-emerald-400'
+                    : txType === 'SELL'
+                    ? 'text-rose-400'
+                    : 'text-[#f5b800]'
                 }`}
               >
-                {txType === 'SELL' ? 'Valor Total da Venda' : 'Total Deste Aporte'}
+                {txType === 'DIVIDEND'
+                  ? 'Provento Líquido Recebido'
+                  : txType === 'SELL'
+                  ? 'Valor Total da Venda'
+                  : 'Total Deste Aporte'}
               </span>
               <span
                 className={`text-lg font-bold tabular-nums ${
-                  txType === 'SELL' ? 'text-rose-400' : 'text-white'
+                  txType === 'DIVIDEND'
+                    ? 'text-emerald-400'
+                    : txType === 'SELL'
+                    ? 'text-rose-400'
+                    : 'text-white'
                 }`}
               >
                 {formatBRL(currentTotal)}
@@ -402,6 +503,13 @@ export function AddTransactionModal({
                 </span>
                 <span className="text-xs font-bold text-[#f5b800] tabular-nums">
                   {Math.round((currentTotal / Math.max(1, monthlyTarget)) * 100)}% da meta
+                </span>
+              </div>
+            ) : txType === 'DIVIDEND' ? (
+              <div className="text-right">
+                <span className="text-[11px] text-zinc-400 block">Extrato de Renda</span>
+                <span className="text-[11px] font-semibold text-emerald-300">
+                  Soma em Proventos & IRPF
                 </span>
               </div>
             ) : (
@@ -446,12 +554,14 @@ export function AddTransactionModal({
             </div>
           </div>
 
-          <details className="text-sm text-zinc-300"><summary>Ajuste por desdobramento documentado</summary>
-            <p className="text-xs my-2">Preencha somente para uma operação anterior ao evento. O custo total é preservado; não há inferência pelo preço.</p>
-            <label>Fator (ex.: 10)<input aria-label="Fator do desdobramento" type="number" step="any" min="0.000001" className="w-full bg-zinc-900 p-2" value={splitFactor} onChange={e => setSplitFactor(e.target.value)} /></label>
-            <label>Data do evento<input aria-label="Data do desdobramento" type="date" className="w-full bg-zinc-900 p-2" value={splitDate} onChange={e => setSplitDate(e.target.value)} /></label>
-            <label>Fonte do evento<input aria-label="Fonte do desdobramento" className="w-full bg-zinc-900 p-2" value={splitSource} onChange={e => setSplitSource(e.target.value)} placeholder="Link ou identificação do comunicado" /></label>
-          </details>
+          {txType !== 'DIVIDEND' && (
+            <details className="text-sm text-zinc-300"><summary>Ajuste por desdobramento documentado</summary>
+              <p className="text-xs my-2">Preencha somente para uma operação anterior ao evento. O custo total é preservado; não há inferência pelo preço.</p>
+              <label>Fator (ex.: 10)<input aria-label="Fator do desdobramento" type="number" step="any" min="0.000001" className="w-full bg-zinc-900 p-2" value={splitFactor} onChange={e => setSplitFactor(e.target.value)} /></label>
+              <label>Data do evento<input aria-label="Data do desdobramento" type="date" className="w-full bg-zinc-900 p-2" value={splitDate} onChange={e => setSplitDate(e.target.value)} /></label>
+              <label>Fonte do evento<input aria-label="Fonte do desdobramento" type="text" className="w-full bg-zinc-900 p-2" value={splitSource} onChange={e => setSplitSource(e.target.value)} placeholder="Link ou identificação do comunicado" /></label>
+            </details>
+          )}
           {/* Observações */}
           <div>
             <label className="text-xs font-semibold text-zinc-300 block mb-1">
@@ -460,7 +570,11 @@ export function AddTransactionModal({
             <input
               type="text"
               placeholder={
-                txType === 'SELL' ? 'Ex: Reciclagem de carteira' : 'Ex: Aporte mensal'
+                txType === 'DIVIDEND'
+                  ? 'Ex: Competência mensal'
+                  : txType === 'SELL'
+                  ? 'Ex: Reciclagem de carteira'
+                  : 'Ex: Aporte mensal'
               }
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -472,7 +586,9 @@ export function AddTransactionModal({
             <button
               type="submit"
               className={`w-full py-3.5 px-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all ${
-                txType === 'SELL'
+                txType === 'DIVIDEND'
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
+                  : txType === 'SELL'
                   ? 'bg-rose-500 hover:bg-rose-400 text-white'
                   : 'bg-[#f5b800] hover:bg-[#ffca28] text-zinc-950'
               }`}
@@ -480,6 +596,8 @@ export function AddTransactionModal({
               <Check className="w-4 h-4 stroke-[2.5]" />
               {editingTransaction
                 ? 'Salvar Alterações'
+                : txType === 'DIVIDEND'
+                ? 'Registrar Provento'
                 : txType === 'SELL'
                 ? 'Confirmar Venda'
                 : 'Confirmar Aporte'}

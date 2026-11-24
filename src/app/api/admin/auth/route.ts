@@ -14,7 +14,9 @@ import {
 export async function POST(request: Request) {
   try {
     if (!isAdminConfigured()) return NextResponse.json({ error: 'Administração não configurada.' }, { status: 503 });
-    if (!await consumeRateLimit('admin-login', 10, 900)) return NextResponse.json({ error: 'Aguarde antes de tentar novamente.' }, { status: 429 });
+    const forwardedFor = request.headers.get('x-forwarded-for') || '';
+    const clientIp = forwardedFor.split(',')[0]?.trim() || request.headers.get('x-real-ip')?.trim() || 'local';
+    if (!await consumeRateLimit(`admin-login:${clientIp}`, 10, 900)) return NextResponse.json({ error: 'Aguarde antes de tentar novamente.' }, { status: 429 });
     const body = await readLimitedJson(request, 4096) as { username?: unknown; password?: unknown };
     const { username, password } = body || {};
 

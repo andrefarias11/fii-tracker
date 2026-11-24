@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, connection } from 'next/server';
 import type { FocusYearlyProjection } from '../../../types/portfolio';
+import { normalizeBrOrIsoDate } from '../../../lib/marketDividendSource';
+import { checkPublicIpRateLimit } from '../../../lib/serverSecurity';
 
 export interface BcbIndicatorsResponse {
   selicAnnual: number; // ex: 10.75 (% a.a.)
@@ -124,9 +126,9 @@ async function fetchOlindaFocusExpectations(
       const items = data?.value || [];
 
       if (items.length > 0) {
-        const latestDate = items[0]?.Data
-          ? new Date(items[0].Data).toLocaleDateString('pt-BR')
-          : new Date().toLocaleDateString('pt-BR');
+        const latestDate =
+          normalizeBrOrIsoDate(items[0]?.Data)?.br ||
+          new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
         const selicByYear = new Map<number, number>();
         const ipcaByYear = new Map<number, number>();
@@ -171,7 +173,11 @@ async function fetchOlindaFocusExpectations(
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  await connection();
+  const rateLimited = checkPublicIpRateLimit(request, 'bcb', 60, 60_000);
+  if (rateLimited) return rateLimited;
+
   if (cachedBcb && Date.now() - cachedBcb.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(cachedBcb.data);
   }
@@ -184,7 +190,9 @@ export async function GET() {
     ]);
 
     let selicAnnual = 10.75;
-    let updatedAt = new Date().toLocaleDateString('pt-BR');
+    let updatedAt = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    let hasLiveSelic = false;
+    let hasLiveIpca = false;
 
     if (selicSeries.status === 'fulfilled' && selicSeries.value.length > 0) {
       const last = selicSeries.value[selicSeries.value.length - 1];
@@ -192,6 +200,7 @@ export async function GET() {
       if (!isNaN(parsed) && parsed > 0) {
         selicAnnual = Number(parsed.toFixed(2));
         updatedAt = last.data || updatedAt;
+        hasLiveSelic = true;
       }
     }
 
@@ -213,6 +222,7 @@ export async function GET() {
       const accumulated = (factor - 1) * 100;
       if (accumulated > 0 && accumulated < 40) {
         ipca12m = Number(accumulated.toFixed(2));
+        hasLiveIpca = true;
       }
     }
 
@@ -236,10 +246,7 @@ export async function GET() {
       ipca12m,
       ipcaMonthly,
       updatedAt,
-      source:
-        selicSeries.status === 'fulfilled' || ipcaSeries.status === 'fulfilled'
-          ? 'BCB_OFICIAL'
-          : 'FALLBACK',
+      source: hasLiveSelic && hasLiveIpca ? 'BCB_OFICIAL' : 'FALLBACK',
       focusReportDate: focusData.reportDate,
       focusProjections: focusData.projections,
     };

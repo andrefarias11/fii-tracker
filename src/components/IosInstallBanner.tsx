@@ -7,6 +7,12 @@ export function IosInstallBanner() {
   const [isDismissed, setIsDismissed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     try {
+      const ua = window.navigator.userAgent || '';
+      const isIosDevice =
+        /iphone|ipad|ipod/i.test(ua) ||
+        (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+      if (!isIosDevice) return true;
+
       const isStandalone =
         window.matchMedia('(display-mode: standalone)').matches ||
         ('standalone' in window.navigator &&
@@ -20,7 +26,11 @@ export function IosInstallBanner() {
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    localStorage.setItem('fii_pwa_banner_dismissed', 'true');
+    try {
+      localStorage.setItem('fii_pwa_banner_dismissed', 'true');
+    } catch {
+      // ignore
+    }
   };
 
   if (isDismissed) return null;

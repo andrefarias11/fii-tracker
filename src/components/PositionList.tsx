@@ -43,11 +43,16 @@ export function PositionList({
     (position) => position.assetClass !== 'ACAO',
   ).length;
   const stocksCount = positions.length - fiisCount;
+  const effectiveAssetFilter: 'ALL' | 'FII' | 'ACAO' =
+    (assetFilter === 'ACAO' && stocksCount === 0) ||
+    (assetFilter === 'FII' && fiisCount === 0)
+      ? 'ALL'
+      : assetFilter;
   const sortedPositions = useMemo(() => {
     const list = positions.filter(
       (position) =>
-        assetFilter === 'ALL' ||
-        (assetFilter === 'FII'
+        effectiveAssetFilter === 'ALL' ||
+        (effectiveAssetFilter === 'FII'
           ? position.assetClass !== 'ACAO'
           : position.assetClass === 'ACAO'),
     );
@@ -58,7 +63,7 @@ export function PositionList({
           ? b.profitLoss - a.profitLoss
           : b.totalMonthlyDividend - a.totalMonthlyDividend,
     );
-  }, [positions, assetFilter, sortBy]);
+  }, [positions, effectiveAssetFilter, sortBy]);
 
   if (!positions.length)
     return (
@@ -120,7 +125,7 @@ export function PositionList({
           ).map((option) => (
             <Chip
               key={option.value}
-              selected={assetFilter === option.value}
+              selected={effectiveAssetFilter === option.value}
               onClick={() => {
                 triggerHaptic('selection');
                 setAssetFilter(option.value);
@@ -164,9 +169,9 @@ export function PositionList({
               <span className="text-right">
                 <span className="ui-label block">Resultado total</span>
                 <span
-                  className={`mt-1 block text-xs font-medium tabular-nums ${position.profitLoss >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}
+                  className={`mt-1 block text-xs font-medium tabular-nums ${isPrivacyMode ? 'text-zinc-400' : position.profitLoss >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}
                 >
-                  {position.profitLoss >= 0 ? '+' : '−'}
+                  {isPrivacyMode ? '' : position.profitLoss >= 0 ? '+' : '−'}
                   {formatCurrency(Math.abs(position.profitLoss), isPrivacyMode)}
                   <span className="mt-0.5 block">
                     {formatPercent(position.profitLossPercent, isPrivacyMode)}

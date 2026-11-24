@@ -1,4 +1,5 @@
 import { FiiCatalogItem } from '../types/portfolio';
+import { normalizeB3Ticker, STOCK_UNIT_11_TICKERS } from '../lib/ticker';
 
 /**
  * Catálogo expandido de FIIs e Fiagros da B3 (Principais ativos do IFIX — Base 10 e Base 100)
@@ -156,7 +157,7 @@ const CATALOG_MAP = new Map<string, FiiCatalogItem>(
 );
 
 export function findFiiInfo(ticker: string): FiiCatalogItem {
-  const cleanTicker = ticker.toUpperCase().trim();
+  const cleanTicker = normalizeB3Ticker(ticker) || ticker.toUpperCase().trim();
   const found = CATALOG_MAP.get(cleanTicker);
   if (found) {
     return {
@@ -165,8 +166,9 @@ export function findFiiInfo(ticker: string): FiiCatalogItem {
     };
   }
 
-  // Verifica se é uma Ação da B3 (termina em 3, 4, 5, 6 ou Unit conhecida)
-  const isStock = /^[A-Z]{4}[3456]$/.test(cleanTicker);
+  // Verifica se é uma Ação da B3 (termina em 3, 4, 5, 6 ou Unit conhecida, inclusive B3SA3)
+  const isStock =
+    STOCK_UNIT_11_TICKERS.has(cleanTicker) || /^[A-Z][A-Z0-9]{3}[3456]$/.test(cleanTicker);
   if (isStock) {
     return {
       ticker: cleanTicker,

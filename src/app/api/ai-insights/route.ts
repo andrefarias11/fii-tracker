@@ -2,6 +2,7 @@ import { protectedApi, readLimitedJson } from '../../../lib/serverSecurity';
 import { NextResponse, connection } from 'next/server';
 import { FII_FUNDAMENTALS } from '../../../data/fiiFundamentals';
 import { FII_PROPERTIES_CATALOG } from '../../../data/fiiProperties';
+import { isValidB3Ticker } from '../../../lib/ticker';
 
 export interface PortfolioPositionSummaryInput {
   ticker: string;
@@ -116,10 +117,23 @@ async function fetchLiveGoogleNewsHeadline(
       }
     }
 
+    let safeLink = `https://statusinvest.com.br/fundos-imobiliarios/${ticker.toLowerCase()}`;
+    if (linkMatch?.[1]) {
+      const candidateLink = linkMatch[1].replace(/&amp;/g, '&').trim();
+      try {
+        const parsedUrl = new URL(candidateLink);
+        if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') {
+          safeLink = parsedUrl.toString();
+        }
+      } catch {
+        // Mantém fallback seguro
+      }
+    }
+
     return {
       title: rawTitle,
       pubDate: formattedDate,
-      link: linkMatch?.[1] || `https://statusinvest.com.br/fundos-imobiliarios/${ticker.toLowerCase()}`,
+      link: safeLink,
       source: sourceMatch?.[1] || 'B3 / Mídia Financeira',
     };
   } catch {
@@ -454,6 +468,7 @@ function buildDeterministicInsights(
     generatedAt: new Date().toLocaleTimeString('pt-BR', {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
     }),
   };
 }
@@ -513,12 +528,15 @@ async function tryGenerateWithGeminiOrGroq(
         const content = data?.choices?.[0]?.message?.content;
         if (content) {
           const parsed = JSON.parse(content);
-          if (parsed.executiveSummary && Array.isArray(parsed.promptAnswer)) {
+          const safeAnswers = Array.isArray(parsed.promptAnswer)
+            ? parsed.promptAnswer.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+            : [];
+          if (typeof parsed.executiveSummary === 'string' && safeAnswers.length > 0) {
             return {
               ...baseInsights,
               engineSource: 'GROQ_AI',
               executiveSummary: parsed.executiveSummary,
-              promptAnswer: parsed.promptAnswer.slice(0, 4),
+              promptAnswer: safeAnswers.slice(0, 4),
             };
           }
         }
@@ -552,12 +570,15 @@ async function tryGenerateWithGeminiOrGroq(
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (rawText) {
           const parsed = JSON.parse(rawText);
-          if (parsed.executiveSummary && Array.isArray(parsed.promptAnswer)) {
+          const safeAnswers = Array.isArray(parsed.promptAnswer)
+            ? parsed.promptAnswer.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+            : [];
+          if (typeof parsed.executiveSummary === 'string' && safeAnswers.length > 0) {
             return {
               ...baseInsights,
               engineSource: 'GEMINI_AI',
               executiveSummary: parsed.executiveSummary,
-              promptAnswer: parsed.promptAnswer.slice(0, 4),
+              promptAnswer: safeAnswers.slice(0, 4),
             };
           }
         }
@@ -577,7 +598,7 @@ export async function POST(request: Request) {
   try {
     const body = await readLimitedJson(request) as RequestPayload;
     if (!body || !Array.isArray(body.positions) || body.positions.length > 100 ||
-      body.positions.some(p => !p || !/^[A-Z]{4}\d{1,2}B?$/.test(p.ticker) ||
+      body.positions.some(p => !p || !isValidB3Ticker(p.ticker) ||
         !['name', 'segment'].every(k => typeof p[k as 'name' | 'segment'] === 'string') ||
         ![p.totalShares, p.averagePrice, p.currentPrice, p.currentTotal, p.totalMonthlyDividend, p.yieldOnCostPercent, p.pvp, p.allocationPercent].every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0)) ||
       (body.customQuestion !== undefined && (typeof body.customQuestion !== 'string' || body.customQuestion.length > 2000)) ||

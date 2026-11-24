@@ -1,6 +1,7 @@
 import { NextResponse, connection } from 'next/server';
 import { FII_DATABASE, findFiiInfo } from '../../../data/fiiDatabase';
 import { classifyB3Ticker } from '../../../lib/b3Parser';
+import { checkPublicIpRateLimit } from '../../../lib/serverSecurity';
 
 export interface UniversalMarketItem {
   ticker: string;
@@ -211,6 +212,9 @@ async function searchYahooB3(query: string): Promise<UniversalMarketItem[]> {
 
 export async function GET(request: Request) {
   await connection();
+  const rateLimited = checkPublicIpRateLimit(request, 'market', 90, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { searchParams } = new URL(request.url);
   const query = (searchParams.get('q') || '').trim().toUpperCase();
   const assetType = (searchParams.get('type') || 'ALL').toUpperCase();

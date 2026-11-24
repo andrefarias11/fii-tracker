@@ -1,7 +1,7 @@
 'use client';
 import { authenticatedFetch } from '../lib/authenticatedFetch';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FiiPosition, FixedIncomeAsset } from '../types/portfolio';
 import type { BcbIndicatorsResponse } from '../app/api/bcb/route';
 import type {
@@ -26,6 +26,7 @@ interface AiInsightsTabProps {
   positions: FiiPosition[];
   fixedIncomeAssets: FixedIncomeAsset[];
   bcbIndicators: BcbIndicatorsResponse | null;
+  isPrivacyMode?: boolean;
   initialTickerFilter?: string | null;
   onClearTickerFilter?: () => void;
   onOpenBuyModal?: (ticker: string) => void;
@@ -37,6 +38,7 @@ export function AiInsightsTab({
   positions,
   fixedIncomeAssets,
   bcbIndicators,
+  isPrivacyMode = false,
   initialTickerFilter = null,
   onClearTickerFilter,
   onOpenBuyModal,
@@ -45,7 +47,9 @@ export function AiInsightsTab({
     'GERAL' | 'RISCOS' | 'TIJOLO_VS_PAPEL' | 'DESCONTADOS' | 'CUSTOM'
   >('GERAL');
   const [customQuestion, setCustomQuestion] = useState<string>('');
+  const customQuestionRef = useRef<string>('');
   const [insights, setInsights] = useState<AiPortfolioInsightsResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
   const [apiKeyInput, setApiKeyInput] = useState<string>(() => {
@@ -58,7 +62,7 @@ export function AiInsightsTab({
   });
 
   const fixedIncomeTotal = useMemo(
-    () => fixedIncomeAssets.reduce((acc, item) => acc + item.investedAmount, 0),
+    () => fixedIncomeAssets.reduce((acc, item) => acc + item.currentBalance, 0),
     [fixedIncomeAssets]
   );
 
@@ -87,7 +91,7 @@ export function AiInsightsTab({
     async (
       selectedPrompt: 'GERAL' | 'RISCOS' | 'TIJOLO_VS_PAPEL' | 'DESCONTADOS' | 'CUSTOM',
       questionOverride?: string
-    ): Promise<AiPortfolioInsightsResponse | null> => {
+    ): Promise<{ data: AiPortfolioInsightsResponse | null; error: string | null }> => {
       try {
         let savedKey = '';
         if (typeof window !== 'undefined') {
@@ -105,21 +109,27 @@ export function AiInsightsTab({
             ipca12m: bcbIndicators?.ipca12m ?? 4.42,
             focusProjections: bcbIndicators?.focusProjections ?? [],
             promptType: selectedPrompt,
-            customQuestion: questionOverride ?? customQuestion,
+            customQuestion: questionOverride ?? customQuestionRef.current,
             customApiKey: savedKey,
           }),
         });
 
         if (res.ok) {
           const data: AiPortfolioInsightsResponse = await res.json();
-          return data;
+          return { data, error: null };
         }
+        if (res.status === 401) {
+          return { data: null, error: 'Conecte sua conta no topo para consultar análises em tempo real da carteira.' };
+        }
+        if (res.status === 429) {
+          return { data: null, error: 'Limite horário de consultas atingido. Aguarde alguns minutos e tente novamente.' };
+        }
+        return { data: null, error: 'Não foi possível carregar a análise agora. Tente novamente.' };
       } catch {
-        // ignore network error
+        return { data: null, error: 'Sem conexão com o servidor de análises no momento.' };
       }
-      return null;
     },
-    [mappedPositions, fixedIncomeTotal, bcbIndicators, customQuestion]
+    [mappedPositions, fixedIncomeTotal, bcbIndicators]
   );
 
   const fetchInsights = useCallback(
@@ -128,8 +138,10 @@ export function AiInsightsTab({
       questionOverride?: string
     ) => {
       setIsLoading(true);
-      const data = await requestInsights(selectedPrompt, questionOverride);
+      setErrorMsg(null);
+      const { data, error } = await requestInsights(selectedPrompt, questionOverride);
       if (data) setInsights(data);
+      if (error) setErrorMsg(error);
       setIsLoading(false);
     },
     [requestInsights]
@@ -137,9 +149,10 @@ export function AiInsightsTab({
 
   useEffect(() => {
     let active = true;
-    requestInsights('GERAL').then((data) => {
+    requestInsights('GERAL').then(({ data, error }) => {
       if (!active) return;
       if (data) setInsights(data);
+      setErrorMsg(error);
       setIsLoading(false);
     });
     return () => {
@@ -169,6 +182,11 @@ export function AiInsightsTab({
       (f) => f.ticker.toUpperCase() === initialTickerFilter.toUpperCase()
     );
   }, [insights, initialTickerFilter]);
+
+  const maskPersonalText = (text: string) =>
+    isPrivacyMode
+      ? text.replace(/R\$\s*[\d.,]+/g, 'R$ ••••')
+      : text;
 
   const getEngineBadgeLabel = (
     source?: AiPortfolioInsightsResponse['engineSource']
@@ -252,6 +270,13 @@ export function AiInsightsTab({
               Salvar
             </button>
           </div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div role="status" className="rounded-[20px] bg-[var(--surface-card)] border border-amber-400/25 p-4 text-xs text-amber-200 flex items-center gap-2">
+          <Info className="w-4 h-4 text-[#f5b800] shrink-0" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
@@ -372,7 +397,10 @@ export function AiInsightsTab({
             type="text"
             placeholder="Pergunte sobre sua carteira (ex: vale aportar em HGLG11?)"
             value={customQuestion}
-            onChange={(e) => setCustomQuestion(e.target.value)}
+            onChange={(e) => {
+              setCustomQuestion(e.target.value);
+              customQuestionRef.current = e.target.value;
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && customQuestion.trim()) {
                 setPromptType('CUSTOM');
@@ -408,7 +436,7 @@ export function AiInsightsTab({
                   key={i}
                   className="text-xs text-zinc-200 leading-relaxed"
                 >
-                  {line}
+                  {maskPersonalText(line)}
                 </p>
               ))}
             </div>
@@ -521,7 +549,7 @@ export function AiInsightsTab({
               {fact.bullets.map((b, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#f5b800] mt-1.5 shrink-0" />
-                  <span className="leading-relaxed">{b}</span>
+                  <span className="leading-relaxed">{maskPersonalText(b)}</span>
                 </div>
               ))}
             </div>

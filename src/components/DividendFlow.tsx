@@ -10,6 +10,8 @@ import {
   TrendingUp,
   BarChart3,
   List,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { FiiPosition, Transaction, BcbIndicators } from '../types/portfolio';
 import {
@@ -84,9 +86,26 @@ export function DividendFlow({
   const [subView, setSubView] = useState<'calendar' | 'staircase' | 'chart'>('calendar');
   const [eventView, setEventView] = useState<EventView>('timeline');
   const [filterStatus, setFilterStatus] = useState<'ALL' | DividendStatus>('ALL');
+  const [monthOffset, setMonthOffset] = useState<number>(0);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(focusedDate);
+  const [prevFocusedDate, setPrevFocusedDate] = useState<string | null>(focusedDate);
+  if (focusedDate !== prevFocusedDate) {
+    setPrevFocusedDate(focusedDate);
+    if (focusedDate) {
+      setSelectedCalendarDay(focusedDate);
+      setMonthOffset(0);
+    }
+  }
 
-  const currentDate = typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
+  const realToday = typeof window !== 'undefined' ? new Date() : new Date('2026-10-12T12:00:00Z');
+  const currentDate = new Date(
+    realToday.getFullYear(),
+    realToday.getMonth() + monthOffset,
+    15,
+    12,
+    0,
+    0
+  );
   const formatBRL = (val: number) => {
     return formatCurrency(val, isPrivacyMode);
   };
@@ -96,7 +115,7 @@ export function DividendFlow({
   });
   const currentMonthKey = currentDate.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
-  const { events, summary } = calculateMonthDividends(positions, currentDate, {}, transactions);
+  const { events, summary } = calculateMonthDividends(positions, currentDate, {}, transactions, realToday);
 
   const filteredEvents = events.filter((event) => (
     filterStatus === 'ALL' || event.status === filterStatus
@@ -131,10 +150,11 @@ export function DividendFlow({
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => (
     new Date(currentDate.getFullYear(), currentDate.getMonth(), index + 1)
   ));
-  const todayKey = dateKey(currentDate);
+  const todayKey = dateKey(realToday);
+  const fallbackMonthDay = `${currentMonthKey}-01`;
   const selectedKey = selectedCalendarDay ?? groups.find((group) => (
     group.date.getFullYear() === currentDate.getFullYear() && group.date.getMonth() === currentDate.getMonth()
-  ))?.key ?? todayKey;
+  ))?.key ?? (monthOffset === 0 ? todayKey : fallbackMonthDay);
   const selectedDate = monthDays.find((date) => dateKey(date) === selectedKey);
   const selectedGroup = groups.find((group) => group.key === selectedKey);
 
@@ -225,7 +245,7 @@ export function DividendFlow({
     </section>
   );
 
-  if (positions.length === 0 && events.length === 0) {
+  if (positions.length === 0 && events.length === 0 && transactions.filter((t) => t.type === 'DIVIDEND').length === 0) {
     return (
       <div className="ui-section"><EmptyState icon={<Coins className="h-5 w-5" />} title="Seus proventos aparecem aqui" description="Importe o extrato da B3 para acompanhar previsões e recebimentos por data." action={onOpenB3Modal && <Button variant="primary" onClick={onOpenB3Modal}>Importar extrato B3</Button>} /></div>
     );
@@ -282,9 +302,49 @@ export function DividendFlow({
       {subView === 'calendar' ? (
         <div className="space-y-4 animate-in fade-in duration-150">
           <div className="ui-section">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="truncate text-xs font-medium text-zinc-400">Proventos • {capitalizedMonth}</span>
-              <span className="shrink-0 rounded-full border border-[#f5b800]/30 bg-[#2b2512] px-2 py-0.5 text-[10px] font-medium text-[#f5b800]">Conferir no extrato</span>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  type="button"
+                  aria-label="Mês anterior"
+                  onClick={() => {
+                    setMonthOffset((m) => Math.max(-36, m - 1));
+                    setSelectedCalendarDay(null);
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08] bg-[var(--surface-panel)] text-zinc-300 hover:text-white active:scale-95 transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="truncate text-xs font-semibold text-white px-1">
+                  {capitalizedMonth}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Próximo mês"
+                  onClick={() => {
+                    setMonthOffset((m) => Math.min(6, m + 1));
+                    setSelectedCalendarDay(null);
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08] bg-[var(--surface-panel)] text-zinc-300 hover:text-white active:scale-95 transition-all"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                {monthOffset !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthOffset(0);
+                      setSelectedCalendarDay(null);
+                    }}
+                    className="ml-1 rounded-full bg-[#2b2512] px-2.5 py-1 text-[10px] font-bold text-[#f5b800] hover:bg-[#383016] transition-colors"
+                  >
+                    Hoje
+                  </button>
+                )}
+              </div>
+              <span className="shrink-0 rounded-full border border-[#f5b800]/30 bg-[#2b2512] px-2 py-0.5 text-[10px] font-medium text-[#f5b800]">
+                {monthOffset < 0 ? 'Histórico realizado' : monthOffset > 0 ? 'Projeção futura' : 'Conferir no extrato'}
+              </span>
             </div>
             <div className="ui-value-lg mb-3 mt-2">{formatBRL(summary.totalExpected)}</div>
 

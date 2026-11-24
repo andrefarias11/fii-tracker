@@ -1,8 +1,8 @@
 // Controle central de versão do FII Tracker
 // REGRA: Sempre incrementar APP_VERSION a cada nova alteração ou melhoria aplicada no projeto.
 
-export const APP_VERSION = '5.2.1';
-export const APP_UPDATED_AT = '21/10/2026';
+export const APP_VERSION = '5.4.0';
+export const APP_UPDATED_AT = '24/11/2026';
 
 export interface VersionRelease {
   version: string;
@@ -11,6 +11,26 @@ export interface VersionRelease {
 }
 
 export const APP_CHANGELOG: VersionRelease[] = [
+  {
+    version: '5.4.0',
+    date: '24/11/2026',
+    highlights: [
+      'Relatório Auxiliar de IRPF Anual (irpfEngine.ts e IrpfReportModal.tsx): cálculo por ano-calendário de Bens e Direitos em 31/12 pelo custo histórico (Códigos 73 FII, 74 Fiagro e 01 Ações), Rendimentos Isentos (Códigos 99 e 09), JCP (Código 10), vendas realizadas, texto pronto para copiar e exportação CSV.',
+      'Detecção automática de Desdobro na planilha de Movimentação da B3 (b3Parser.ts): aplica o fator auditável de desdobramento nas compras anteriores do ativo com idempotência.',
+      'Navegação entre meses na aba Proventos (< Mês Anterior | Próximo >), lançamento/edição manual de proventos no modal de operações e exportação CSV da Posição Atual e do Extrato Completo.',
+      'Indicador individual de sincronização pendente por transação e por aplicação de Renda Fixa, fluxo seguro de restauração de fila offline exportada, precisão NUMERIC(14, 4) para proventos fracionários no Supabase, recuperação de alertas Push após reativação de aparelho, blindagem completa do Modo Privacidade, rate limit por IP nas rotas públicas e atualização de segurança do Next.js para 16.4.6.',
+    ],
+  },
+  {
+    version: '5.3.0',
+    date: '23/11/2026',
+    highlights: [
+      'Reconstrução da importação e reimportação de planilhas da B3 (b3Parser.ts, B3ImportModal.tsx e usePortfolio.ts): leitura multi-abas completa, suporte a CSV PT-BR sem inversão de datas, conciliação cruzada entre Negociação (D+0) e Movimentação/Liquidação (D+2), reconciliação por saldo de cotas para relatórios de Posição e geração de UUIDs frescos para eliminar conflitos com exclusões anteriores na nuvem.',
+      'Suporte integral a tickers alfanuméricos e Units da B3 (como B3SA3 e IGTI11) em todo o fluxo de importação, cotações, validações de backup, análises e alertas.',
+      'Correções de sincronização bidirecional (preservação de múltiplos fills parciais no mesmo dia e múltiplos títulos de Renda Fixa), fuso horário America/Sao_Paulo nas cotações/dividendos da Brapi e BCB, prioridade de alertas Web Push e eliminação de falso positivo entre FIIs na mesma Data-Com.',
+      'Reforço de segurança, performance e Modo Privacidade em toda a interface: bloqueio de chamadas em excesso ao digitar na aba de IA, paginação e lotes nas rotas de Admin/Widget, reset limpo de modais, proteção de recibos de proventos contra edição acidental e ocultação consistente de dados pessoais.',
+    ],
+  },
   {
     version: '5.2.1', date: '21/10/2026', highlights: [
       'Refina a hierarquia e a leitura da Visão geral, padroniza cores semânticas de proventos, evidencia o modo Privacidade e melhora gráficos, estados vazios e foco em telas pequenas.',

@@ -1,4 +1,5 @@
 import { FiiPosition, Transaction } from '../types/portfolio';
+import { normalizeTransactionForSplit } from '../domain/portfolioEngine';
 import { normalizeB3Ticker } from './ticker';
 
 export type AchievementTier = 'BRONZE' | 'PRATA' | 'OURO' | 'PLATINA';
@@ -70,14 +71,15 @@ function findHistoricalUnlockDate(
       uniqueMonths.add(tx.date.slice(0, 7));
     }
 
+    const norm = normalizeTransactionForSplit(tx);
     const curr = sharesMap.get(ticker) || { shares: 0, avgPrice: 0, invested: 0 };
     if (tx.type === 'SELL') {
-      const sold = Math.min(curr.shares, Math.abs(tx.shares));
+      const sold = Math.min(curr.shares, norm.shares);
       curr.shares = Math.max(0, curr.shares - sold);
       curr.invested = curr.shares * curr.avgPrice;
     } else {
-      curr.shares += Math.abs(tx.shares);
-      curr.invested += Math.abs(tx.total);
+      curr.shares += norm.shares;
+      curr.invested += norm.total;
       curr.avgPrice = curr.shares > 0 ? curr.invested / curr.shares : 0;
     }
     sharesMap.set(ticker, curr);
@@ -137,9 +139,10 @@ export function evaluateAchievements(
       .map((t) => t.date.slice(0, 7))
   ).size;
 
-  // Verifica se possui Papel + Tijolo/Híbrido
-  const hasPaper = effectivePositions.some((p) => p.segment.toLowerCase().includes('papel'));
-  const hasBrickOrHybrid = effectivePositions.some(
+  // Verifica se possui Papel + Tijolo/Híbrido entre os FIIs/Fiagros (excluindo Ações)
+  const fiiOnlyPositions = effectivePositions.filter((p) => p.assetClass !== 'ACAO');
+  const hasPaper = fiiOnlyPositions.some((p) => p.segment.toLowerCase().includes('papel'));
+  const hasBrickOrHybrid = fiiOnlyPositions.some(
     (p) => !p.segment.toLowerCase().includes('papel')
   );
   const segmentClassesCount = (hasPaper ? 1 : 0) + (hasBrickOrHybrid ? 1 : 0);

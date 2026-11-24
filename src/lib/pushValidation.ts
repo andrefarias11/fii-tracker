@@ -5,7 +5,9 @@ export function isAllowedPushEndpoint(value: unknown): value is string {
     if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) return false;
     return url.hostname === 'fcm.googleapis.com' ||
       url.hostname === 'updates.push.services.mozilla.com' ||
+      url.hostname === 'push.services.mozilla.com' ||
       url.hostname === 'web.push.apple.com' ||
+      /^[a-z0-9-]+\.push\.apple\.com$/.test(url.hostname) ||
       /^[a-z0-9-]+\.notify\.windows\.com$/.test(url.hostname);
   } catch { return false; }
 }

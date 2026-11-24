@@ -49,6 +49,159 @@ export function inspectQueue(user: string): { items: Mutation[]; corrupt: { key:
   return { items: items.sort((a,b) => a.enqueuedAt - b.enqueuedAt || a.id.localeCompare(b.id)), corrupt };
 }
 
+export function extractPendingEntityIds(user: string | null | undefined): {
+  transactionIds: Set<string>;
+  fixedIncomeIds: Set<string>;
+} {
+  const transactionIds = new Set<string>();
+  const fixedIncomeIds = new Set<string>();
+  if (!user || typeof window === 'undefined') {
+    return { transactionIds, fixedIncomeIds };
+  }
+
+  const userScopePrefix = `${user.slice(0, 8)}_`;
+  const stripScope = (id: string) =>
+    id.startsWith(userScopePrefix) ? id.slice(userScopePrefix.length) : id;
+
+  const { items } = inspectQueue(user);
+  for (const item of items) {
+    const targetSet =
+      item.table === 'transactions'
+        ? transactionIds
+        : item.table === 'fixed_income_assets'
+        ? fixedIncomeIds
+        : null;
+    if (!targetSet) continue;
+
+    if (Array.isArray(item.rows)) {
+      for (const row of item.rows) {
+        if (typeof row.id === 'string' && row.id.length > 0) {
+          targetSet.add(stripScope(row.id));
+        }
+      }
+    }
+    if (Array.isArray(item.deletedIds)) {
+      for (const delId of item.deletedIds) {
+        if (typeof delId === 'string' && delId.length > 0) {
+          targetSet.add(stripScope(delId));
+        }
+      }
+    }
+  }
+
+  return { transactionIds, fixedIncomeIds };
+}
+
+export function restoreExportedSyncQueue(
+  user: string,
+  jsonStr: string
+): { restoredCount: number; clearedCorruptCount: number } {
+  if (typeof window === 'undefined' || !user) {
+    throw new Error('Faça login na conta correspondente antes de restaurar a fila local.');
+  }
+  if (jsonStr.length > 5_000_000) {
+    throw new Error('Arquivo de fila local excede 5 MB.');
+  }
+
+  let parsedDoc: unknown;
+  try {
+    parsedDoc = JSON.parse(jsonStr);
+  } catch {
+    throw new Error('JSON inválido no arquivo da fila local.');
+  }
+
+  if (
+    !parsedDoc ||
+    typeof parsedDoc !== 'object' ||
+    Array.isArray(parsedDoc) ||
+    !Array.isArray((parsedDoc as { entries?: unknown }).entries)
+  ) {
+    throw new Error('Formato de arquivo de fila local não reconhecido.');
+  }
+
+  const rawEntries = (parsedDoc as { entries: unknown[] }).entries;
+  if (rawEntries.length === 0 || rawEntries.length > 10_000) {
+    throw new Error('Quantidade de itens inválida no arquivo da fila local.');
+  }
+
+  const currentQueue = inspectQueue(user);
+  const existingIds = new Set(currentQueue.items.map((m) => m.id));
+  const newestExistingTimestampByEntity = new Map<string, number>();
+
+  const recordEntityTimestamps = (m: Mutation, map: Map<string, number>) => {
+    const ids: string[] = [];
+    if (Array.isArray(m.rows)) {
+      for (const r of m.rows) {
+        if (typeof r.id === 'string') ids.push(r.id);
+      }
+    }
+    if (Array.isArray(m.deletedIds)) {
+      ids.push(...m.deletedIds);
+    }
+    for (const id of ids) {
+      const entityKey = `${m.table}:${id}`;
+      const prev = map.get(entityKey) ?? -Infinity;
+      if (m.enqueuedAt > prev) map.set(entityKey, m.enqueuedAt);
+    }
+  };
+
+  for (const existing of currentQueue.items) {
+    recordEntityTimestamps(existing, newestExistingTimestampByEntity);
+  }
+
+  const validatedToWrite: { key: string; serialized: string }[] = [];
+
+  for (const entry of rawEntries) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error('Item inválido encontrado no arquivo da fila local.');
+    }
+    const { key, raw } = entry as { key?: unknown; raw?: unknown };
+    if (typeof key !== 'string' || !key.startsWith(prefix(user))) {
+      throw new Error('O arquivo pertence a outra conta ou possui chave inválida.');
+    }
+    const candidateObj: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!isMutation(candidateObj, user, key)) {
+      throw new Error(`Operação inválida ou ainda corrompida na chave ${key}.`);
+    }
+
+    if (existingIds.has(candidateObj.id)) continue;
+
+    // Nunca sobrescreve entidades que já receberam mutação mais recente na fila ativa
+    const candidateIds: string[] = [];
+    if (Array.isArray(candidateObj.rows)) {
+      for (const r of candidateObj.rows) {
+        if (typeof r.id === 'string') candidateIds.push(r.id);
+      }
+    }
+    if (Array.isArray(candidateObj.deletedIds)) {
+      candidateIds.push(...candidateObj.deletedIds);
+    }
+
+    const supersededByNewer = candidateIds.some((id) => {
+      const newerTs = newestExistingTimestampByEntity.get(`${candidateObj.table}:${id}`);
+      return newerTs !== undefined && newerTs > candidateObj.enqueuedAt;
+    });
+    if (supersededByNewer) continue;
+
+    validatedToWrite.push({ key, serialized: JSON.stringify(candidateObj) });
+    existingIds.add(candidateObj.id);
+  }
+
+  for (const item of validatedToWrite) {
+    localStorage.setItem(item.key, item.serialized);
+  }
+
+  let clearedCorruptCount = 0;
+  const refreshed = inspectQueue(user);
+  for (const bad of refreshed.corrupt) {
+    localStorage.removeItem(bad.key);
+    clearedCorruptCount++;
+  }
+
+  window.dispatchEvent(new Event(SYNC_EVENT));
+  return { restoredCount: validatedToWrite.length, clearedCorruptCount };
+}
+
 export function readQueue(user: string): Mutation[] {
   const queue = inspectQueue(user);
   if (queue.corrupt.length) throw new CorruptSyncQueueError();

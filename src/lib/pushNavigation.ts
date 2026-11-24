@@ -1,4 +1,4 @@
-import { normalizeB3Ticker } from './ticker';
+import { isValidB3Ticker, normalizeB3Ticker } from './ticker';
 
 export type PushAlertEventType =
   | 'DIVIDEND_ANNOUNCED'
@@ -57,7 +57,7 @@ export function buildSafePushUrl(params: {
 
   if (params.ticker) {
     const cleanTicker = normalizeB3Ticker(params.ticker);
-    if (/^[A-Z]{4}\d{1,2}B?$/.test(cleanTicker)) {
+    if (isValidB3Ticker(cleanTicker)) {
       search.set('ticker', cleanTicker);
     }
   }
@@ -93,7 +93,7 @@ export function parsePushNavigationUrl(
     const rawEvent = url.searchParams.get('event');
 
     const cleanTicker = rawTicker ? normalizeB3Ticker(rawTicker) : '';
-    const ticker = /^[A-Z]{4}\d{1,2}B?$/.test(cleanTicker) ? cleanTicker : null;
+    const ticker = isValidB3Ticker(cleanTicker) ? cleanTicker : null;
     const date = isValidIsoCalendarDate(rawDate) ? rawDate : null;
     const eventType =
       rawEvent && ALLOWED_EVENT_TYPES.has(rawEvent as PushAlertEventType)

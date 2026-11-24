@@ -195,11 +195,11 @@ export function AchievementsTimeline({
                   Modo Carreira B3
                 </span>
                 <span className="text-[11px] font-bold text-zinc-400 tabular-nums">
-                  {overview.totalXp} / {overview.maxXp} XP
+                  {isPrivacyMode ? '••••' : overview.totalXp} / {overview.maxXp} XP
                 </span>
               </div>
               <h2 className="text-base font-bold text-white mt-1 tracking-tight">
-                {overview.currentLevelTitle}
+                {isPrivacyMode ? 'Nível Oculto (Privacidade)' : overview.currentLevelTitle}
               </h2>
               <p className="text-xs text-zinc-400">
                 Conquistas validadas por planilhas oficiais da B3
@@ -209,7 +209,7 @@ export function AchievementsTimeline({
 
           <div className="text-right shrink-0">
             <span className="text-xl font-bold text-white tracking-tight tabular-nums">
-              {overview.unlockedCount}
+              {isPrivacyMode ? '••' : overview.unlockedCount}
               <span className="text-xs text-zinc-500 font-semibold">/{overview.totalCount}</span>
             </span>
             <span className="block text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
@@ -225,18 +225,22 @@ export function AchievementsTimeline({
               <Crown className="w-3.5 h-3.5 text-[#f5b800]" />
               Progresso do Troféu Platina
             </span>
-            <span className="font-bold text-white tabular-nums">{overview.platinumProgressPercent}%</span>
+            <span className="font-bold text-white tabular-nums">
+              {isPrivacyMode ? '••%' : `${overview.platinumProgressPercent}%`}
+            </span>
           </div>
           <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded-full bg-[#f5b800] transition-all duration-700"
-              style={{ width: `${overview.platinumProgressPercent}%` }}
+              className={`h-full rounded-full transition-all duration-700 ${
+                isPrivacyMode ? 'bg-zinc-600/40' : 'bg-[#f5b800]'
+              }`}
+              style={{ width: isPrivacyMode ? '100%' : `${overview.platinumProgressPercent}%` }}
             />
           </div>
         </div>
 
         {/* Próxima conquista na mira */}
-        {overview.nextAchievement && (
+        {!isPrivacyMode && overview.nextAchievement && (
           <div className="p-3.5 rounded-2xl bg-[var(--surface-panel)] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800] shrink-0">
@@ -271,15 +275,16 @@ export function AchievementsTimeline({
 
       {/* Filtro de Conquistas em Pílulas Estilo XP */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Filtrar troféus">
-        {([{ value: 'ALL', label: 'Todos', count: overview.totalCount }, { value: 'UNLOCKED', label: 'Desbloqueados', count: overview.unlockedCount }, { value: 'LOCKED', label: 'Na Mira', count: overview.totalCount - overview.unlockedCount }] as const).map((option) => <Chip key={option.value} selected={filter === option.value} onClick={() => { triggerHaptic('selection'); setFilter(option.value); }}>{option.label} · {option.count}</Chip>)}
+        {([{ value: 'ALL', label: 'Todos', count: overview.totalCount }, { value: 'UNLOCKED', label: 'Desbloqueados', count: isPrivacyMode ? null : overview.unlockedCount }, { value: 'LOCKED', label: 'Na Mira', count: isPrivacyMode ? null : overview.totalCount - overview.unlockedCount }] as const).map((option) => <Chip key={option.value} selected={filter === option.value} onClick={() => { triggerHaptic('selection'); setFilter(option.value); }}>{option.label}{option.count !== null ? ` · ${option.count}` : ''}</Chip>)}
       </div>
 
       {/* Linha do Tempo Vertical das Conquistas */}
       <div className="p-5 rounded-[20px] bg-[var(--surface-card)] border border-white/[0.06]">
         <div className="relative space-y-3">
-          {filteredAchievements.map((item: AchievementItem, index: number) => {
-            const styles = getTierStyles(item.tier, item.unlocked);
-            const isLast = index === filteredAchievements.length - 1;
+          {(isPrivacyMode ? overview.achievements : filteredAchievements).map((item: AchievementItem, index: number, arr: AchievementItem[]) => {
+            const visibleUnlocked = !isPrivacyMode && item.unlocked;
+            const styles = getTierStyles(item.tier, visibleUnlocked);
+            const isLast = index === arr.length - 1;
 
             return (
               <div key={item.id} className="relative flex items-start gap-3">
@@ -287,7 +292,7 @@ export function AchievementsTimeline({
                 {!isLast && (
                   <div
                     className={`absolute left-[22px] top-12 bottom-[-14px] w-[1px] ${
-                      item.unlocked ? 'bg-[#f5b800]/40' : 'bg-white/[0.06]'
+                      visibleUnlocked ? 'bg-[#f5b800]/40' : 'bg-white/[0.06]'
                     }`}
                   />
                 )}
@@ -295,8 +300,10 @@ export function AchievementsTimeline({
                 {/* Ícone do Troféu na Linha do Tempo */}
                 <button
                   type="button"
-                  aria-label={`${item.unlocked ? 'Celebrar' : 'Troféu bloqueado:'} ${item.title}`}
-                  onClick={() => handleAchievementClick(item)}
+                  aria-label={`${visibleUnlocked ? 'Celebrar' : 'Troféu:'} ${item.title}`}
+                  onClick={() => {
+                    if (!isPrivacyMode) handleAchievementClick(item);
+                  }}
                   className={`relative z-10 min-w-11 min-h-11 w-11 h-11 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95 ${styles.iconBox}`}
                 >
                   {renderIcon(item.iconName, 'w-3.5 h-3.5')}
@@ -321,9 +328,9 @@ export function AchievementsTimeline({
                           +{item.xp} XP
                         </span>
                       </div>
-                      <h3 className={`text-sm font-bold flex items-center gap-1.5 ${item.unlocked ? 'text-white' : 'text-[#71717A]'}`}>
+                      <h3 className={`text-sm font-bold flex items-center gap-1.5 ${visibleUnlocked ? 'text-white' : 'text-[#71717A]'}`}>
                         {item.title}
-                        {item.unlocked ? (
+                        {visibleUnlocked ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                         ) : (
                           <Lock className="w-3 h-3 text-zinc-500 shrink-0" />
@@ -332,7 +339,9 @@ export function AchievementsTimeline({
                     </div>
 
                     <div className="text-right shrink-0">
-                      {item.unlocked ? (
+                      {isPrivacyMode ? (
+                        <span className="text-xs font-bold text-zinc-500 tabular-nums">••%</span>
+                      ) : item.unlocked ? (
                         <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                           {item.unlockedAt
                             ? `Em ${formatDateBR(item.unlockedAt)}`
@@ -346,7 +355,7 @@ export function AchievementsTimeline({
                     </div>
                   </div>
 
-                  {item.unlocked ? <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{item.description}</p> : <details className="mb-2.5 text-xs text-[#71717A]"><summary className="cursor-pointer py-2 font-medium">Como desbloquear</summary><p className="pb-2 leading-relaxed">{item.description}</p></details>}
+                  {visibleUnlocked ? <p className="text-xs text-zinc-400 leading-relaxed mb-2.5">{item.description}</p> : <details className="mb-2.5 text-xs text-[#71717A]"><summary className="cursor-pointer py-2 font-medium">Como desbloquear</summary><p className="pb-2 leading-relaxed">{item.description}</p></details>}
 
                   {/* Barra de Progresso Individual */}
                   <div className="space-y-1">
@@ -360,9 +369,9 @@ export function AchievementsTimeline({
                     <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          item.unlocked ? 'bg-emerald-400' : styles.bar
+                          isPrivacyMode ? 'bg-zinc-600/40' : item.unlocked ? 'bg-emerald-400' : styles.bar
                         }`}
-                        style={{ width: `${item.progressPercent}%` }}
+                        style={{ width: isPrivacyMode ? '100%' : `${item.progressPercent}%` }}
                       />
                     </div>
                   </div>

@@ -107,10 +107,11 @@ export function calculateMonthlyWrapped(
 ): MonthlyWrappedData | null {
   const staircase = calculateDividendStaircase(positions, transactions);
   const now = typeof window !== 'undefined' ? new Date() : null;
-  const currentYm = now
-    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    : '2026-10';
-  const currentDay = now ? now.getDate() : 1;
+  const spIso = now
+    ? now.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+    : '2026-10-01';
+  const currentYm = spIso.slice(0, 7);
+  const currentDay = Number(spIso.slice(8, 10)) || 1;
 
   // Se nenhum mês for passado, escolhe:
   // Se estamos nos primeiros 10 dias do mês e existe mês anterior com dados, foca no mês anterior (fechado)
@@ -164,9 +165,9 @@ export function calculateMonthlyWrapped(
         }
       : null;
 
-  // 2. Aportes no mês
+  // 2. Aportes no mês (inclui registros com type === 'BUY' ou type legado indefinido)
   const monthBuyTxs = transactions.filter((t) => {
-    if (t.type !== 'BUY') return false;
+    if (t.type && t.type !== 'BUY') return false;
     const ym = t.date ? t.date.slice(0, 7) : '';
     return ym === chosenYm;
   });

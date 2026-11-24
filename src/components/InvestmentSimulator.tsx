@@ -26,14 +26,14 @@ export function InvestmentSimulator({
   bcbIndicators = null,
   isPrivacyMode = false,
 }: InvestmentSimulatorProps) {
-  const [monthlyContribution, setMonthlyContribution] = useState<number>(
-    () => monthlyTarget || 200
-  );
-  const [monthlyYieldPercent, setMonthlyYieldPercent] = useState<number>(() =>
+  const [customContribution, setCustomContribution] = useState<number | null>(null);
+  const [customYieldPercent, setCustomYieldPercent] = useState<number | null>(null);
+  const monthlyContribution = customContribution ?? (monthlyTarget || 200);
+  const defaultYieldPercent =
     averageYieldPercent >= 0.6 && averageYieldPercent <= 1.3
       ? averageYieldPercent
-      : 0.85
-  );
+      : 0.85;
+  const monthlyYieldPercent = customYieldPercent ?? defaultYieldPercent;
   const [startFromCurrentEquity, setStartFromCurrentEquity] =
     useState<boolean>(true);
   const [simulationMode, setSimulationMode] = useState<'FOCUS_CURVE' | 'FIXED'>(
@@ -335,7 +335,7 @@ export function InvestmentSimulator({
               step="50"
               value={monthlyContribution}
               onChange={(e) =>
-                setMonthlyContribution(Math.max(10, Number(e.target.value)))
+                setCustomContribution(Math.max(10, Number(e.target.value)))
               }
               className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-3 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
             />
@@ -353,14 +353,14 @@ export function InvestmentSimulator({
             ) : (
               <select
                 value={monthlyYieldPercent}
-                onChange={(e) => setMonthlyYieldPercent(Number(e.target.value))}
+                onChange={(e) => setCustomYieldPercent(Number(e.target.value))}
                 className="w-full bg-[var(--surface-card)] border border-white/[0.08] rounded-xl px-2.5 py-2 text-base sm:text-xs text-white font-bold outline-none focus:border-[#f5b800]/60 tabular-nums"
               >
                 {averageYieldPercent >= 0.6 &&
                   averageYieldPercent <= 1.3 &&
                   ![0.75, 0.85, 1.0].includes(averageYieldPercent) && (
                     <option value={averageYieldPercent}>
-                      {averageYieldPercent}% a.m. (Sua Carteira)
+                      {isPrivacyMode ? '••% a.m. (Sua Carteira)' : `${averageYieldPercent}% a.m. (Sua Carteira)`}
                     </option>
                   )}
                 <option value={0.75}>0.75% a.m. (Conservador)</option>
@@ -393,7 +393,7 @@ export function InvestmentSimulator({
                   R$ {(m.target / 1000).toFixed(0)} mil
                 </div>
                 <div className="text-xs font-bold text-white mt-0.5 tabular-nums">
-                  {formatDuration(m.months)}
+                  {isPrivacyMode && startFromCurrentEquity ? '••••' : formatDuration(m.months)}
                 </div>
               </div>
             ))}

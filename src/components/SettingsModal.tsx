@@ -24,8 +24,18 @@ import {
   ShieldCheck,
   Lock,
   ExternalLink,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
-import { PortfolioGoals, FiiPosition, QuoteData } from '../types/portfolio';
+import {
+  PortfolioGoals,
+  FiiPosition,
+  QuoteData,
+  Transaction,
+  FixedIncomeAsset,
+  BcbIndicators,
+} from '../types/portfolio';
+import { buildPositionsCsv, buildTransactionsCsv, downloadCsvFile } from '../lib/csvExport';
 import {
   getSupabaseConfig,
   isEnvironmentSupabaseConfigured,
@@ -61,14 +71,21 @@ interface SettingsModalProps {
   isOpen: boolean;
   goals: PortfolioGoals;
   positions?: FiiPosition[];
+  transactions?: Transaction[];
+  fixedIncomeAssets?: FixedIncomeAsset[];
+  bcbIndicators?: BcbIndicators | null;
   quotes?: Record<string, QuoteData>;
+  isPrivacyMode?: boolean;
   isCloudConnected: boolean;
   isSyncingCloud: boolean;
   pendingChanges?: number;
+  corruptQueueCount?: number;
   onClose: () => void;
   onUpdateGoals: (newGoals: Partial<PortfolioGoals>) => void;
   onExportBackup: () => string;
   onImportBackup: (jsonStr: string) => Promise<boolean>;
+  onRestoreCorruptQueue?: (jsonStr: string) => Promise<{ restoredCount: number; clearedCorruptCount: number }>;
+  onOpenIrpf?: () => void;
   onResetDemo: () => void;
   onClearAll: () => void;
   onSyncCloud: () => void;
@@ -156,14 +173,21 @@ export function SettingsModal({
   isOpen,
   goals,
   positions = [],
+  transactions = [],
+  fixedIncomeAssets = [],
+  bcbIndicators = null,
   quotes = {},
+  isPrivacyMode = false,
   isCloudConnected,
   isSyncingCloud,
   pendingChanges = 0,
+  corruptQueueCount = 0,
   onClose,
   onUpdateGoals,
   onExportBackup,
   onImportBackup,
+  onRestoreCorruptQueue,
+  onOpenIrpf,
   onResetDemo,
   onClearAll,
   onSyncCloud,
@@ -1059,24 +1083,31 @@ export function SettingsModal({
                   Patrimônio Atual
                 </div>
                 <div className="text-base font-bold text-white leading-tight">
-                  R$ {widgetPreview.equity.toFixed(2).replace('.', ',')}
+                  {isPrivacyMode ? 'R$ ••••' : `R$ ${widgetPreview.equity.toFixed(2).replace('.', ',')}`}
                 </div>
                 <div
                   className={`text-[10px] font-semibold ${
-                    widgetPreview.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    isPrivacyMode
+                      ? 'text-zinc-400'
+                      : widgetPreview.profit >= 0
+                      ? 'text-emerald-400'
+                      : 'text-rose-400'
                   }`}
                 >
-                  {widgetPreview.profit >= 0 ? '▲ ' : '▼ '}
-                  R$ {Math.abs(widgetPreview.profit).toFixed(2).replace('.', ',')} (
-                  {widgetPreview.profitPct}%)
+                  {isPrivacyMode
+                    ? 'R$ •••• (••%)'
+                    : `${widgetPreview.profit >= 0 ? '▲ ' : '▼ '}R$ ${Math.abs(widgetPreview.profit)
+                        .toFixed(2)
+                        .replace('.', ',')} (${widgetPreview.profitPct}%)`}
                 </div>
 
                 <div className="mt-2 text-[8px] font-bold text-zinc-500 uppercase">
-                  Proventos Mês (YoC {widgetPreview.yocPct}%)
+                  Proventos Mês (YoC {isPrivacyMode ? '••' : widgetPreview.yocPct}%)
                 </div>
                 <div className="text-xs font-bold text-emerald-400">
-                  R$ {widgetPreview.monthlyIncome.toFixed(2).replace('.', ',')} / R${' '}
-                  {widgetPreview.incomeGoal.toFixed(0)}
+                  {isPrivacyMode
+                    ? 'R$ •••• / R$ ••••'
+                    : `R$ ${widgetPreview.monthlyIncome.toFixed(2).replace('.', ',')} / R$ ${widgetPreview.incomeGoal.toFixed(0)}`}
                 </div>
               </div>
 
@@ -1086,7 +1117,7 @@ export function SettingsModal({
                     Próximo Provento
                   </div>
                   <div className="text-[11px] font-semibold text-white truncate">
-                    {widgetPreview.nextEvent}
+                    {isPrivacyMode ? 'Oculto no modo privacidade' : widgetPreview.nextEvent}
                   </div>
                 </div>
 
@@ -1323,11 +1354,34 @@ export function SettingsModal({
           </button>
         </form>
 
-        {/* 3. BACKUP MANUAL */}
+        {/* 3. BACKUP MANUAL, EXPORTAÇÃO CSV & AUXILIAR IRPF */}
         <div className="space-y-3 mb-6 pt-4 border-t border-white/[0.06]">
           <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-            Backup Manual em Arquivo
+            Backup, Planilhas CSV & IRPF
           </h3>
+
+          {onOpenIrpf && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                onClose();
+                onOpenIrpf();
+              }}
+              className="w-full p-3.5 rounded-2xl bg-[var(--surface-panel)] hover:bg-white/[0.04] border border-[#f5b800]/20 text-left flex items-center justify-between gap-3 transition-all"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="w-4 h-4 text-[#f5b800] shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white">Relatório Auxiliar de IRPF Anual</div>
+                  <div className="text-[11px] text-zinc-400 truncate">
+                    Bens e Direitos (custo em 31/12), Rendimentos Isentos e JCP
+                  </div>
+                </div>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5 text-[#f5b800] shrink-0" />
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-2.5">
             <button
@@ -1344,9 +1398,87 @@ export function SettingsModal({
               <Upload className="w-4 h-4 text-emerald-400 mb-1" />
               <div className="text-xs font-bold text-white">Restaurar</div>
               <div className="text-[11px] text-zinc-500">Carregar arquivo</div>
-              <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  handleImportFile(e);
+                  e.target.value = '';
+                }}
+                className="hidden"
+              />
             </label>
           </div>
+
+          {!isPrivacyMode && (
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  downloadCsvFile(
+                    `carteira-fii-tracker-${new Date().toISOString().slice(0, 10)}.csv`,
+                    buildPositionsCsv(positions, fixedIncomeAssets, bcbIndicators)
+                  );
+                  showBanner('success', 'Planilha CSV da posição atual exportada!');
+                }}
+                className="p-3.5 rounded-2xl bg-[var(--surface-panel)] hover:bg-white/[0.04] text-left transition-all"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400 mb-1" />
+                <div className="text-xs font-bold text-white">Posição Atual (.CSV)</div>
+                <div className="text-[11px] text-zinc-500">Abrir no Excel / Sheets</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  downloadCsvFile(
+                    `extrato-fii-tracker-${new Date().toISOString().slice(0, 10)}.csv`,
+                    buildTransactionsCsv(transactions)
+                  );
+                  showBanner('success', 'Planilha CSV do extrato completo exportada!');
+                }}
+                className="p-3.5 rounded-2xl bg-[var(--surface-panel)] hover:bg-white/[0.04] text-left transition-all"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-[#f5b800] mb-1" />
+                <div className="text-xs font-bold text-white">Extrato Completo (.CSV)</div>
+                <div className="text-[11px] text-zinc-500">Compras, vendas e proventos</div>
+              </button>
+            </div>
+          )}
+
+          {onRestoreCorruptQueue && corruptQueueCount > 0 && (
+            <label className="p-3.5 rounded-2xl bg-[#1b1710] border border-amber-300/30 hover:bg-[#231e14] text-left transition-all cursor-pointer block">
+              <div className="text-xs font-bold text-amber-200">
+                Restaurar fila offline reparada (.json)
+              </div>
+              <div className="text-[11px] text-amber-100/70 mt-0.5">
+                Valida cada operação sem sobrescrever edições mais recentes ({corruptQueueCount} ilegível)
+              </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  try {
+                    const text = await file.text();
+                    const res = await onRestoreCorruptQueue(text);
+                    showBanner(
+                      'success',
+                      `Fila recuperada: ${res.restoredCount} operação(ões) revalidada(s).`
+                    );
+                  } catch (err) {
+                    showBanner(
+                      'error',
+                      err instanceof Error ? err.message : 'Falha ao validar fila local.'
+                    );
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+          )}
         </div>
 
         {/* 4. AÇÕES AVANÇADAS */}

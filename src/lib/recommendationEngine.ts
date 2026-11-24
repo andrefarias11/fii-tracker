@@ -508,7 +508,13 @@ export function generateDailyRecommendation(
     const halfBudget = budget / 2;
 
     const f1 = chosenFiis[0];
-    const shares1 = Math.floor(halfBudget / f1.currentPrice);
+    // Se metade do saldo não compra 1 cota de f1 (ex: Base 100), mas o saldo total compra, garante 1 unidade no ativo nº 1
+    const shares1 =
+      halfBudget >= f1.currentPrice
+        ? Math.floor(halfBudget / f1.currentPrice)
+        : budget >= f1.currentPrice
+        ? 1
+        : 0;
     const cost1 = Number((shares1 * f1.currentPrice).toFixed(2));
     const income1 = Number((shares1 * f1.monthlyDividend).toFixed(2));
 

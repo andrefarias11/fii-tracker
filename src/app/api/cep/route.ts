@@ -1,5 +1,6 @@
 import { NextResponse, connection } from 'next/server';
 import { STATE_COORDINATES } from '../../../data/fiiProperties';
+import { checkPublicIpRateLimit } from '../../../lib/serverSecurity';
 
 export interface CepLookupResponse {
   cep: string;
@@ -38,6 +39,9 @@ interface ViaCepResponse {
 
 export async function GET(request: Request) {
   await connection();
+  const rateLimited = checkPublicIpRateLimit(request, 'cep', 45, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { searchParams } = new URL(request.url);
   const rawCep = (searchParams.get('cep') || '').replace(/\D/g, '');
 

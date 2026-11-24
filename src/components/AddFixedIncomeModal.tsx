@@ -129,8 +129,10 @@ export function AddFixedIncomeModal({
   const [isExempt, setIsExempt] = useState(
     editingAsset ? editingAsset.isExempt : defaultPreset.isExempt
   );
+  const [maturityDate, setMaturityDate] = useState(editingAsset?.maturityDate || '');
   const [notes, setNotes] = useState(editingAsset?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const dialogRef = useModalAccessibility(isOpen, onClose);
@@ -177,6 +179,7 @@ export function AddFixedIncomeModal({
           rateType,
           ratePercent: rateNum,
           isExempt,
+          maturityDate: maturityDate.trim() || undefined,
           notes: notes.trim() || undefined,
         });
       } else {
@@ -189,6 +192,7 @@ export function AddFixedIncomeModal({
           rateType,
           ratePercent: rateNum,
           isExempt,
+          maturityDate: maturityDate.trim() || undefined,
           notes: notes.trim() || undefined,
         });
       }
@@ -204,16 +208,14 @@ export function AddFixedIncomeModal({
 
   const handleDelete = async () => {
     if (!editingAsset || !onDelete) return;
-    if (confirm(`Excluir permanentemente "${editingAsset.name}"?`)) {
-      try {
-        setFormError(null);
-        await onDelete(editingAsset.id);
-        triggerHaptic('medium');
-        onClose();
-      } catch (err) {
-        console.error('Erro ao excluir renda fixa:', err);
-        setFormError('Não foi possível excluir a aplicação neste dispositivo. Tente novamente.');
-      }
+    try {
+      setFormError(null);
+      await onDelete(editingAsset.id);
+      triggerHaptic('medium');
+      onClose();
+    } catch (err) {
+      console.error('Erro ao excluir renda fixa:', err);
+      setFormError('Não foi possível excluir a aplicação neste dispositivo. Tente novamente.');
     }
   };
 
@@ -328,7 +330,11 @@ export function AddFixedIncomeModal({
                 onChange={(e) => {
                   const newType = e.target.value as FixedIncomeType;
                   setType(newType);
-                  if (newType === 'LCI_LCA') setIsExempt(true);
+                  if (newType === 'LCI_LCA') {
+                    setIsExempt(true);
+                  } else if (newType !== 'OUTROS') {
+                    setIsExempt(false);
+                  }
                   if (newType === 'TESOURO_IPCA') setRateType('IPCA');
                   if (newType === 'TESOURO_PREFIXADO') setRateType('PREFIXADO');
                   if (newType === 'CAIXINHA' || newType === 'CDB' || newType === 'TESOURO_SELIC') {
@@ -455,33 +461,69 @@ export function AddFixedIncomeModal({
             </div>
           </div>
 
-          {/* Notas / Objetivo (opcional) */}
-          <div>
-            <label htmlFor="fixed-income-notes" className="text-xs font-semibold text-zinc-400 block mb-1.5">
-              Objetivo / Notas (Opcional)
-            </label>
-            <input
-              id="fixed-income-notes"
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Reserva de emergência de 6 meses"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
-            />
+          {/* Vencimento & Notas / Objetivo (opcional) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="fixed-income-maturity" className="text-xs font-semibold text-zinc-400 block mb-1.5">
+                Vencimento (Opcional)
+              </label>
+              <input
+                id="fixed-income-maturity"
+                type="date"
+                value={maturityDate}
+                onChange={(e) => setMaturityDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="fixed-income-notes" className="text-xs font-semibold text-zinc-400 block mb-1.5">
+                Objetivo / Notas (Opcional)
+              </label>
+              <input
+                id="fixed-income-notes"
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ex: Reserva de emergência"
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--surface-panel)] border border-white/[0.08] text-white placeholder-zinc-500 text-base sm:text-xs focus:outline-none focus:border-[#f5b800]/60 transition-colors"
+              />
+            </div>
           </div>
 
           {/* Botões de Ação */}
           <div className="flex items-center gap-2.5 pt-2">
             {editingAsset && onDelete && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                aria-label="Excluir aplicação de Renda Fixa"
-                className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
-                title="Excluir"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
+              confirmingDelete ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    aria-label="Confirmar exclusão da aplicação de Renda Fixa"
+                    className="min-h-11 px-4 rounded-full bg-rose-500 text-white text-xs font-bold hover:bg-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
+                  >
+                    Confirmar exclusão
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    aria-label="Cancelar exclusão da aplicação de Renda Fixa"
+                    className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-white/[0.06] text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  aria-label="Excluir aplicação de Renda Fixa"
+                  className="min-w-11 min-h-11 flex items-center justify-center rounded-full bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 active:scale-95 transition-all"
+                  title="Excluir"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )
             )}
 
             <button

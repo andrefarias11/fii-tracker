@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: loginUsername.trim(),
-          password: loginPassword.trim(),
+          password: loginPassword,
         }),
       });
 
@@ -489,7 +489,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             <span className="text-[11px] text-zinc-600">
-              Padrão: admin / admin123
+              Acesso restrito ao administrador
             </span>
           </div>
         </div>

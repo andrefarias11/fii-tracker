@@ -203,8 +203,14 @@ export function AccountSwitcherModal({
 
     try {
       if (isSignUp) {
-        const { error } = await signUpWithEmail(email, password);
+        const { data, error } = await signUpWithEmail(email, password);
         if (error) throw error;
+        if (!data?.session) {
+          setIsSignUp(false);
+          setPassword('');
+          setErrorMessage('Conta criada! Confira seu e-mail para confirmar o cadastro antes de entrar.');
+          return;
+        }
       } else {
         const { error } = await signInWithEmail(email, password);
         if (error) throw error;

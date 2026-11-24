@@ -1,6 +1,6 @@
 // Service Worker Oficial do FII Tracker (Suporte a Web Push iOS 16.4+ / Android / Desktop)
 
-const SHELL_CACHE = 'fii-shell-5.1.0';
+const SHELL_CACHE = 'fii-shell-5.4.0';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) => cache.addAll(['/', '/icon-192.png', '/manifest.webmanifest']))
@@ -148,11 +148,17 @@ self.addEventListener('notificationclick', (event) => {
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        for (const client of clientList) {
-          if ('focus' in client) {
-            client.postMessage({ type: 'NAVIGATE_FROM_PUSH', url: targetUrl });
-            return client.focus();
-          }
+        const appClient =
+          clientList.find((c) => {
+            try {
+              return !new URL(c.url).pathname.startsWith('/admin');
+            } catch {
+              return true;
+            }
+          }) || null;
+        if (appClient && 'focus' in appClient) {
+          appClient.postMessage({ type: 'NAVIGATE_FROM_PUSH', url: targetUrl });
+          return appClient.focus();
         }
         if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);

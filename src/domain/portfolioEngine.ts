@@ -134,7 +134,10 @@ export function calculatePortfolioPositions(
     return [];
   }
 
-  const map = new Map<string, { totalShares: number; totalInvested: number; avgPrice: number }>();
+  const map = new Map<
+    string,
+    { totalShares: number; totalInvested: number; avgPrice: number; cycleStartDate: string }
+  >();
 
   const chronologicalTxs = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
   const nowYm = currentYearMonth || new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
@@ -146,7 +149,12 @@ export function calculatePortfolioPositions(
     if (tx.type === 'DIVIDEND') continue;
 
     const normalized = normalizeTransactionForSplit(tx);
-    const current = map.get(cleanTicker) || { totalShares: 0, totalInvested: 0, avgPrice: 0 };
+    const current = map.get(cleanTicker) || {
+      totalShares: 0,
+      totalInvested: 0,
+      avgPrice: 0,
+      cycleStartDate: tx.date,
+    };
     const isSell = tx.type === 'SELL';
 
     if (isSell) {
@@ -154,7 +162,15 @@ export function calculatePortfolioPositions(
       current.totalShares = Math.max(0, current.totalShares - soldShares);
       // Na venda, o Preço Médio fiscal não se altera; reduz-se o custo proporcionalmente
       current.totalInvested = Number((current.totalShares * current.avgPrice).toFixed(2));
+      if (current.totalShares <= 0) {
+        current.avgPrice = 0;
+        current.totalInvested = 0;
+        current.cycleStartDate = '';
+      }
     } else {
+      if (current.totalShares <= 0 || !current.cycleStartDate) {
+        current.cycleStartDate = tx.date;
+      }
       current.totalShares += normalized.shares;
       current.totalInvested += normalized.total;
       current.avgPrice =
@@ -220,9 +236,15 @@ export function calculatePortfolioPositions(
       Math.round((data.totalShares / magicNumber) * 100)
     );
 
-    // Only ledger receipts, never extrapolated dividends.
+    // Only ledger receipts of the active holding cycle, never extrapolated dividends.
     const paybackReceived = Number(chronologicalTxs
-      .filter(tx => tx.type === 'DIVIDEND' && normalizeB3Ticker(tx.ticker) === ticker && tx.date.slice(0, 7) <= nowYm)
+      .filter(
+        tx =>
+          tx.type === 'DIVIDEND' &&
+          normalizeB3Ticker(tx.ticker) === ticker &&
+          tx.date.slice(0, 7) <= nowYm &&
+          (!data.cycleStartDate || tx.date >= data.cycleStartDate)
+      )
       .reduce((sum, tx) => sum + Math.abs(tx.total), 0).toFixed(2));
     const paybackPercent =
       data.totalInvested > 0

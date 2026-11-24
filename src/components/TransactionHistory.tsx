@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Transaction } from '../types/portfolio';
 import { getTransactionHistoryFilter } from '../lib/transactionHistoryFilter';
+import { buildTransactionsCsv, downloadCsvFile } from '../lib/csvExport';
 import { Chip } from './ui/Controls';
 import {
   Trash2,
@@ -14,12 +15,15 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Coins,
+  Clock,
+  Download,
 } from 'lucide-react';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
   monthlyTarget?: number;
   isPrivacyMode?: boolean;
+  pendingSyncIds?: string[];
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
 }
@@ -43,11 +47,13 @@ export function TransactionHistory({
   transactions,
   monthlyTarget = 400,
   isPrivacyMode = false,
+  pendingSyncIds = [],
   onEditTransaction,
   onDeleteTransaction,
 }: TransactionHistoryProps) {
   const [selectedTicker, setSelectedTicker] = useState<string>('TODOS');
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const pendingSet = useMemo(() => new Set(pendingSyncIds), [pendingSyncIds]);
 
   const uniqueTickers = useMemo(() => {
     return Array.from(new Set(transactions.map((t) => t.ticker))).sort();
@@ -134,26 +140,46 @@ export function TransactionHistory({
 
   return (
     <div className="space-y-4">
-      {/* Filtro rápido por Ativo em Pílulas Estilo XP */}
-      {uniqueTickers.length > 1 && (
-        <div role="group" aria-label="Filtrar extrato por ativo" className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <Chip
-            onClick={() => setSelectedTicker('TODOS')}
-            selected={effectiveTicker === 'TODOS'}
-          >
-            Todos ({transactions.length})
-          </Chip>
-          {uniqueTickers.map((t) => (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Filtro rápido por Ativo em Pílulas Estilo XP */}
+        {uniqueTickers.length > 1 ? (
+          <div role="group" aria-label="Filtrar extrato por ativo" className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none min-w-0 flex-1">
             <Chip
-              key={t}
-              onClick={() => setSelectedTicker(t)}
-              selected={effectiveTicker === t}
+              onClick={() => setSelectedTicker('TODOS')}
+              selected={effectiveTicker === 'TODOS'}
             >
-              {t}
+              Todos ({transactions.length})
             </Chip>
-          ))}
-        </div>
-      )}
+            {uniqueTickers.map((t) => (
+              <Chip
+                key={t}
+                onClick={() => setSelectedTicker(t)}
+                selected={effectiveTicker === t}
+              >
+                {t}
+              </Chip>
+            ))}
+          </div>
+        ) : (
+          <div />
+        )}
+
+        {!isPrivacyMode && (
+          <button
+            type="button"
+            onClick={() =>
+              downloadCsvFile(
+                `extrato-fii-tracker-${new Date().toISOString().slice(0, 10)}.csv`,
+                buildTransactionsCsv(filteredTransactions)
+              )
+            }
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-[var(--surface-card)] px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:text-white shrink-0 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5 text-[#f5b800]" />
+            Exportar CSV
+          </button>
+        )}
+      </div>
 
       {/* Grupos mensais com subtotal */}
       <div className="space-y-5">
@@ -202,6 +228,7 @@ export function TransactionHistory({
                   const isConfirming = confirmingDeleteId === tx.id;
                   const isSell = tx.type === 'SELL';
                   const isDividend = tx.type === 'DIVIDEND';
+                  const isPendingSync = pendingSet.has(tx.id);
 
                   return (
                     <div
@@ -229,13 +256,19 @@ export function TransactionHistory({
                             )}
                             {isDividend
                               ? 'Provento B3'
-                              : `${isSell ? 'Venda' : 'Compra'} • ${tx.shares} ${
-                                  tx.shares === 1 ? 'cota' : 'cotas'
-                                }`}
+                              : `${isSell ? 'Venda' : 'Compra'} • ${
+                                  isPrivacyMode ? '••••' : tx.shares
+                                } ${tx.shares === 1 ? 'cota' : 'cotas'}`}
                           </span>
                           {!isDividend && (
                             <span className="text-xs text-zinc-400 tabular-nums">
                               a {formatBRL(tx.price)}
+                            </span>
+                          )}
+                          {isPendingSync && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/25 bg-[#1b1710] px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                              <Clock className="w-2.5 h-2.5" />
+                              Pendente neste aparelho
                             </span>
                           )}
                         </div>

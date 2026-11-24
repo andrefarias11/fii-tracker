@@ -43,7 +43,10 @@ export function RealEstateMap({ positions, initialTickerFilter = null, onClearTi
   const detailRef = useRef<HTMLElement>(null);
   const portfolioTickers = useMemo(() => new Set(positions.map((position) => position.ticker.toUpperCase())), [positions]);
   const hasPortfolioProperties = FII_PROPERTIES_CATALOG.some((property) => portfolioTickers.has(property.ticker));
-  const [scope, setScope] = useState<ScopeFilter>(() => initialTickerFilter || !hasPortfolioProperties ? 'ALL_B3' : 'MY_PORTFOLIO');
+  const [userScope, setUserScope] = useState<ScopeFilter | null>(null);
+  const scope: ScopeFilter = initialTickerFilter
+    ? 'ALL_B3'
+    : userScope ?? (hasPortfolioProperties ? 'MY_PORTFOLIO' : 'ALL_B3');
   const [typeFilter, setTypeFilter] = useState<PropertyTypeFilter>('ALL');
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -108,7 +111,7 @@ export function RealEstateMap({ positions, initialTickerFilter = null, onClearTi
         {initialTickerFilter && <button type="button" onClick={onClearTickerFilter} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-[var(--surface-card)] px-3 text-xs text-white">{initialTickerFilter}<X className="h-3.5 w-3.5" /><span className="sr-only">Limpar filtro do fundo</span></button>}
       </header>
 
-      {!initialTickerFilter && <SegmentedControl label="Escopo dos imóveis" value={scope} onChange={(value) => { setScope(value); selectState(null); }} options={[{ value: 'MY_PORTFOLIO', label: 'Minha carteira' }, { value: 'ALL_B3', label: 'Explorar catálogo' }]} />}
+      {!initialTickerFilter && <SegmentedControl label="Escopo dos imóveis" value={scope} onChange={(value) => { setUserScope(value); selectState(null); }} options={[{ value: 'MY_PORTFOLIO', label: 'Minha carteira' }, { value: 'ALL_B3', label: 'Explorar catálogo' }]} />}
 
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Setor imobiliário">
         {sectors.map((sector) => <Chip key={sector.id} selected={typeFilter === sector.id} onClick={() => { setTypeFilter(sector.id); selectState(null); }}>{sector.label}</Chip>)}

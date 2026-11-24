@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     type TEXT NOT NULL DEFAULT 'BUY' CHECK (type IN ('BUY', 'SELL', 'DIVIDEND')),
     date DATE NOT NULL,
     shares NUMERIC NOT NULL,
-    price NUMERIC(10, 2) NOT NULL,
-    total NUMERIC(10, 2) NOT NULL,
+    price NUMERIC(14, 4) NOT NULL,
+    total NUMERIC(14, 2) NOT NULL,
     broker TEXT NOT NULL DEFAULT 'XP Investimentos',
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -77,6 +77,8 @@ ALTER TABLE public.custom_dividends ADD COLUMN IF NOT EXISTS user_id uuid REFERE
 ALTER TABLE public.fixed_income_assets ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id);
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS split_adjustment jsonb;
+ALTER TABLE public.transactions ALTER COLUMN price TYPE NUMERIC(14, 4);
+ALTER TABLE public.transactions ALTER COLUMN total TYPE NUMERIC(14, 2);
 ALTER TABLE public.custom_dividends ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
 ALTER TABLE public.custom_dividends DROP CONSTRAINT IF EXISTS custom_dividends_pkey;
 ALTER TABLE public.custom_dividends ADD PRIMARY KEY (id);
@@ -402,7 +404,20 @@ BEGIN
     'processing', p_now, p_worker_id,
     p_now + make_interval(secs => GREATEST(1, p_lease_seconds)), p_now
   )
-  ON CONFLICT (user_id, local_date, digest_key) DO NOTHING
+  ON CONFLICT (user_id, local_date, digest_key) DO UPDATE
+    SET title = EXCLUDED.title,
+        body = EXCLUDED.body,
+        url = EXCLUDED.url,
+        tag = EXCLUDED.tag,
+        events_json = EXCLUDED.events_json,
+        status = 'processing',
+        attempt_count = 0,
+        next_attempt_at = EXCLUDED.next_attempt_at,
+        locked_by = EXCLUDED.locked_by,
+        locked_until = EXCLUDED.locked_until,
+        last_error = NULL,
+        updated_at = EXCLUDED.updated_at
+    WHERE public.push_daily_digests.status IN ('failed', 'skipped_no_devices')
   RETURNING * INTO digest_row;
 
   IF digest_row.id IS NULL THEN
@@ -432,7 +447,11 @@ BEGIN
       'reserved',
       p_now
     )
-    ON CONFLICT (user_id, ticker, event_type, event_reference, data_version) DO NOTHING;
+    ON CONFLICT (user_id, ticker, event_type, event_reference, data_version) DO UPDATE
+      SET digest_id = EXCLUDED.digest_id,
+          status = 'reserved',
+          updated_at = EXCLUDED.updated_at
+      WHERE public.push_alert_events.status = 'failed';
     GET DIAGNOSTICS row_count = ROW_COUNT;
     inserted_count := inserted_count + row_count;
   END LOOP;

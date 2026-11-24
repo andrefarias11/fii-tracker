@@ -46,12 +46,14 @@ interface LiveQuoteInspection {
 interface UniversalB3ExplorerProps {
   positions: FiiPosition[];
   monthlyTarget: number;
+  isPrivacyMode?: boolean;
   onOpenBuyModal?: (ticker: string) => void;
 }
 
 export function UniversalB3Explorer({
   positions,
   monthlyTarget,
+  isPrivacyMode = false,
   onOpenBuyModal,
 }: UniversalB3ExplorerProps) {
   const [query, setQuery] = useState<string>('');
@@ -228,7 +230,7 @@ export function UniversalB3Explorer({
                 </span>
                 {userPosition && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 tabular-nums">
-                    Na carteira ({userPosition.totalShares})
+                    {isPrivacyMode ? 'Na carteira' : `Na carteira (${userPosition.totalShares})`}
                   </span>
                 )}
               </div>

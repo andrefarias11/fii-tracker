@@ -68,7 +68,11 @@ export function MagicNumberCard({
 
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                 <div>
-                  {reachedMagicNumber ? (
+                  {isPrivacyMode ? (
+                    <span className="text-zinc-400 font-medium">
+                      Progresso oculto no Modo Privacidade
+                    </span>
+                  ) : reachedMagicNumber ? (
                     <span className="text-emerald-400 font-bold flex items-center gap-1">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Bola de Neve ativada!
                     </span>
@@ -76,7 +80,7 @@ export function MagicNumberCard({
                     <span className="text-sm font-medium">
                       Faltam <strong className="text-white tabular-nums">{formatQuantity(sharesNeeded, isPrivacyMode)} {pos.assetClass === 'ACAO' ? 'ações' : 'cotas'}</strong>{' '}
                       <span className="text-zinc-500 tabular-nums">
-                        · estimativa de {isPrivacyMode ? '••••' : monthsEstimated} {monthsEstimated === 1 ? 'mês' : 'meses'}
+                        · estimativa de {monthsEstimated} {monthsEstimated === 1 ? 'mês' : 'meses'}
                       </span>
                     </span>
                   )}
@@ -84,7 +88,11 @@ export function MagicNumberCard({
 
                 <span
                   className={`tabular-nums font-bold ${
-                    reachedMagicNumber ? 'text-emerald-400' : 'text-[#f5b800]'
+                    isPrivacyMode
+                      ? 'text-zinc-400'
+                      : reachedMagicNumber
+                      ? 'text-emerald-400'
+                      : 'text-[#f5b800]'
                   }`}
                 >
                     {formatPercent(pos.magicProgressPercent, isPrivacyMode)}
@@ -94,9 +102,13 @@ export function MagicNumberCard({
               <div className="w-full h-1 bg-white/[0.06] rounded-full overflow-hidden mt-3">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
-                    reachedMagicNumber ? 'bg-emerald-400' : 'bg-[#f5b800]'
+                    isPrivacyMode
+                      ? 'bg-zinc-600/40'
+                      : reachedMagicNumber
+                      ? 'bg-emerald-400'
+                      : 'bg-[#f5b800]'
                   }`}
-                  style={{ width: `${Math.min(100, pos.magicProgressPercent)}%` }}
+                  style={{ width: isPrivacyMode ? '100%' : `${Math.min(100, pos.magicProgressPercent)}%` }}
                 />
               </div>
 

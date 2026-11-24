@@ -98,11 +98,11 @@ export function evaluateMentorsRecommendations(
       const incomeFromBudget = Number((sharesForBudget * fii.monthlyDividend).toFixed(2));
 
       const reasons: string[] = [
-        `Cotado a ${formatBRL(fii.currentPrice)} na B3, respeitando o Preço-Teto auditado de ${formatBRL(fii.ceilingPrice)} (${
-          ceilingMarginPercent >= 0
-            ? `${ceilingMarginPercent}% de folga abaixo do teto`
-            : `dentro do teto previdenciário de ${formatBRL(fii.barsiCeilingPrice)}`
-        }).`,
+        belowCeiling
+          ? `Cotado a ${formatBRL(fii.currentPrice)} na B3, respeitando o Preço-Teto auditado de ${formatBRL(fii.ceilingPrice)} (${ceilingMarginPercent}% de folga abaixo do teto).`
+          : fii.currentPrice <= fii.barsiCeilingPrice
+          ? `Cotado a ${formatBRL(fii.currentPrice)} na B3, dentro da faixa do Preço-Teto previdenciário de ${formatBRL(fii.barsiCeilingPrice)}.`
+          : `Cotado a ${formatBRL(fii.currentPrice)} na B3 (acima do Preço-Teto de referência de ${formatBRL(fii.ceilingPrice)}, priorizado pelo yield e qualidade).`,
         `Entrega dividendo recorrente de ${formatBRL(fii.monthlyDividend)}/cota (${fii.monthlyYieldPercent}% a.m. ou ${fii.annualYieldPercent}% a.a.) com selo ${fii.qualityBadgeLabel}.`,
         fii.base === 10
           ? `Foco na Quantidade de Cotas: com ${formatBRL(effectiveBudget)} você acumula +${sharesForBudget} cotas de uma vez, gerando +${formatBRL(incomeFromBudget)}/mês vitalícios.`

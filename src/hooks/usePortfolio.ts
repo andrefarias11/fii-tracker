@@ -12,6 +12,12 @@ import {
 } from '../types/portfolio';
 import { normalizeB3Ticker } from '../lib/ticker';
 import {
+  buildTransactionSignature,
+  deduplicateB3Transactions,
+  applyDetectedB3Splits,
+  type DetectedB3SplitEvent,
+} from '../lib/b3Parser';
+import {
   calculatePortfolioPositions,
   calculatePortfolioSummary,
   calculateUnifiedPortfolioSummary,
@@ -38,7 +44,15 @@ import {
   getSupabaseClient,
 } from '../lib/supabase';
 import { parsePortfolioBackup, validateTransaction } from '../lib/backupValidation';
-import { CorruptSyncQueueError, flushQueue, inspectQueue, readRawQueue, SYNC_EVENT } from '../lib/syncQueue';
+import {
+  CorruptSyncQueueError,
+  extractPendingEntityIds,
+  flushQueue,
+  inspectQueue,
+  readRawQueue,
+  restoreExportedSyncQueue,
+  SYNC_EVENT,
+} from '../lib/syncQueue';
 import { getActiveAccount, subscribeAuthAccounts } from '../lib/authManager';
 
 import { BASE_KEY_TRANSACTIONS, BASE_KEY_GOALS, BASE_KEY_DIVIDENDS, BASE_KEY_FIXED_INCOME, DEFAULT_GOALS, DEMO_TRANSACTIONS, DEMO_FIXED_INCOME, getScopedStorageKey, loadScopedData } from '../lib/portfolioStorage';
@@ -72,14 +86,19 @@ export function usePortfolio(explicitUserId?: string | null) {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [pendingFixedIncomeChanges, setPendingFixedIncomeChanges] = useState(0);
+  const [pendingTransactionIds, setPendingTransactionIds] = useState<string[]>([]);
+  const [pendingFixedIncomeIds, setPendingFixedIncomeIds] = useState<string[]>([]);
   const [corruptQueueCount, setCorruptQueueCount] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncRunning = useRef(false);
   useEffect(() => {
     const update = () => {
       const queue = activeUserId ? inspectQueue(activeUserId) : { items: [], corrupt: [] };
+      const entitySets = extractPendingEntityIds(activeUserId);
       setPendingChanges(queue.items.length);
       setPendingFixedIncomeChanges(queue.items.filter((item) => item.table === 'fixed_income_assets').length);
+      setPendingTransactionIds(Array.from(entitySets.transactionIds));
+      setPendingFixedIncomeIds(Array.from(entitySets.fixedIncomeIds));
       setCorruptQueueCount(queue.corrupt.length);
     };
     update();
@@ -184,20 +203,31 @@ export function usePortfolio(explicitUserId?: string | null) {
           if (currentSyncUserId.current !== syncUser) return;
 
           const remoteIds = new Set(remoteTxs.map((t) => t.id));
+          const unmatchedRemoteSigCounts = new Map<string, number>();
+          for (const r of remoteTxs) {
+            const sig = buildTransactionSignature(r);
+            unmatchedRemoteSigCounts.set(sig, (unmatchedRemoteSigCounts.get(sig) || 0) + 1);
+          }
+          // Desconta assinaturas cujos IDs locais já correspondem exatamente aos IDs remotos
+          for (const localTx of currentLocalTxs) {
+            if (remoteIds.has(localTx.id)) {
+              const sig = buildTransactionSignature(localTx);
+              const prev = unmatchedRemoteSigCounts.get(sig) || 0;
+              if (prev > 0) unmatchedRemoteSigCounts.set(sig, prev - 1);
+            }
+          }
+
           const missingInRemote: Transaction[] = [];
 
           for (const localTx of currentLocalTxs) {
             if (localTx.id.startsWith('demo-') || deletedTx.has(localTx.id)) continue;
 
             if (!remoteIds.has(localTx.id)) {
-              const existsEquiv = remoteTxs.some(
-                (r) =>
-                  r.ticker === localTx.ticker && (r.type || 'BUY') === (localTx.type || 'BUY') &&
-                  r.date === localTx.date &&
-                  Math.abs(r.shares) === Math.abs(localTx.shares) &&
-                  Math.abs(r.total) === Math.abs(localTx.total)
-              );
-              if (!existsEquiv) {
+              const sig = buildTransactionSignature(localTx);
+              const remainingEquiv = unmatchedRemoteSigCounts.get(sig) || 0;
+              if (remainingEquiv > 0) {
+                unmatchedRemoteSigCounts.set(sig, remainingEquiv - 1);
+              } else {
                 missingInRemote.push(localTx);
               }
             }
@@ -237,18 +267,31 @@ export function usePortfolio(explicitUserId?: string | null) {
           if (currentSyncUserId.current !== syncUser) return;
 
           const remoteFiIds = new Set(remoteFixedIncome.map((f) => f.id));
+          const buildFiSig = (f: FixedIncomeAsset) =>
+            `${f.name.trim().toLowerCase()}|${f.institution.trim().toLowerCase()}|${f.type}|${Number(f.investedAmount).toFixed(2)}|${Number(f.currentBalance).toFixed(2)}|${f.rateType}|${Number(f.ratePercent).toFixed(2)}`;
+          const unmatchedRemoteFiCounts = new Map<string, number>();
+          for (const r of remoteFixedIncome) {
+            const sig = buildFiSig(r);
+            unmatchedRemoteFiCounts.set(sig, (unmatchedRemoteFiCounts.get(sig) || 0) + 1);
+          }
+          for (const localAsset of currentLocalFi) {
+            if (remoteFiIds.has(localAsset.id)) {
+              const sig = buildFiSig(localAsset);
+              const prev = unmatchedRemoteFiCounts.get(sig) || 0;
+              if (prev > 0) unmatchedRemoteFiCounts.set(sig, prev - 1);
+            }
+          }
           const missingInRemoteFi: FixedIncomeAsset[] = [];
 
           for (const localAsset of currentLocalFi) {
             if (localAsset.id.startsWith('demo-fi-') || deletedFi.has(localAsset.id)) continue;
 
             if (!remoteFiIds.has(localAsset.id)) {
-              const existsEquiv = remoteFixedIncome.some(
-                (r) =>
-                  r.name.trim().toLowerCase() === localAsset.name.trim().toLowerCase() &&
-                  r.institution.trim().toLowerCase() === localAsset.institution.trim().toLowerCase()
-              );
-              if (!existsEquiv) {
+              const sig = buildFiSig(localAsset);
+              const remainingEquiv = unmatchedRemoteFiCounts.get(sig) || 0;
+              if (remainingEquiv > 0) {
+                unmatchedRemoteFiCounts.set(sig, remainingEquiv - 1);
+              } else {
                 missingInRemoteFi.push(localAsset);
               }
             }
@@ -390,10 +433,10 @@ export function usePortfolio(explicitUserId?: string | null) {
     }
   };
 
-  // Adicionar aporte ou venda
+  // Adicionar aporte, venda ou provento manual
   const addTransaction = async (data: {
     ticker: string;
-    type?: 'BUY' | 'SELL';
+    type?: 'BUY' | 'SELL' | 'DIVIDEND';
     date: string;
     shares: number;
     price: number;
@@ -402,22 +445,27 @@ export function usePortfolio(explicitUserId?: string | null) {
     splitAdjustment?: Transaction['splitAdjustment'];
   }) => {
     const absShares = Math.abs(Number(data.shares));
-    const absPrice = Math.abs(Number(data.price));
+    const absPrice = Number(Math.abs(Number(data.price)).toFixed(4));
     const total = Number((absShares * absPrice).toFixed(2));
+    const resolvedType: Transaction['type'] =
+      data.type === 'DIVIDEND' ? 'DIVIDEND' : data.type === 'SELL' ? 'SELL' : 'BUY';
     const newTx: Transaction = {
-      id: `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id:
+        resolvedType === 'DIVIDEND'
+          ? `b3-div-${crypto.randomUUID()}`
+          : `tx-${crypto.randomUUID()}`,
       ticker: normalizeB3Ticker(data.ticker),
-      type: data.type === 'SELL' ? 'SELL' : 'BUY',
+      type: resolvedType,
       date: data.date,
       shares: absShares,
       price: absPrice,
       total,
       broker: data.broker || 'XP Investimentos',
       notes: data.notes,
-      splitAdjustment: data.splitAdjustment,
+      splitAdjustment: resolvedType === 'DIVIDEND' ? undefined : data.splitAdjustment,
     };
 
-    const updated = [newTx, ...transactions];
+    const updated = [newTx, ...transactions].sort((a, b) => b.date.localeCompare(a.date));
     persistTransactions(updated);
 
     syncTransactionToCloud(newTx, currentSyncUserId.current).catch((err) => {
@@ -427,34 +475,41 @@ export function usePortfolio(explicitUserId?: string | null) {
     return newTx;
   };
 
-  // Editar aporte/venda existente
+  // Editar aporte/venda/provento existente
   const updateTransaction = async (
     id: string,
     data: {
       ticker: string;
-      type?: 'BUY' | 'SELL';
+      type?: 'BUY' | 'SELL' | 'DIVIDEND';
       date: string;
       shares: number;
       price: number;
       broker?: string;
       notes?: string;
-    splitAdjustment?: Transaction['splitAdjustment'];
+      splitAdjustment?: Transaction['splitAdjustment'];
     }
   ) => {
+    const existingTx = transactions.find((t) => t.id === id);
+    const resolvedType: Transaction['type'] =
+      data.type === 'DIVIDEND' || data.type === 'SELL' || data.type === 'BUY'
+        ? data.type
+        : existingTx?.type === 'DIVIDEND'
+        ? 'DIVIDEND'
+        : 'BUY';
     const absShares = Math.abs(Number(data.shares));
-    const absPrice = Math.abs(Number(data.price));
+    const absPrice = Number(Math.abs(Number(data.price)).toFixed(4));
     const total = Number((absShares * absPrice).toFixed(2));
     const updatedTx: Transaction = {
       id,
       ticker: normalizeB3Ticker(data.ticker),
-      type: data.type === 'SELL' ? 'SELL' : 'BUY',
+      type: resolvedType,
       date: data.date,
       shares: absShares,
       price: absPrice,
       total,
       broker: data.broker || 'XP Investimentos',
       notes: data.notes,
-      splitAdjustment: data.splitAdjustment,
+      splitAdjustment: resolvedType === 'DIVIDEND' ? undefined : data.splitAdjustment,
     };
 
     const updatedList = transactions.map((t) => (t.id === id ? updatedTx : t));
@@ -486,45 +541,91 @@ export function usePortfolio(explicitUserId?: string | null) {
     }
   };
 
-  // Recarregar dados de exemplo em 1 único Batch Upsert
+  // Recarregar dados de exemplo apenas localmente (IDs demo-* nunca sobem para nuvem nem geram tombstones)
   const resetDemo = async () => {
-    persistTransactions(DEMO_TRANSACTIONS);
-    syncTransactionsBatchToCloud(DEMO_TRANSACTIONS, currentSyncUserId.current).catch(() => {});
+    const freshDemo = DEMO_TRANSACTIONS.map((tx) => ({
+      ...tx,
+      id: `demo-${crypto.randomUUID()}`,
+    }));
+    persistTransactions(freshDemo);
   };
 
   // Importar transações vindas da planilha da B3 (Batch Upsert & Batch Delete no Supabase)
-  const importTransactionsFromB3 = async (newTxs: Transaction[], replaceAll: boolean) => {
-    if (!newTxs.every(validateTransaction)) throw new Error('Importação inválida. Nenhum dado alterado.');
-    localStorage.setItem(getScopedStorageKey('fii_before_import', currentSyncUserId.current), exportBackup());
+  const importTransactionsFromB3 = async (
+    newTxs: Transaction[],
+    replaceAll: boolean,
+    detectedSplits: DetectedB3SplitEvent[] = []
+  ) => {
     const importUser = currentSyncUserId.current;
-    const { deduplicateB3Transactions } = await import('../lib/b3Parser');
-    if (currentSyncUserId.current !== importUser) throw new Error('Conta alterada durante a importação. Tente novamente.');
-    let finalTransactions: Transaction[] = [];
-    let txsToUpsert: Transaction[] = newTxs;
+    if (currentSyncUserId.current !== importUser) {
+      throw new Error('Conta alterada durante a importação. Tente novamente.');
+    }
 
     const demoIds = transactions.filter((t) => t.id.startsWith('demo-')).map((t) => t.id);
     const realExistingTxs = transactions.filter((t) => !t.id.startsWith('demo-'));
 
+    const rawCandidates = replaceAll
+      ? newTxs
+      : deduplicateB3Transactions(newTxs, realExistingTxs).uniqueTransactions;
+
+    const splitResult =
+      detectedSplits.length > 0
+        ? applyDetectedB3Splits(
+            rawCandidates,
+            replaceAll ? [] : realExistingTxs,
+            detectedSplits
+          )
+        : {
+            adjustedNewTransactions: rawCandidates,
+            updatedExistingTransactions: [] as Transaction[],
+            appliedSplitsCount: 0,
+          };
+
+    // Atribui identidades frescas (UUID) para que reimportações após exclusão, limpeza ou substituição
+    // nunca colidam com tombstones em portfolio_deletions nem sobrescrevam registros distintos no Supabase.
+    const txsToUpsert: Transaction[] = splitResult.adjustedNewTransactions.map((tx) => ({
+      ...tx,
+      id: tx.type === 'DIVIDEND' ? `b3-div-${crypto.randomUUID()}` : `b3-${crypto.randomUUID()}`,
+    }));
+
+    const allRowsToUpsert = [...txsToUpsert, ...splitResult.updatedExistingTransactions];
+
+    if (!allRowsToUpsert.every(validateTransaction)) {
+      throw new Error('Alguns lançamentos da planilha possuem formato inválido. Nenhum dado foi alterado.');
+    }
+
+    try {
+      localStorage.setItem(getScopedStorageKey('fii_before_import', importUser), exportBackup());
+    } catch {
+      // Continua mesmo se o backup pré-importação atingir cota de armazenamento local
+    }
+
+    let finalTransactions: Transaction[] = [];
+
     if (replaceAll) {
-      const incomingIds = new Set(newTxs.map(t => t.id));
-      const allExistingIds = transactions.filter(t => !incomingIds.has(t.id)).map((t) => t.id);
-      if (allExistingIds.length > 0) {
-        deleteRemoteTransactionsBatch(allExistingIds, currentSyncUserId.current).catch(() => {});
+      const allExistingIds = realExistingTxs.map((t) => t.id);
+      const idsToDelete = [...allExistingIds, ...demoIds];
+      if (idsToDelete.length > 0) {
+        deleteRemoteTransactionsBatch(idsToDelete, importUser).catch(() => {});
       }
-      finalTransactions = newTxs;
+      finalTransactions = [...txsToUpsert].sort((a, b) => b.date.localeCompare(a.date));
     } else {
       if (demoIds.length > 0) {
-        deleteRemoteTransactionsBatch(demoIds, currentSyncUserId.current).catch(() => {});
+        deleteRemoteTransactionsBatch(demoIds, importUser).catch(() => {});
       }
-      const { uniqueTransactions } = deduplicateB3Transactions(newTxs, realExistingTxs);
-      txsToUpsert = uniqueTransactions;
-      finalTransactions = [...uniqueTransactions, ...realExistingTxs];
+      const updatedExistingMap = new Map(
+        splitResult.updatedExistingTransactions.map((t) => [t.id, t])
+      );
+      const mergedExisting = realExistingTxs.map((t) => updatedExistingMap.get(t.id) || t);
+      finalTransactions = [...txsToUpsert, ...mergedExisting].sort((a, b) =>
+        b.date.localeCompare(a.date)
+      );
     }
 
     persistTransactions(finalTransactions);
 
-    if (txsToUpsert.length > 0) {
-      await syncTransactionsBatchToCloud(txsToUpsert, currentSyncUserId.current);
+    if (allRowsToUpsert.length > 0) {
+      await syncTransactionsBatchToCloud(allRowsToUpsert, importUser);
       // Connectivity is determined by a successful authenticated sync.
     }
   };
@@ -653,10 +754,11 @@ export function usePortfolio(explicitUserId?: string | null) {
   };
 
   const resetFixedIncomeDemo = async () => {
-    persistFixedIncome(DEMO_FIXED_INCOME);
-    if (DEMO_FIXED_INCOME[0]) {
-      syncFixedIncomeToCloud(DEMO_FIXED_INCOME[0], currentSyncUserId.current).catch(() => {});
-    }
+    const freshDemo = DEMO_FIXED_INCOME.map((asset) => ({
+      ...asset,
+      id: `demo-fi-${crypto.randomUUID()}`,
+    }));
+    persistFixedIncome(freshDemo);
   };
 
   // Motor de Domínio Puro: Agrupar posições e calcular resumo
@@ -704,7 +806,16 @@ export function usePortfolio(explicitUserId?: string | null) {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  // Importar Backup JSON (com Batch Upsert no Supabase)
+  const restoreCorruptQueue = async (jsonStr: string) => {
+    const user = currentSyncUserId.current;
+    if (!user) {
+      throw new Error('Faça login na sua conta antes de restaurar a fila local.');
+    }
+    const result = restoreExportedSyncQueue(user, jsonStr);
+    setSyncError(null);
+    await syncWithCloud(user);
+    return result;
+  };
   const importBackup = async (jsonStr: string) => {
     const user = currentSyncUserId.current;
     try {
@@ -770,9 +881,12 @@ export function usePortfolio(explicitUserId?: string | null) {
     isSyncing,
     pendingChanges,
     pendingFixedIncomeChanges,
+    pendingTransactionIds,
+    pendingFixedIncomeIds,
     corruptQueueCount,
     syncError,
     exportCorruptQueue,
+    restoreCorruptQueue,
     syncWithCloud,
     addTransaction,
     updateTransaction,

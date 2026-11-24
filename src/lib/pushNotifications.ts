@@ -242,17 +242,35 @@ export function detectDeviceLabel(): string {
   return `Aparelho${suffix}`;
 }
 
+function hasAnyScopedPrefsInStorage(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`${SCOPED_PREFS_PREFIX}_`)) return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 export function getPushPreferences(userId?: string | null): PushPreferences {
   if (typeof window === 'undefined') return { ...DEFAULT_PUSH_PREFERENCES };
   try {
-    const scopedKey = getScopedPrefsKey(userId);
+    const uid = resolveUserId(userId);
+    const scopedKey = getScopedPrefsKey(uid);
     const scopedRaw = localStorage.getItem(scopedKey);
     if (scopedRaw) {
       return normalizePreferences(JSON.parse(scopedRaw));
     }
-    const legacyRaw = localStorage.getItem(LEGACY_PREFS_STORAGE_KEY);
-    if (legacyRaw) {
-      return normalizePreferences(JSON.parse(legacyRaw));
+    // Só lê a chave legada sem escopo caso nenhuma conta ainda tenha chave v3 escopada
+    // (evita vazamento de preferências da Conta A para uma nova Conta B no aparelho).
+    if (!uid || !hasAnyScopedPrefsInStorage()) {
+      const legacyRaw = localStorage.getItem(LEGACY_PREFS_STORAGE_KEY);
+      if (legacyRaw) {
+        return normalizePreferences(JSON.parse(legacyRaw));
+      }
     }
     return { ...DEFAULT_PUSH_PREFERENCES };
   } catch {
@@ -263,10 +281,13 @@ export function getPushPreferences(userId?: string | null): PushPreferences {
 export function hasLocalPushPreferencesToMigrate(userId?: string | null): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const scopedKey = getScopedPrefsKey(userId);
-    return Boolean(
-      localStorage.getItem(scopedKey) || localStorage.getItem(LEGACY_PREFS_STORAGE_KEY)
-    );
+    const uid = resolveUserId(userId);
+    const scopedKey = getScopedPrefsKey(uid);
+    if (localStorage.getItem(scopedKey)) return true;
+    if (!uid || !hasAnyScopedPrefsInStorage()) {
+      return Boolean(localStorage.getItem(LEGACY_PREFS_STORAGE_KEY));
+    }
+    return false;
   } catch {
     return false;
   }
@@ -276,10 +297,13 @@ export function savePushPreferences(prefs: PushPreferences, userId?: string | nu
   if (typeof window === 'undefined') return;
   const normalized = normalizePreferences(prefs);
   try {
-    const scopedKey = getScopedPrefsKey(userId);
+    const uid = resolveUserId(userId);
+    const scopedKey = getScopedPrefsKey(uid);
     localStorage.setItem(scopedKey, JSON.stringify(normalized));
-    // Mantém compatibilidade com a chave legada para leitura rápida sem escopo
-    localStorage.setItem(LEGACY_PREFS_STORAGE_KEY, JSON.stringify(normalized));
+    // Se já estamos salvando com escopo de usuário, remove a chave legada global para impedir contaminação entre contas
+    if (uid) {
+      localStorage.removeItem(LEGACY_PREFS_STORAGE_KEY);
+    }
   } catch {
     // ignore
   }

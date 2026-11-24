@@ -31,11 +31,23 @@ export const STATE_COORDINATES: Record<
   BA: { name: 'Bahia', lat: -12.9714, lng: -38.5014, region: 'Nordeste' },
   PE: { name: 'Pernambuco', lat: -8.0476, lng: -34.877, region: 'Nordeste' },
   CE: { name: 'Ceará', lat: -3.7172, lng: -38.5433, region: 'Nordeste' },
+  MA: { name: 'Maranhão', lat: -2.5307, lng: -44.3068, region: 'Nordeste' },
+  RN: { name: 'Rio Grande do Norte', lat: -5.7945, lng: -35.211, region: 'Nordeste' },
+  PB: { name: 'Paraíba', lat: -7.1195, lng: -34.845, region: 'Nordeste' },
+  AL: { name: 'Alagoas', lat: -9.6658, lng: -35.735, region: 'Nordeste' },
+  SE: { name: 'Sergipe', lat: -10.9472, lng: -37.0731, region: 'Nordeste' },
+  PI: { name: 'Piauí', lat: -5.0892, lng: -42.8016, region: 'Nordeste' },
   PA: { name: 'Pará', lat: -1.4558, lng: -48.4902, region: 'Norte' },
   AM: { name: 'Amazonas', lat: -3.119, lng: -60.0217, region: 'Norte' },
+  RO: { name: 'Rondônia', lat: -8.7612, lng: -63.9004, region: 'Norte' },
+  AC: { name: 'Acre', lat: -9.9754, lng: -67.8249, region: 'Norte' },
+  AP: { name: 'Amapá', lat: 0.0356, lng: -51.0705, region: 'Norte' },
+  RR: { name: 'Roraima', lat: 2.8235, lng: -60.6758, region: 'Norte' },
+  TO: { name: 'Tocantins', lat: -10.1753, lng: -48.2982, region: 'Norte' },
   GO: { name: 'Goiás', lat: -16.6869, lng: -49.2648, region: 'Centro-Oeste' },
   DF: { name: 'Distrito Federal', lat: -15.7975, lng: -47.8919, region: 'Centro-Oeste' },
   MT: { name: 'Mato Grosso', lat: -12.5449, lng: -55.7226, region: 'Centro-Oeste' },
+  MS: { name: 'Mato Grosso do Sul', lat: -20.4697, lng: -54.6201, region: 'Centro-Oeste' },
 };
 
 export const FII_PROPERTIES_CATALOG: FiiRealEstateProperty[] = [

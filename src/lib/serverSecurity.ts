@@ -29,6 +29,56 @@ export async function consumeRateLimit(key: string, limit: number, seconds: numb
   return data === true;
 }
 
+const publicIpBuckets = new Map<string, { count: number; resetAt: number }>();
+
+export function extractClientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first.slice(0, 64);
+  }
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp.slice(0, 64);
+  return 'local';
+}
+
+export function checkPublicIpRateLimit(
+  request: Request,
+  scope: string,
+  limit = 90,
+  windowMs = 60_000
+): NextResponse | null {
+  const now = Date.now();
+  if (publicIpBuckets.size > 4000) {
+    for (const [k, v] of publicIpBuckets) {
+      if (v.resetAt <= now) publicIpBuckets.delete(k);
+    }
+    if (publicIpBuckets.size > 4000) {
+      const oldestKey = publicIpBuckets.keys().next().value;
+      if (oldestKey) publicIpBuckets.delete(oldestKey);
+    }
+  }
+
+  const ip = extractClientIp(request);
+  const bucketKey = `${scope}:${ip}`;
+  const entry = publicIpBuckets.get(bucketKey);
+
+  if (!entry || entry.resetAt <= now) {
+    publicIpBuckets.set(bucketKey, { count: 1, resetAt: now + windowMs });
+    return null;
+  }
+
+  entry.count += 1;
+  if (entry.count > limit) {
+    const retryAfterSec = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+    return NextResponse.json(
+      { error: 'Muitas requisições seguidas. Aguarde alguns segundos e tente novamente.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+    );
+  }
+  return null;
+}
+
 export async function protectedApi(request: Request, feature: string, limit = 20) {
   const user = await authenticateRequest(request);
   if (!user) return { response: NextResponse.json({ error: 'Faça login para continuar.' }, { status: 401 }), user: null };

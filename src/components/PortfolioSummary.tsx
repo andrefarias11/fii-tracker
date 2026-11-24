@@ -46,9 +46,8 @@ export function PortfolioSummary({
     unifiedSummary && unifiedSummary.fixedIncomeEquity > 0,
   );
 
-  const [viewScope, setViewScope] = useState<'global' | 'bolsa'>(
-    hasFixedIncome ? 'global' : 'bolsa',
-  );
+  const [selectedScope, setSelectedScope] = useState<'global' | 'bolsa' | null>(null);
+  const viewScope: 'global' | 'bolsa' = selectedScope ?? (hasFixedIncome ? 'global' : 'bolsa');
 
   const isGlobalView = viewScope === 'global' && hasFixedIncome;
 
@@ -87,7 +86,7 @@ export function PortfolioSummary({
           value={viewScope}
           onChange={(value) => {
             triggerHaptic('selection');
-            setViewScope(value);
+            setSelectedScope(value);
           }}
           options={[
             { value: 'bolsa', label: 'Bolsa' },
@@ -102,9 +101,9 @@ export function PortfolioSummary({
         <p className="ui-value-xl mt-2">{formatBRL(displayEquity)}</p>
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           <span
-            className={`font-medium tabular-nums ${isPositive ? 'text-emerald-300' : 'text-rose-300'}`}
+            className={`font-medium tabular-nums ${isPrivacyMode ? 'text-zinc-400' : isPositive ? 'text-emerald-300' : 'text-rose-300'}`}
           >
-            {isPositive ? '+' : '−'}
+            {isPrivacyMode ? '' : isPositive ? '+' : '−'}
             {formatBRL(Math.abs(displayProfitLoss))} ·{' '}
             {formatPercent(displayProfitLossPercent, isPrivacyMode)}
           </span>

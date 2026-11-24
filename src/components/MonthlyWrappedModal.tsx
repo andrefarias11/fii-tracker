@@ -90,7 +90,7 @@ export function MonthlyWrappedModal({
     const shareText = `🏢 Meu Mês de ${wrapped.fullLabel} na B3 (FII Tracker):\n\n` +
       `💸 Proventos recebidos: ${formatBRL(wrapped.totalDividends)}\n` +
       `🧱 Aporte no mês: ${formatBRL(wrapped.totalInvested)}${isPrivacyMode ? '' : ` (+${wrapped.totalSharesBought} cotas)`}\n` +
-      `❄️ Bola de Neve: ${wrapped.snowballGrowthPercent}% de crescimento\n` +
+      `❄️ Bola de Neve: ${isPrivacyMode ? '••%' : `${wrapped.snowballGrowthPercent}%`} de crescimento\n` +
       (!isPrivacyMode && wrapped.magicNumberLeader
         ? `🎯 Líder no Número Mágico: ${wrapped.magicNumberLeader.ticker} (${wrapped.magicNumberLeader.progressPercent}% do objetivo)\n`
         : '') +
@@ -248,7 +248,7 @@ export function MonthlyWrappedModal({
               </strong>{' '}</>}
               e sua bola de neve avançou{' '}
               <strong className="text-[#f5b800] font-bold text-base tabular-nums">
-                +{wrapped.snowballGrowthPercent}%
+                {isPrivacyMode ? '••%' : `+${wrapped.snowballGrowthPercent}%`}
               </strong>
               !
             </p>
@@ -263,7 +263,7 @@ export function MonthlyWrappedModal({
               <div className="w-8 h-8 rounded-lg bg-[#2b2512] flex items-center justify-center text-[#f5b800]">
                 <Coins className="w-4 h-4" />
               </div>
-              {wrapped.dividendGrowthPercent > 0 && (
+              {!isPrivacyMode && wrapped.dividendGrowthPercent > 0 && (
                 <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full tabular-nums">
                   ▲ +{wrapped.dividendGrowthPercent}%
                 </span>

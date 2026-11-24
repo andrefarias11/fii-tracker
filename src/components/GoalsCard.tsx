@@ -13,6 +13,7 @@ interface GoalsCardProps {
   monthlyIncomeTarget: number;
   totalMonthlyDividends: number;
   incomeGoalProgressPercent: number;
+  isPrivacyMode?: boolean;
   onOpenSettings: () => void;
 }
 
@@ -26,16 +27,20 @@ export function GoalsCard({
   monthlyIncomeTarget,
   totalMonthlyDividends,
   incomeGoalProgressPercent,
+  isPrivacyMode = false,
   onOpenSettings,
 }: GoalsCardProps) {
   const formatBRL = (val: number) => {
+    if (isPrivacyMode) return 'R$ ••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(val);
   };
 
-  const isMonthlyGoalMet = currentMonthInvested >= monthlyTarget;
+  const formatPct = (pct: number) => (isPrivacyMode ? '••%' : `${pct}%`);
+
+  const isMonthlyGoalMet = !isPrivacyMode && currentMonthInvested >= monthlyTarget;
   const remainingThisMonth = Math.max(0, monthlyTarget - currentMonthInvested);
 
   const triggerConfetti = () => {
@@ -65,6 +70,7 @@ export function GoalsCard({
         </div>
 
         <button
+          type="button"
           onClick={onOpenSettings}
           className="px-3.5 py-1.5 rounded-full bg-[#2b2512] text-[#f5b800] text-xs font-bold active:scale-95 transition-all"
         >
@@ -91,13 +97,15 @@ export function GoalsCard({
             className={`h-full rounded-full transition-all duration-700 ${
               isMonthlyGoalMet ? 'bg-emerald-400' : 'bg-[#f5b800]'
             }`}
-            style={{ width: `${Math.min(100, monthlyGoalProgressPercent)}%` }}
+            style={{ width: `${isPrivacyMode ? 0 : Math.min(100, monthlyGoalProgressPercent)}%` }}
           />
         </div>
 
         <div className="flex items-center justify-between text-xs">
           <span className="text-zinc-400">
-            {isMonthlyGoalMet ? (
+            {isPrivacyMode ? (
+              <span>Progresso oculto no modo privacidade</span>
+            ) : isMonthlyGoalMet ? (
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 ▲ Meta do mês batida!
               </span>
@@ -110,6 +118,7 @@ export function GoalsCard({
 
           {isMonthlyGoalMet ? (
             <button
+              type="button"
               onClick={triggerConfetti}
               className="text-xs font-bold text-zinc-950 flex items-center gap-1 bg-[#f5b800] px-3 py-1 rounded-full active:scale-95 transition-all"
             >
@@ -117,7 +126,7 @@ export function GoalsCard({
               Comemorar
             </button>
           ) : (
-            <span className="text-[#f5b800] font-bold tabular-nums">{monthlyGoalProgressPercent}%</span>
+            <span className="text-[#f5b800] font-bold tabular-nums">{formatPct(monthlyGoalProgressPercent)}</span>
           )}
         </div>
       </div>
@@ -136,11 +145,11 @@ export function GoalsCard({
           <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
             <div
               className="h-full bg-[#f5b800] rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, equityGoalProgressPercent)}%` }}
+              style={{ width: `${isPrivacyMode ? 0 : Math.min(100, equityGoalProgressPercent)}%` }}
             />
           </div>
           <div className="text-[11px] text-right text-[#f5b800] mt-1 tabular-nums font-bold">
-            {equityGoalProgressPercent}%
+            {formatPct(equityGoalProgressPercent)}
           </div>
         </div>
 
@@ -156,11 +165,11 @@ export function GoalsCard({
           <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
             <div
               className="h-full bg-emerald-400 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, incomeGoalProgressPercent)}%` }}
+              style={{ width: `${isPrivacyMode ? 0 : Math.min(100, incomeGoalProgressPercent)}%` }}
             />
           </div>
           <div className="text-[11px] text-right text-emerald-400 mt-1 tabular-nums font-bold">
-            {incomeGoalProgressPercent}%
+            {formatPct(incomeGoalProgressPercent)}
           </div>
         </div>
       </div>

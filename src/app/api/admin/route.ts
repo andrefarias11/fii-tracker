@@ -60,7 +60,10 @@ export interface AdminDashboardData {
   updatedAt: string;
 }
 
-interface RawTransaction extends Transaction { user_id?: string }
+interface RawTransaction extends Transaction {
+  user_id?: string;
+  split_adjustment?: Transaction['splitAdjustment'];
+}
 interface RawFixedIncome { id: string; user_id?: string; name: string; type: FixedIncomeAsset['type']; institution: string; invested_amount: number; current_balance: number; rate_type: FixedIncomeAsset['rateType']; rate_percent: number; is_exempt: boolean; maturity_date?: string; notes?: string; updated_at: string }
 interface RawAccount { user_id: string; email?: string; display_name?: string; avatar_url?: string; created_at?: string; last_sign_in_at?: string; transactions: RawTransaction[]; fixed_income: RawFixedIncome[]; goals?: unknown }
 
@@ -95,15 +98,32 @@ export async function GET(request: Request) {
       usedRpc = false;
     }
 
-    // 2. Fallback seguro caso a RPC falhe ou não exista
+    // 2. Fallback seguro paginado caso a RPC falhe ou não exista
     if (!usedRpc || rawAccounts.length === 0) {
-      const [txsRes, fiRes] = await Promise.all([
-        supabase.from('transactions').select('*').order('date', { ascending: false }),
-        supabase.from('fixed_income_assets').select('*'),
-      ]);
+      const txs: RawTransaction[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const page = await supabase
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false })
+          .order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (page.error || !page.data) break;
+        txs.push(...(page.data as RawTransaction[]));
+        if (page.data.length < 1000) break;
+      }
 
-      const txs = txsRes.data || [];
-      const fi = fiRes.data || [];
+      const fi: RawFixedIncome[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const page = await supabase
+          .from('fixed_income_assets')
+          .select('*')
+          .order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (page.error || !page.data) break;
+        fi.push(...(page.data as RawFixedIncome[]));
+        if (page.data.length < 1000) break;
+      }
 
 
       // Agrupa registros por user_id
@@ -156,23 +176,32 @@ export async function GET(request: Request) {
 
     const uniqueTickers = Array.from(allTickersSet);
 
-    // 4. Busca cotações e indicadores do BCB em tempo real
-    let quotesMap: Record<string, QuoteData> = {};
+    // 4. Busca cotações (em lotes de até 25 tickers) e indicadores do BCB em tempo real
+    const quotesMap: Record<string, QuoteData> = {};
     let bcbIndicators: BcbIndicators | null = null;
 
     try {
-      const [quoteRes, bcbRes] = await Promise.all([
-        uniqueTickers.length > 0
-          ? fetch(`${origin}/api/quote?tickers=${encodeURIComponent(uniqueTickers.join(','))}`, {
+      const chunks: string[][] = [];
+      for (let i = 0; i < uniqueTickers.length; i += 25) {
+        chunks.push(uniqueTickers.slice(i, i + 25));
+      }
+
+      const [quoteResponses, bcbRes] = await Promise.all([
+        Promise.allSettled(
+          chunks.map((chunk) =>
+            fetch(`${origin}/api/quote?tickers=${encodeURIComponent(chunk.join(','))}`, {
               cache: 'no-store',
-            }).catch(() => null)
-          : null,
+            })
+          )
+        ),
         fetch(`${origin}/api/bcb`, { cache: 'no-store' }).catch(() => null),
       ]);
 
-      if (quoteRes && quoteRes.ok) {
-        const qData = await quoteRes.json();
-        quotesMap = qData.quotes || {};
+      for (const res of quoteResponses) {
+        if (res.status === 'fulfilled' && res.value.ok) {
+          const qData = await res.value.json();
+          if (qData.quotes) Object.assign(quotesMap, qData.quotes);
+        }
       }
       if (bcbRes && bcbRes.ok) {
         bcbIndicators = await bcbRes.json();
@@ -181,24 +210,35 @@ export async function GET(request: Request) {
       // Continua com cotações padrão
     }
 
-    const currentYearMonth = new Date().toISOString().slice(0, 7);
+    const currentYearMonth = new Date()
+      .toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+      .slice(0, 7);
 
     // 5. Calcula métricas contábeis para cada conta
     const accountsOverview: AdminAccountOverview[] = rawAccounts.map((acc: RawAccount) => {
       const rawTxs = Array.isArray(acc.transactions) ? acc.transactions : [];
       const rawFi = Array.isArray(acc.fixed_income) ? acc.fixed_income : [];
 
-      const normalizedTxs: Transaction[] = rawTxs.map((t: RawTransaction) => ({
-        id: t.id,
-        ticker: String(t.ticker || '').toUpperCase().trim(),
-        type: t.type === 'SELL' ? 'SELL' : t.type === 'DIVIDEND' ? 'DIVIDEND' : 'BUY',
-        date: t.date || new Date().toISOString().slice(0, 10),
-        shares: Math.abs(Number(t.shares || 0)),
-        price: Math.abs(Number(t.price || 0)),
-        total: Math.abs(Number(t.total || 0)),
-        broker: t.broker || 'XP Investimentos',
-        notes: t.notes || undefined,
-      }));
+      const normalizedTxs: Transaction[] = rawTxs.map((t: RawTransaction) => {
+        const rawShares = Number(t.shares || 0);
+        const notesStr = String(t.notes || '');
+        const idStr = String(t.id || '');
+        const isDiv =
+          t.type === 'DIVIDEND' || idStr.includes('b3-div-') || notesStr.startsWith('[PROVENTO B3]');
+        const isSell = t.type === 'SELL' || (!isDiv && rawShares < 0);
+        return {
+          id: t.id,
+          ticker: String(t.ticker || '').toUpperCase().trim(),
+          type: isDiv ? 'DIVIDEND' : isSell ? 'SELL' : 'BUY',
+          date: t.date || new Date().toISOString().slice(0, 10),
+          shares: Math.abs(rawShares),
+          price: Math.abs(Number(t.price || 0)),
+          total: Math.abs(Number(t.total || 0)),
+          broker: t.broker || 'XP Investimentos',
+          notes: t.notes || undefined,
+          splitAdjustment: t.split_adjustment || t.splitAdjustment,
+        };
+      });
 
       const normalizedFi: FixedIncomeAsset[] = rawFi.map((f: RawFixedIncome) => ({
         id: f.id,
@@ -208,7 +248,7 @@ export async function GET(request: Request) {
         investedAmount: Number(f.invested_amount || 0),
         currentBalance: Number(f.current_balance || 0),
         rateType: f.rate_type || 'CDI',
-        ratePercent: Number(f.rate_percent || 100),
+        ratePercent: Number(f.rate_percent ?? 100),
         isExempt: Boolean(f.is_exempt),
         maturityDate: f.maturity_date || undefined,
         notes: f.notes || undefined,
